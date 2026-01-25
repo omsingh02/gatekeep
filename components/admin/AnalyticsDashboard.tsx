@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Card, LoadingSpinner } from '@/components/ui';
+import { formatDateTime } from '@/lib/utils/date';
 
 interface ActivityLog {
     id: string;
@@ -190,7 +191,7 @@ export default function AnalyticsDashboard() {
                                     </p>
                                 </div>
                                 <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>
-                                    {new Date(log.accessedAt).toLocaleString()}
+                                    {formatDateTime(log.accessedAt)}
                                 </div>
                                 <div
                                     style={{

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Button, Badge, FileListSkeleton } from '@/components/ui';
 import { FileMetadata } from '@/lib/types';
 import { formatFileSize, getFileTypeInfo } from '@/lib/utils/fileTypes';
+import { formatDateTime } from '@/lib/utils/date';
 import AccessManager from './AccessManager';
 import Link from 'next/link';
 
@@ -138,7 +139,7 @@ export default function FileList({ limit, showViewAll = false, viewAllHref = '/d
                                             backgroundColor: '#1a1a1a',
                                         }}>{typeInfo.category}</span>
                                         <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                                            {new Date(file.createdAt).toLocaleDateString()}
+                                            {formatDateTime(file.createdAt)}
                                         </span>
                                     </div>
                                 </div>

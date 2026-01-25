@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Badge, FileListSkeleton } from '@/components/ui';
+import { formatDateTime } from '@/lib/utils/date';
 import Link from 'next/link';
 
 interface ShareWithFile {
@@ -205,11 +206,11 @@ export default function ShareList({ limit, showViewAll = false, viewAllHref = '/
                                             </span>
                                         )}
                                         <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                                            Created {new Date(share.createdAt).toLocaleDateString()}
+                                            Created {formatDateTime(share.createdAt)}
                                         </span>
                                         {share.expiresAt && !expired && (
                                             <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                                                Expires {new Date(share.expiresAt).toLocaleDateString()}
+                                                Expires {formatDateTime(share.expiresAt)}
                                             </span>
                                         )}
                                     </div>

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Modal, Button, Input, Badge } from '@/components/ui';
 import { FileMetadata, FileAccess } from '@/lib/types';
 import { generateRandomPassword } from '@/lib/utils/crypto';
+import { formatDateTime } from '@/lib/utils/date';
 
 interface AccessManagerProps {
     file: FileMetadata;
@@ -504,7 +505,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                                 }}>
                                                     {isExpired(access.expiresAt) 
                                                         ? 'Expired' 
-                                                        : `Expires ${new Date(access.expiresAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}`}
+                                                        : `Expires ${formatDateTime(access.expiresAt)}`}
                                                 </span>
                                             )}
                                         </div>
