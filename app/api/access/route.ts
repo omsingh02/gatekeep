@@ -153,10 +153,25 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'File not found' }, { status: 404 });
         }
 
+        // Check if access grant already exists for this user/file combo
+        const { data: existingAccess } = await adminClient
+            .from('file_access')
+            .select('id')
+            .eq('file_id', fileId)
+            .eq('user_identifier', sanitizedUserIdentifier)
+            .maybeSingle();
+
+        if (existingAccess) {
+            return NextResponse.json(
+                { error: 'User already has access to this file. Use edit to modify the existing grant.' },
+                { status: 409 }
+            );
+        }
+
         // Hash password
         const passwordHash = await hashPassword(password);
 
-        // Create access grant
+        // Create new access grant
         const { data: access, error: accessError } = await adminClient
             .from('file_access')
             .insert({
@@ -219,6 +234,78 @@ export async function DELETE(request: NextRequest) {
         }
 
         return NextResponse.json({ success: true });
+    } catch (error) {
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    }
+}
+
+export async function PATCH(request: NextRequest) {
+    try {
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const body = await request.json();
+        const { accessId, password, expiresAt, maxDownloads, resetDownloads } = body;
+
+        if (!accessId) {
+            return NextResponse.json({ error: 'Access ID required' }, { status: 400 });
+        }
+
+        const adminClient = createAdminClient();
+
+        // Verify ownership through file
+        const { data: access, error: fetchError } = await adminClient
+            .from('file_access')
+            .select('*, files!inner(*)')
+            .eq('id', accessId)
+            .single();
+
+        if (fetchError || !access || (access as any).files?.uploaded_by !== user.id) {
+            return NextResponse.json({ error: 'Access grant not found' }, { status: 404 });
+        }
+
+        // Build update object with only provided fields
+        const updateData: any = {
+            session_token: null,  // Always invalidate session on edit
+            session_expires_at: null,
+        };
+
+        // Only update password if provided (user wants to change it)
+        if (password) {
+            updateData.password_hash = await hashPassword(password);
+        }
+
+        // Handle expiry - can be set, changed, or removed (null)
+        if (expiresAt !== undefined) {
+            updateData.expires_at = expiresAt || null;
+        }
+
+        // Handle max downloads - can be set, changed, or removed (null)
+        if (maxDownloads !== undefined) {
+            updateData.max_downloads = maxDownloads || null;
+        }
+
+        // Optionally reset download counter (for re-granting access)
+        if (resetDownloads) {
+            updateData.download_count = 0;
+        }
+
+        const { data: updatedAccess, error: updateError } = await adminClient
+            .from('file_access')
+            .update(updateData as never)
+            .eq('id', accessId)
+            .select()
+            .single();
+
+        if (updateError) {
+            return NextResponse.json({ error: 'Failed to update access grant' }, { status: 500 });
+        }
+
+        return NextResponse.json({ success: true, access: updatedAccess });
     } catch (error) {
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }

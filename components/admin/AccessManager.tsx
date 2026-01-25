@@ -19,6 +19,16 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
     const [expiresAt, setExpiresAt] = useState('');
     const [maxDownloads, setMaxDownloads] = useState('');
     const [error, setError] = useState('');
+    
+    // Edit mode state
+    const [editingAccess, setEditingAccess] = useState<FileAccess | null>(null);
+    const [editPassword, setEditPassword] = useState('');
+    const [editExpiresAt, setEditExpiresAt] = useState('');
+    const [editMaxDownloads, setEditMaxDownloads] = useState('');
+    const [editResetDownloads, setEditResetDownloads] = useState(false);
+    const [editError, setEditError] = useState('');
+    const [isEditing, setIsEditing] = useState(false);
+    const [duplicateUserIdentifier, setDuplicateUserIdentifier] = useState<string | null>(null);
 
     useEffect(() => {
         if (isOpen) {
@@ -61,8 +71,18 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
 
             if (!response.ok) {
                 const data = await response.json();
-                throw new Error(data.error || 'Failed to add access');
+                // Check if it's a duplicate error (409 Conflict)
+                if (response.status === 409) {
+                    setDuplicateUserIdentifier(userIdentifier);
+                    setError(data.error || 'User already has access');
+                } else {
+                    setDuplicateUserIdentifier(null);
+                    throw new Error(data.error || 'Failed to add access');
+                }
+                return;
             }
+
+            setDuplicateUserIdentifier(null);
 
             // Reset form
             setUserIdentifier('');
@@ -102,6 +122,58 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
     const isExpired = (expiresAt: string | null) => {
         if (!expiresAt) return false;
         return new Date(expiresAt) < new Date();
+    };
+
+    const handleEditAccess = (access: FileAccess) => {
+        setEditingAccess(access);
+        setEditPassword(''); // Don't pre-fill password for security
+        setEditExpiresAt(access.expiresAt ? new Date(access.expiresAt).toISOString().slice(0, 16) : '');
+        setEditMaxDownloads(access.maxDownloads?.toString() || '');
+        setEditResetDownloads(false);
+        setEditError('');
+    };
+
+    const handleSaveEdit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingAccess) return;
+        
+        setEditError('');
+        setIsEditing(true);
+
+        try {
+            const response = await fetch('/api/access', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    accessId: editingAccess.id,
+                    password: editPassword || undefined, // Only send if changed
+                    expiresAt: editExpiresAt ? new Date(editExpiresAt).toISOString() : null,
+                    maxDownloads: editMaxDownloads ? parseInt(editMaxDownloads) : null,
+                    resetDownloads: editResetDownloads,
+                }),
+            });
+
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.error || 'Failed to update access');
+            }
+
+            setEditingAccess(null);
+            await fetchAccessList();
+        } catch (err: any) {
+            setEditError(err.message);
+        } finally {
+            setIsEditing(false);
+        }
+    };
+
+    const handleCancelEdit = () => {
+        setEditingAccess(null);
+        setEditPassword('');
+        setEditExpiresAt('');
+        setEditMaxDownloads('');
+        setEditResetDownloads(false);
+        setEditError('');
     };
 
     return (
@@ -301,10 +373,42 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                         <div style={{
                             padding: '0.75rem',
                             borderRadius: '4px',
-                            backgroundColor: '#7f1d1d',
-                            border: '1px solid #ef4444',
+                            backgroundColor: duplicateUserIdentifier ? '#1e3a5f' : '#7f1d1d',
+                            border: `1px solid ${duplicateUserIdentifier ? '#3b82f6' : '#ef4444'}`,
                         }}>
-                            <p style={{ fontSize: '0.875rem', color: '#fecaca', margin: 0 }}>{error}</p>
+                            <p style={{ fontSize: '0.875rem', color: duplicateUserIdentifier ? '#93c5fd' : '#fecaca', margin: 0 }}>
+                                {error}
+                            </p>
+                            {duplicateUserIdentifier && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const existingGrant = accessList.find(
+                                            a => a.userIdentifier.toLowerCase() === duplicateUserIdentifier.toLowerCase()
+                                        );
+                                        if (existingGrant) {
+                                            handleEditAccess(existingGrant);
+                                            setError('');
+                                            setDuplicateUserIdentifier(null);
+                                            setUserIdentifier('');
+                                            setPassword('');
+                                        }
+                                    }}
+                                    style={{
+                                        marginTop: '0.5rem',
+                                        padding: '0.375rem 0.75rem',
+                                        fontSize: '0.8rem',
+                                        fontWeight: 500,
+                                        color: 'white',
+                                        backgroundColor: '#3b82f6',
+                                        border: 'none',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer',
+                                    }}
+                                >
+                                    Edit Existing Grant →
+                                </button>
+                            )}
                         </div>
                     )}
 
@@ -404,38 +508,255 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                         </div>
                                     </div>
 
-                                    <button
-                                        onClick={() => handleRevokeAccess(access.id)}
-                                        style={{
-                                            padding: '0.375rem 0.75rem',
-                                            fontSize: '0.8rem',
-                                            color: '#ef4444',
-                                            backgroundColor: 'transparent',
-                                            border: '1px solid #3a3a3a',
-                                            borderRadius: '4px',
-                                            cursor: 'pointer',
-                                            transition: 'all 0.2s',
-                                            fontWeight: 500,
-                                            marginLeft: '1rem',
-                                        }}
-                                        onMouseEnter={(e) => {
-                                            e.currentTarget.style.backgroundColor = '#7f1d1d';
-                                            e.currentTarget.style.borderColor = '#ef4444';
-                                            e.currentTarget.style.color = '#ffffff';
-                                        }}
-                                        onMouseLeave={(e) => {
-                                            e.currentTarget.style.backgroundColor = 'transparent';
-                                            e.currentTarget.style.borderColor = '#3a3a3a';
-                                            e.currentTarget.style.color = '#ef4444';
-                                        }}
-                                    >
-                                        Revoke
-                                    </button>
+                                    <div style={{ display: 'flex', gap: '0.5rem', marginLeft: '1rem' }}>
+                                        <button
+                                            onClick={() => handleEditAccess(access)}
+                                            style={{
+                                                padding: '0.375rem 0.75rem',
+                                                fontSize: '0.8rem',
+                                                color: '#3b82f6',
+                                                backgroundColor: 'transparent',
+                                                border: '1px solid #3a3a3a',
+                                                borderRadius: '4px',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s',
+                                                fontWeight: 500,
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                e.currentTarget.style.backgroundColor = '#1e3a8a';
+                                                e.currentTarget.style.borderColor = '#3b82f6';
+                                                e.currentTarget.style.color = '#ffffff';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.currentTarget.style.backgroundColor = 'transparent';
+                                                e.currentTarget.style.borderColor = '#3a3a3a';
+                                                e.currentTarget.style.color = '#3b82f6';
+                                            }}
+                                        >
+                                            Edit
+                                        </button>
+                                        <button
+                                            onClick={() => handleRevokeAccess(access.id)}
+                                            style={{
+                                                padding: '0.375rem 0.75rem',
+                                                fontSize: '0.8rem',
+                                                color: '#ef4444',
+                                                backgroundColor: 'transparent',
+                                                border: '1px solid #3a3a3a',
+                                                borderRadius: '4px',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s',
+                                                fontWeight: 500,
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                e.currentTarget.style.backgroundColor = '#7f1d1d';
+                                                e.currentTarget.style.borderColor = '#ef4444';
+                                                e.currentTarget.style.color = '#ffffff';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.currentTarget.style.backgroundColor = 'transparent';
+                                                e.currentTarget.style.borderColor = '#3a3a3a';
+                                                e.currentTarget.style.color = '#ef4444';
+                                            }}
+                                        >
+                                            Revoke
+                                        </button>
+                                    </div>
                                 </div>
                             ))}
                         </div>
                     )}
                 </div>
+
+                {/* Edit Access Modal */}
+                {editingAccess && (
+                    <div style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: 'rgba(0,0,0,0.7)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 1000,
+                    }}>
+                        <form 
+                            onSubmit={handleSaveEdit}
+                            style={{
+                                backgroundColor: '#2a2a2a',
+                                borderRadius: '8px',
+                                border: '1px solid #3a3a3a',
+                                padding: '1.5rem',
+                                width: '100%',
+                                maxWidth: '400px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '1rem',
+                            }}
+                        >
+                            <h3 style={{
+                                fontSize: '1rem',
+                                fontWeight: 600,
+                                color: '#e0e0e0',
+                                margin: 0,
+                            }}>
+                                Edit Access: {editingAccess.userIdentifier}
+                            </h3>
+
+                            <div>
+                                <label style={{
+                                    display: 'block',
+                                    fontSize: '0.875rem',
+                                    color: '#9ca3af',
+                                    marginBottom: '0.5rem',
+                                }}>New Password (leave empty to keep current)</label>
+                                <input
+                                    type="text"
+                                    value={editPassword}
+                                    onChange={(e) => setEditPassword(e.target.value)}
+                                    placeholder="Enter new password"
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.625rem 0.875rem',
+                                        borderRadius: '4px',
+                                        border: '1px solid #3a3a3a',
+                                        backgroundColor: '#1a1a1a',
+                                        color: '#e0e0e0',
+                                        fontSize: '0.875rem',
+                                        outline: 'none',
+                                    }}
+                                />
+                            </div>
+
+                            <div>
+                                <label style={{
+                                    display: 'block',
+                                    fontSize: '0.875rem',
+                                    color: '#9ca3af',
+                                    marginBottom: '0.5rem',
+                                }}>Max Downloads</label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    value={editMaxDownloads}
+                                    onChange={(e) => setEditMaxDownloads(e.target.value)}
+                                    placeholder="Unlimited"
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.625rem 0.875rem',
+                                        borderRadius: '4px',
+                                        border: '1px solid #3a3a3a',
+                                        backgroundColor: '#1a1a1a',
+                                        color: '#e0e0e0',
+                                        fontSize: '0.875rem',
+                                        outline: 'none',
+                                    }}
+                                />
+                                <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                                    Current: {editingAccess.downloadCount || 0} downloads used
+                                    {editingAccess.maxDownloads && ` of ${editingAccess.maxDownloads}`}
+                                </p>
+                            </div>
+
+                            <div>
+                                <label style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    fontSize: '0.875rem',
+                                    color: '#9ca3af',
+                                    cursor: 'pointer',
+                                }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={editResetDownloads}
+                                        onChange={(e) => setEditResetDownloads(e.target.checked)}
+                                        style={{ width: '16px', height: '16px' }}
+                                    />
+                                    Reset download counter to 0
+                                </label>
+                            </div>
+
+                            <div>
+                                <label style={{
+                                    display: 'block',
+                                    fontSize: '0.875rem',
+                                    color: '#9ca3af',
+                                    marginBottom: '0.5rem',
+                                }}>Expiry Date/Time</label>
+                                <input
+                                    type="datetime-local"
+                                    value={editExpiresAt}
+                                    onChange={(e) => setEditExpiresAt(e.target.value)}
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.625rem 0.875rem',
+                                        borderRadius: '4px',
+                                        border: '1px solid #3a3a3a',
+                                        backgroundColor: '#1a1a1a',
+                                        color: '#e0e0e0',
+                                        fontSize: '0.875rem',
+                                        outline: 'none',
+                                    }}
+                                />
+                                <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                                    Leave empty for permanent access
+                                </p>
+                            </div>
+
+                            {editError && (
+                                <div style={{
+                                    padding: '0.75rem',
+                                    borderRadius: '4px',
+                                    backgroundColor: '#7f1d1d',
+                                    border: '1px solid #ef4444',
+                                }}>
+                                    <p style={{ fontSize: '0.875rem', color: '#fecaca', margin: 0 }}>{editError}</p>
+                                </div>
+                            )}
+
+                            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+                                <button
+                                    type="button"
+                                    onClick={handleCancelEdit}
+                                    style={{
+                                        flex: 1,
+                                        padding: '0.75rem',
+                                        fontSize: '0.875rem',
+                                        fontWeight: 500,
+                                        color: '#e0e0e0',
+                                        backgroundColor: 'transparent',
+                                        border: '1px solid #3a3a3a',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer',
+                                    }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isEditing}
+                                    style={{
+                                        flex: 1,
+                                        padding: '0.75rem',
+                                        fontSize: '0.875rem',
+                                        fontWeight: 500,
+                                        color: 'white',
+                                        backgroundColor: '#3b82f6',
+                                        border: 'none',
+                                        borderRadius: '4px',
+                                        cursor: isEditing ? 'not-allowed' : 'pointer',
+                                        opacity: isEditing ? 0.6 : 1,
+                                    }}
+                                >
+                                    {isEditing ? 'Saving...' : 'Save Changes'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                )}
             </div>
         </Modal>
     );
