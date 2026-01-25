@@ -5,23 +5,33 @@ import { Button, Badge, LoadingSpinner } from '@/components/ui';
 import { FileMetadata } from '@/lib/types';
 import { formatFileSize, getFileTypeInfo } from '@/lib/utils/fileTypes';
 import AccessManager from './AccessManager';
+import Link from 'next/link';
 
-export default function FileList() {
+interface FileListProps {
+    limit?: number;
+    showViewAll?: boolean;
+    viewAllHref?: string;
+}
+
+export default function FileList({ limit, showViewAll = false, viewAllHref = '/dashboard/files' }: FileListProps) {
     const [files, setFiles] = useState<FileMetadata[]>([]);
+    const [totalCount, setTotalCount] = useState(0);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedFile, setSelectedFile] = useState<FileMetadata | null>(null);
     const [showAccessManager, setShowAccessManager] = useState(false);
 
     useEffect(() => {
         fetchFiles();
-    }, []);
+    }, [limit]);
 
     const fetchFiles = async () => {
         try {
-            const response = await fetch('/api/files');
+            const url = limit ? `/api/files?limit=${limit}` : '/api/files';
+            const response = await fetch(url);
             if (response.ok) {
                 const data = await response.json();
                 setFiles(data.files || []);
+                setTotalCount(data.totalCount || data.files?.length || 0);
             }
         } catch (error) {
             // Error handled silently
@@ -223,6 +233,32 @@ export default function FileList() {
                     );
                 })}
             </div>
+
+            {showViewAll && totalCount > (limit || 0) && (
+                <div style={{ marginTop: '1rem', textAlign: 'center' }}>
+                    <Link
+                        href={viewAllHref}
+                        style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            padding: '0.5rem 1rem',
+                            fontSize: '0.875rem',
+                            color: '#3b82f6',
+                            backgroundColor: 'transparent',
+                            border: '1px solid #3a3a3a',
+                            borderRadius: '6px',
+                            textDecoration: 'none',
+                            transition: 'all 0.2s',
+                        }}
+                    >
+                        View All {totalCount} Files
+                        <svg style={{ width: '16px', height: '16px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                    </Link>
+                </div>
+            )}
 
             {selectedFile && (
                 <AccessManager

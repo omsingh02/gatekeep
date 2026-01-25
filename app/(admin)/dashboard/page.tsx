@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Card, LoadingSpinner } from '@/components/ui';
 import FileUploader from '@/components/admin/FileUploader';
 import FileList from '@/components/admin/FileList';
+import ShareList from '@/components/admin/ShareList';
 import AnalyticsDashboard from '@/components/admin/AnalyticsDashboard';
 
 export default function DashboardPage() {
@@ -244,8 +245,24 @@ export default function DashboardPage() {
                     fontWeight: 600,
                     color: '#e0e0e0',
                     marginBottom: '1rem',
-                }}>Your Files</h2>
-                <FileList key={refreshKey} />
+                }}>Recent Uploads</h2>
+                <FileList key={refreshKey} limit={5} showViewAll={true} viewAllHref="/dashboard/files" />
+            </div>
+
+            {/* Shares List */}
+            <div style={{
+                backgroundColor: '#2a2a2a',
+                borderRadius: '8px',
+                padding: '1.5rem',
+                border: '1px solid #3a3a3a',
+            }}>
+                <h2 style={{
+                    fontSize: '1rem',
+                    fontWeight: 600,
+                    color: '#e0e0e0',
+                    marginBottom: '1rem',
+                }}>Recent Shares</h2>
+                <ShareList key={refreshKey} limit={5} showViewAll={true} viewAllHref="/dashboard/shares" />
             </div>
                 </>
             ) : (

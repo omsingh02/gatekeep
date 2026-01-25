@@ -13,13 +13,32 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
+        // Parse query parameters
+        const { searchParams } = new URL(request.url);
+        const limit = searchParams.get('limit');
+        const limitNum = limit ? parseInt(limit, 10) : null;
+
         // Get files from database
         const adminClient = createAdminClient();
-        const { data: files, error } = await adminClient
+        
+        // First get total count
+        const { count: totalCount } = await adminClient
+            .from('files')
+            .select('*', { count: 'exact', head: true })
+            .eq('uploaded_by', user.id);
+        
+        // Then get files with optional limit
+        let query = adminClient
             .from('files')
             .select('*')
             .eq('uploaded_by', user.id)
             .order('created_at', { ascending: false });
+        
+        if (limitNum && limitNum > 0) {
+            query = query.limit(limitNum);
+        }
+        
+        const { data: files, error } = await query;
 
         if (error) {
             return NextResponse.json({ error: 'Failed to fetch files' }, { status: 500 });
@@ -40,7 +59,7 @@ export async function GET(request: NextRequest) {
             shortUrl: `${env.app.url}/${file.short_code}`,
         }));
 
-        return NextResponse.json({ files: transformedFiles });
+        return NextResponse.json({ files: transformedFiles, totalCount: totalCount || 0 });
     } catch (error) {
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
