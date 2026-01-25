@@ -85,7 +85,8 @@ export async function DELETE(
         }
 
         // Step 3: Complete the deletion (hard delete from DB)
-        await adminClient.rpc('complete_file_deletion', { p_file_id: id });
+        // Type assertion needed because Supabase types don't know about custom RPC functions
+        await (adminClient.rpc as any)('complete_file_deletion', { p_file_id: id });
 
         return NextResponse.json({ success: true });
     } catch (error) {
