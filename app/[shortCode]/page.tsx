@@ -17,6 +17,7 @@ export default function ShortCodePage() {
     const [fileData, setFileData] = useState<any>(null);
     const [isRevalidating, setIsRevalidating] = useState(true);
     const [cachedUserIdentifier, setCachedUserIdentifier] = useState('');
+    const [sessionToken, setSessionToken] = useState('');
 
     // Real-time access monitoring via SSE
     useEffect(() => {
@@ -83,6 +84,7 @@ export default function ShortCodePage() {
                         setFileData(freshData);
                         setIsVerified(true);
                         setCachedUserIdentifier(data.userIdentifier);
+                        setSessionToken(data.sessionToken);
                     } else {
                         // Access revoked, expired, or invalid session
                         const errorData = await response.json().catch(() => ({}));
@@ -134,6 +136,7 @@ export default function ShortCodePage() {
             setFileData(data);
             setIsVerified(true);
             setCachedUserIdentifier(userIdentifier);
+            setSessionToken(data.sessionToken);
         } catch (err: any) {
             setError(err.message || 'Failed to verify access');
         } finally {
@@ -156,7 +159,14 @@ export default function ShortCodePage() {
     }
 
     if (isVerified && fileData) {
-        return <FilePreview fileData={fileData} />;
+        return (
+            <FilePreview 
+                fileData={fileData} 
+                shortCode={shortCode}
+                userIdentifier={cachedUserIdentifier}
+                sessionToken={sessionToken}
+            />
+        );
     }
 
     return (

@@ -140,14 +140,12 @@ export async function POST(request: NextRequest) {
         // Log successful access
         await logAccess((file as any).id, sanitizedUserIdentifier, true, request);
 
-        // Update counters and timestamp - this happens on EVERY successful verification
-        // access_count = total page views (including refreshes with session token)
-        // download_count = only incremented on new password auth (actual new downloads)
+        // Update access_count (page views) and timestamp
+        // download_count is now tracked separately in /api/access/download when user actually downloads
         await adminClient
             .from('file_access')
             .update({
                 access_count: (access as any).access_count + 1,
-                download_count: newSessionToken ? downloadCount + 1 : downloadCount, // Only increment on new session
                 last_accessed: new Date().toISOString(),
             } as never)
             .eq('id', (access as any).id);

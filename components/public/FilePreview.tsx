@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getFileTypeInfo, formatFileSize } from '@/lib/utils/fileTypes';
 import { sanitizeDownloadFilename } from '@/lib/utils/headers';
 
@@ -13,15 +13,21 @@ interface FilePreviewProps {
             fileSize: number;
         };
     };
+    shortCode: string;
+    userIdentifier: string;
+    sessionToken: string;
 }
 
-export default function FilePreview({ fileData }: FilePreviewProps) {
-    const { fileUrl, file } = fileData;
+export default function FilePreview({ fileData, shortCode, userIdentifier, sessionToken }: FilePreviewProps) {
+    const { file } = fileData;
     const typeInfo = getFileTypeInfo(file.mimeType);
     const [isDownloading, setIsDownloading] = useState(false);
     const [showPreview, setShowPreview] = useState(false);
     const [textContent, setTextContent] = useState<string>('');
     const [isLoadingText, setIsLoadingText] = useState(false);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+    const [downloadError, setDownloadError] = useState<string | null>(null);
 
     // Check if file is text-based
     const isTextFile = file.mimeType.startsWith('text/') || 
@@ -35,22 +41,68 @@ export default function FilePreview({ fileData }: FilePreviewProps) {
                           file.mimeType.includes('ms-excel') ||
                           file.mimeType.includes('ms-powerpoint');
 
-    // Load text content for text-based files (only when preview is shown)
+    // Fetch a tracked URL for preview/download
+    const fetchTrackedUrl = useCallback(async (action: 'preview' | 'download'): Promise<string | null> => {
+        try {
+            const response = await fetch('/api/access/download', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    shortCode,
+                    userIdentifier,
+                    sessionToken,
+                    action,
+                }),
+            });
+
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.error || 'Failed to get file URL');
+            }
+
+            const data = await response.json();
+            return data.fileUrl;
+        } catch (error: any) {
+            setDownloadError(error.message || 'Failed to access file');
+            return null;
+        }
+    }, [shortCode, userIdentifier, sessionToken]);
+
+    // Load preview URL when preview is shown (tracks the view)
     useEffect(() => {
-        if (isTextFile && showPreview && !textContent) {
+        if (showPreview && !previewUrl && !isLoadingPreview) {
+            setIsLoadingPreview(true);
+            setDownloadError(null);
+            fetchTrackedUrl('preview').then(url => {
+                setPreviewUrl(url);
+                setIsLoadingPreview(false);
+            });
+        }
+    }, [showPreview, previewUrl, isLoadingPreview, fetchTrackedUrl]);
+
+    // Load text content for text-based files (only when preview URL is ready)
+    useEffect(() => {
+        if (isTextFile && showPreview && previewUrl && !textContent) {
             setIsLoadingText(true);
-            fetch(fileUrl)
+            fetch(previewUrl)
                 .then(res => res.text())
                 .then(text => setTextContent(text))
                 .catch(() => setTextContent('Failed to load file content'))
                 .finally(() => setIsLoadingText(false));
         }
-    }, [fileUrl, isTextFile, showPreview, textContent]);
+    }, [previewUrl, isTextFile, showPreview, textContent]);
 
     const handleDownload = async () => {
         setIsDownloading(true);
+        setDownloadError(null);
         try {
-            const response = await fetch(fileUrl);
+            // Get a fresh tracked URL for download (increments download count)
+            const trackedUrl = await fetchTrackedUrl('download');
+            if (!trackedUrl) {
+                throw new Error('Failed to get download URL');
+            }
+            
+            const response = await fetch(trackedUrl);
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -61,19 +113,46 @@ export default function FilePreview({ fileData }: FilePreviewProps) {
             a.click();
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
-        } catch (error) {
-            alert('Failed to download file');
+        } catch (error: any) {
+            setDownloadError(error.message || 'Failed to download file');
         } finally {
             setIsDownloading(false);
         }
     };
 
     const renderPreview = () => {
+        // Show loading state while fetching preview URL
+        if (isLoadingPreview || !previewUrl) {
+            return (
+                <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    height: '100%',
+                    minHeight: '200px',
+                }}>
+                    <div style={{ textAlign: 'center' }}>
+                        <div style={{
+                            width: '40px',
+                            height: '40px',
+                            border: '3px solid #3a3a3a',
+                            borderTopColor: '#3b82f6',
+                            borderRadius: '50%',
+                            animation: 'spin 1s linear infinite',
+                            margin: '0 auto 1rem',
+                        }} />
+                        <p style={{ color: '#9ca3af', margin: 0 }}>Loading preview...</p>
+                        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                    </div>
+                </div>
+            );
+        }
+
         // Images
         if (typeInfo.category === 'image') {
             return (
                 <img
-                    src={fileUrl}
+                    src={previewUrl}
                     alt="User uploaded image"
                     style={{
                         maxWidth: '100%',
@@ -88,7 +167,7 @@ export default function FilePreview({ fileData }: FilePreviewProps) {
         if (typeInfo.category === 'video') {
             return (
                 <video
-                    src={fileUrl}
+                    src={previewUrl}
                     controls
                     preload="metadata"
                     style={{
@@ -129,7 +208,7 @@ export default function FilePreview({ fileData }: FilePreviewProps) {
                         margin: '0 0 1.5rem 0',
                     }}>{file.originalFilename}</h3>
                     <audio
-                        src={fileUrl}
+                        src={previewUrl}
                         controls
                         preload="metadata"
                         style={{ width: '100%', outline: 'none' }}
@@ -174,7 +253,7 @@ export default function FilePreview({ fileData }: FilePreviewProps) {
 
         // Microsoft Office files - use Office Online Viewer
         if (isMicrosoftDoc) {
-            const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(fileUrl)}`;
+            const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(previewUrl)}`;
             return (
                 <iframe
                     src={officeViewerUrl}
@@ -192,7 +271,7 @@ export default function FilePreview({ fileData }: FilePreviewProps) {
         if (typeInfo.category === 'pdf') {
             return (
                 <iframe
-                    src={fileUrl}
+                    src={previewUrl}
                     style={{
                         width: '100%',
                         height: '100%',
@@ -335,6 +414,25 @@ export default function FilePreview({ fileData }: FilePreviewProps) {
                         </button>
                     </div>
                 </div>
+
+                {/* Error Message */}
+                {downloadError && (
+                    <div style={{
+                        backgroundColor: '#7f1d1d',
+                        border: '1px solid #991b1b',
+                        borderRadius: '6px',
+                        padding: '0.75rem 1rem',
+                        marginBottom: '1.5rem',
+                    }}>
+                        <p style={{
+                            color: '#fecaca',
+                            fontSize: '0.875rem',
+                            margin: 0,
+                        }}>
+                            {downloadError}
+                        </p>
+                    </div>
+                )}
 
                 {/* Preview */}
                 {showPreview && (
