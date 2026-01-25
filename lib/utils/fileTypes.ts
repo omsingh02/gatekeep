@@ -206,3 +206,56 @@ export function isExtensionAllowed(extension: string): boolean {
     const ext = extension.toLowerCase().replace(/^\./, '');
     return ALLOWED_EXTENSIONS.has(ext) && !BLOCKED_EXTENSIONS.has(ext);
 }
+
+/**
+ * Validates file metadata without requiring the actual File object.
+ * Useful for presigned upload flow where we validate before generating the URL.
+ */
+export function validateFileMetadata(
+    filename: string,
+    fileSize: number,
+    mimeType: string
+): FileValidationResult {
+    // Check file size
+    if (fileSize === 0) {
+        return { valid: false, error: 'File is empty' };
+    }
+
+    if (fileSize > MAX_FILE_SIZE) {
+        return {
+            valid: false,
+            error: `File size exceeds maximum allowed size of ${formatFileSize(MAX_FILE_SIZE)}`
+        };
+    }
+
+    // Get file extension
+    const extension = getFileExtension(filename);
+    
+    if (!extension) {
+        return { valid: false, error: 'File must have an extension' };
+    }
+
+    // Check against blocked extensions
+    if (BLOCKED_EXTENSIONS.has(extension)) {
+        return {
+            valid: false,
+            error: `File type '.${extension}' is not allowed for security reasons`
+        };
+    }
+
+    // Check against allowed extensions (whitelist)
+    if (!ALLOWED_EXTENSIONS.has(extension)) {
+        return {
+            valid: false,
+            error: `File type '.${extension}' is not supported`
+        };
+    }
+
+    // Validate MIME type if provided
+    if (mimeType && !ALLOWED_MIME_TYPES.has(mimeType)) {
+        // Be lenient - some MIME types might not be in our list
+        console.warn(`MIME type '${mimeType}' not in allowed list, but extension is valid`);
+    }
+
+    return { valid: true };
+}

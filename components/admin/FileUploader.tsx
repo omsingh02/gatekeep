@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui';
 import { validateFile, formatFileSize, getMaxFileSize } from '@/lib/utils/fileTypes';
 
@@ -8,11 +8,27 @@ interface FileUploaderProps {
     onUploadComplete?: () => void;
 }
 
+interface PresignResponse {
+    uploadUrl: string;
+    token: string;
+    path: string;
+    fileKey: string;
+    metadata: {
+        uniqueFilename: string;
+        sanitizedFilename: string;
+        shortCode: string;
+        fileSize: number;
+        mimeType: string;
+        userId: string;
+    };
+}
+
 export default function FileUploader({ onUploadComplete }: FileUploaderProps) {
     const [isDragging, setIsDragging] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
     const [error, setError] = useState('');
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     const handleDragOver = useCallback((e: React.DragEvent) => {
         e.preventDefault();
@@ -39,6 +55,88 @@ export default function FileUploader({ onUploadComplete }: FileUploaderProps) {
         }
     }, []);
 
+    /**
+     * Upload a single file using presigned URL (direct to Supabase)
+     */
+    const uploadFileWithPresignedUrl = async (file: File): Promise<void> => {
+        // Step 1: Get presigned upload URL from our API
+        const presignResponse = await fetch('/api/files/presign', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                filename: file.name,
+                fileSize: file.size,
+                mimeType: file.type || 'application/octet-stream',
+            }),
+        });
+
+        if (!presignResponse.ok) {
+            const errorData = await presignResponse.json();
+            throw new Error(errorData.error || 'Failed to get upload URL');
+        }
+
+        const presignData: PresignResponse = await presignResponse.json();
+
+        // Step 2: Upload file directly to Supabase using XMLHttpRequest for progress tracking
+        await new Promise<void>((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            
+            // Track upload progress
+            xhr.upload.addEventListener('progress', (event) => {
+                if (event.lengthComputable) {
+                    const percentComplete = Math.round((event.loaded / event.total) * 95); // Reserve 5% for confirm
+                    setUploadProgress(prev => ({ ...prev, [file.name]: percentComplete }));
+                }
+            });
+
+            xhr.addEventListener('load', () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    resolve();
+                } else {
+                    reject(new Error(`Upload failed with status ${xhr.status}`));
+                }
+            });
+
+            xhr.addEventListener('error', () => {
+                reject(new Error('Upload failed - network error'));
+            });
+
+            xhr.addEventListener('abort', () => {
+                reject(new Error('Upload cancelled'));
+            });
+
+            // Open connection and set headers
+            xhr.open('PUT', presignData.uploadUrl);
+            xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+            
+            // Send the file
+            xhr.send(file);
+
+            // Store abort controller reference for potential cancellation
+            abortControllerRef.current = {
+                abort: () => xhr.abort(),
+            } as AbortController;
+        });
+
+        // Step 3: Confirm upload and save metadata
+        setUploadProgress(prev => ({ ...prev, [file.name]: 97 }));
+        
+        const confirmResponse = await fetch('/api/files/confirm', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                metadata: presignData.metadata,
+            }),
+        });
+
+        if (!confirmResponse.ok) {
+            const errorData = await confirmResponse.json();
+            throw new Error(errorData.error || 'Failed to confirm upload');
+        }
+
+        setUploadProgress(prev => ({ ...prev, [file.name]: 100 }));
+    };
+
     const handleFiles = async (files: File[]) => {
         setError('');
         setIsUploading(true);
@@ -51,22 +149,10 @@ export default function FileUploader({ onUploadComplete }: FileUploaderProps) {
                     throw new Error(validation.error);
                 }
 
-                const formData = new FormData();
-                formData.append('file', file);
-
                 setUploadProgress(prev => ({ ...prev, [file.name]: 0 }));
 
-                const response = await fetch('/api/files/upload', {
-                    method: 'POST',
-                    body: formData,
-                });
-
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || 'Upload failed');
-                }
-
-                setUploadProgress(prev => ({ ...prev, [file.name]: 100 }));
+                // Use presigned URL upload for all files
+                await uploadFileWithPresignedUrl(file);
             }
 
             setTimeout(() => {
@@ -77,6 +163,7 @@ export default function FileUploader({ onUploadComplete }: FileUploaderProps) {
             setError(err.message || 'Failed to upload files');
         } finally {
             setIsUploading(false);
+            abortControllerRef.current = null;
         }
     };
 
