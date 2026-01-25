@@ -502,7 +502,9 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                                     backgroundColor: isExpired(access.expiresAt) ? '#7f1d1d' : '#78350f',
                                                     color: isExpired(access.expiresAt) ? '#fecaca' : '#fcd34d',
                                                 }}>
-                                                    {isExpired(access.expiresAt) ? 'Expired' : `Expires ${new Date(access.expiresAt).toLocaleDateString()}`}
+                                                    {isExpired(access.expiresAt) 
+                                                        ? 'Expired' 
+                                                        : `Expires ${new Date(access.expiresAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}`}
                                                 </span>
                                             )}
                                         </div>
