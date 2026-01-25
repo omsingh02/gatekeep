@@ -29,6 +29,47 @@ export default function FilePreview({ fileData, shortCode, userIdentifier, sessi
     const [isLoadingPreview, setIsLoadingPreview] = useState(false);
     const [downloadError, setDownloadError] = useState<string | null>(null);
 
+    // Disable right-click, text selection, and other content extraction methods
+    useEffect(() => {
+        // Prevent right-click context menu
+        const handleContextMenu = (e: MouseEvent) => {
+            e.preventDefault();
+            return false;
+        };
+
+        // Prevent keyboard shortcuts (Ctrl+S, Ctrl+U, Ctrl+Shift+I, F12, etc.)
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Ctrl+S (Save), Ctrl+U (View Source), Ctrl+Shift+I (DevTools), Ctrl+Shift+J (Console)
+            // Ctrl+Shift+C (Inspect), F12 (DevTools), Ctrl+P (Print)
+            if (
+                (e.ctrlKey && (e.key === 's' || e.key === 'S' || e.key === 'u' || e.key === 'U' || e.key === 'p' || e.key === 'P')) ||
+                (e.ctrlKey && e.shiftKey && (e.key === 'i' || e.key === 'I' || e.key === 'j' || e.key === 'J' || e.key === 'c' || e.key === 'C')) ||
+                e.key === 'F12'
+            ) {
+                e.preventDefault();
+                return false;
+            }
+        };
+
+        // Prevent drag and drop of images
+        const handleDragStart = (e: DragEvent) => {
+            e.preventDefault();
+            return false;
+        };
+
+        // Add event listeners
+        document.addEventListener('contextmenu', handleContextMenu);
+        document.addEventListener('keydown', handleKeyDown);
+        document.addEventListener('dragstart', handleDragStart);
+
+        // Cleanup on unmount
+        return () => {
+            document.removeEventListener('contextmenu', handleContextMenu);
+            document.removeEventListener('keydown', handleKeyDown);
+            document.removeEventListener('dragstart', handleDragStart);
+        };
+    }, []);
+
     // Check if file is text-based
     const isTextFile = file.mimeType.startsWith('text/') || 
                       file.mimeType === 'application/json' ||
@@ -121,6 +162,13 @@ export default function FilePreview({ fileData, shortCode, userIdentifier, sessi
     };
 
     const renderPreview = () => {
+        // Common styles to prevent content extraction
+        const protectedStyles: React.CSSProperties = {
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
+            pointerEvents: 'none',
+        };
+
         // Show loading state while fetching preview URL
         if (isLoadingPreview || !previewUrl) {
             return (
@@ -154,22 +202,28 @@ export default function FilePreview({ fileData, shortCode, userIdentifier, sessi
                 <img
                     src={previewUrl}
                     alt="User uploaded image"
+                    draggable={false}
+                    onContextMenu={(e) => e.preventDefault()}
                     style={{
                         maxWidth: '100%',
                         height: 'auto',
                         display: 'block',
+                        ...protectedStyles,
                     }}
                 />
             );
         }
 
-        // Videos
+        // Videos - allow pointer events for controls
         if (typeInfo.category === 'video') {
             return (
                 <video
                     src={previewUrl}
                     controls
+                    controlsList="nodownload noplaybackrate"
+                    disablePictureInPicture
                     preload="metadata"
+                    onContextMenu={(e) => e.preventDefault()}
                     style={{
                         width: '100%',
                         height: '100%',
@@ -183,7 +237,7 @@ export default function FilePreview({ fileData, shortCode, userIdentifier, sessi
             );
         }
 
-        // Audio
+        // Audio - allow pointer events for controls
         if (typeInfo.category === 'audio') {
             return (
                 <div style={{ padding: '2rem', textAlign: 'center' }}>
@@ -206,11 +260,14 @@ export default function FilePreview({ fileData, shortCode, userIdentifier, sessi
                         fontWeight: 500,
                         color: '#e0e0e0',
                         margin: '0 0 1.5rem 0',
+                        ...protectedStyles,
                     }}>{file.originalFilename}</h3>
                     <audio
                         src={previewUrl}
                         controls
+                        controlsList="nodownload noplaybackrate"
                         preload="metadata"
+                        onContextMenu={(e) => e.preventDefault()}
                         style={{ width: '100%', outline: 'none' }}
                     >
                         Your browser does not support audio playback.
@@ -244,6 +301,8 @@ export default function FilePreview({ fileData, shortCode, userIdentifier, sessi
                         maxHeight: '70vh',
                         whiteSpace: 'pre-wrap',
                         wordBreak: 'break-word',
+                        ...protectedStyles,
+                        pointerEvents: 'auto', // Allow scrolling
                     }}>
                         <code>{textContent}</code>
                     </pre>
@@ -251,40 +310,51 @@ export default function FilePreview({ fileData, shortCode, userIdentifier, sessi
             );
         }
 
-        // Microsoft Office files - use Office Online Viewer
+        // Microsoft Office files - use Office Online Viewer (wrapped to prevent easy extraction)
         if (isMicrosoftDoc) {
             const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(previewUrl)}`;
             return (
-                <iframe
-                    src={officeViewerUrl}
-                    style={{
-                        width: '100%',
-                        height: '100%',
-                        border: 'none',
-                    }}
-                    title={file.originalFilename}
-                />
+                <div 
+                    style={{ width: '100%', height: '100%', position: 'relative' }}
+                    onContextMenu={(e) => e.preventDefault()}
+                >
+                    <iframe
+                        src={officeViewerUrl}
+                        style={{
+                            width: '100%',
+                            height: '100%',
+                            border: 'none',
+                        }}
+                        title={file.originalFilename}
+                        sandbox="allow-scripts allow-same-origin"
+                    />
+                </div>
             );
         }
 
-        // PDF - use browser's built-in viewer
+        // PDF - use browser's built-in viewer (wrapped to prevent easy extraction)
         if (typeInfo.category === 'pdf') {
             return (
-                <iframe
-                    src={previewUrl}
-                    style={{
-                        width: '100%',
-                        height: '100%',
-                        border: 'none',
-                    }}
-                    title={file.originalFilename}
-                />
+                <div 
+                    style={{ width: '100%', height: '100%', position: 'relative' }}
+                    onContextMenu={(e) => e.preventDefault()}
+                >
+                    <iframe
+                        src={`${previewUrl}#toolbar=0&navpanes=0`}
+                        style={{
+                            width: '100%',
+                            height: '100%',
+                            border: 'none',
+                        }}
+                        title={file.originalFilename}
+                    />
+                </div>
             );
         }
 
         // Fallback for unsupported types
         return (
-            <div style={{ textAlign: 'center', padding: '3rem 1rem' }}>
+            <div style={{ textAlign: 'center', padding: '3rem 1rem', ...protectedStyles }}>
                 <div style={{
                     width: '64px',
                     height: '64px',
