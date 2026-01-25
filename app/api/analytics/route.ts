@@ -13,11 +13,12 @@ export async function GET(request: NextRequest) {
 
         const adminClient = createAdminClient();
 
-        // Get all files for this user
+        // Get all files for this user (excluding soft-deleted)
         const { data: files } = await adminClient
             .from('files')
             .select('id, original_filename, short_code, created_at')
-            .eq('uploaded_by', user.id);
+            .eq('uploaded_by', user.id)
+            .is('deleted_at', null);
 
         if (!files || files.length === 0) {
             return NextResponse.json({ 

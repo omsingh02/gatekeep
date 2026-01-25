@@ -23,12 +23,13 @@ export async function GET(request: NextRequest) {
 
         // If fileId is provided, get access for that specific file
         if (fileId) {
-            // Verify file ownership
+            // Verify file ownership (exclude soft-deleted files)
             const { data: file, error: fileError } = await adminClient
                 .from('files')
                 .select('*')
                 .eq('id', fileId)
                 .eq('uploaded_by', user.id)
+                .is('deleted_at', null)
                 .single();
 
             if (fileError || !file) {
@@ -145,13 +146,14 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Invalid user identifier' }, { status: 400 });
         }
 
-        // Verify file ownership
+        // Verify file ownership (exclude soft-deleted files)
         const adminClient = createAdminClient();
         const { data: file, error: fileError } = await adminClient
             .from('files')
             .select('*')
             .eq('id', fileId)
             .eq('uploaded_by', user.id)
+            .is('deleted_at', null)
             .single();
 
         if (fileError || !file) {

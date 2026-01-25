@@ -13,11 +13,12 @@ export async function GET(request: NextRequest) {
 
         const adminClient = createAdminClient();
 
-        // Get total files count and size
+        // Get total files count and size (excluding soft-deleted)
         const { data: files, error: filesError } = await adminClient
             .from('files')
             .select('file_size')
-            .eq('uploaded_by', user.id);
+            .eq('uploaded_by', user.id)
+            .is('deleted_at', null);
 
         if (filesError) {
             return NextResponse.json({ error: 'Failed to fetch stats' }, { status: 500 });

@@ -21,17 +21,19 @@ export async function GET(request: NextRequest) {
         // Get files from database
         const adminClient = createAdminClient();
         
-        // First get total count
+        // First get total count (excluding soft-deleted files)
         const { count: totalCount } = await adminClient
             .from('files')
             .select('*', { count: 'exact', head: true })
-            .eq('uploaded_by', user.id);
+            .eq('uploaded_by', user.id)
+            .is('deleted_at', null);
         
-        // Then get files with optional limit
+        // Then get files with optional limit (excluding soft-deleted files)
         let query = adminClient
             .from('files')
             .select('*')
             .eq('uploaded_by', user.id)
+            .is('deleted_at', null)
             .order('created_at', { ascending: false });
         
         if (limitNum && limitNum > 0) {

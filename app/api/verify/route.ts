@@ -58,11 +58,12 @@ export async function POST(request: NextRequest) {
 
         const adminClient = createAdminClient();
 
-        // Get file by short code
+        // Get file by short code (exclude soft-deleted files)
         const { data: file, error: fileError } = await adminClient
             .from('files')
             .select('*')
             .eq('short_code', sanitizedShortCode)
+            .is('deleted_at', null)
             .single();
 
         if (fileError || !file) {
@@ -151,10 +152,12 @@ export async function POST(request: NextRequest) {
             } as never)
             .eq('id', (access as any).id);
 
-        // Get signed URL for file
+        // Get signed URL for file with download option for proper Content-Disposition
         const { data: signedUrlData, error: urlError } = await adminClient.storage
             .from('files')
-            .createSignedUrl((file as any).filename, 3600); // 1 hour expiry
+            .createSignedUrl((file as any).filename, 3600, {
+                download: (file as any).original_filename, // Supabase handles RFC 5987 encoding
+            });
 
         if (urlError || !signedUrlData) {
             return NextResponse.json({ error: 'Failed to generate file URL' }, { status: 500 });

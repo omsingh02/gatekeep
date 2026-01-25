@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { getFileTypeInfo, formatFileSize } from '@/lib/utils/fileTypes';
+import { sanitizeDownloadFilename } from '@/lib/utils/headers';
 
 interface FilePreviewProps {
     fileData: {
@@ -54,8 +55,8 @@ export default function FilePreview({ fileData }: FilePreviewProps) {
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            // Use textContent to safely set filename without XSS risk
-            a.download = file.originalFilename.replace(/[^a-zA-Z0-9._-]/g, '_');
+            // Sanitize filename while preserving international characters
+            a.download = sanitizeDownloadFilename(file.originalFilename);
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);

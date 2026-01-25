@@ -28,11 +28,12 @@ export async function GET(request: NextRequest) {
             let channel: any = null;
 
             try {
-                // Get file and access info
+                // Get file and access info (exclude soft-deleted files)
                 const { data: file } = await adminClient
                     .from('files')
                     .select('id')
                     .eq('short_code', sanitizedShortCode)
+                    .is('deleted_at', null)
                     .single();
 
                 if (!file) {
