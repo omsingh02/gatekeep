@@ -64,17 +64,10 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ access: transformedAccess });
         }
 
-        // Get all shares for the user (across all their files)
-        // First get total count
-        const { count: totalCount } = await adminClient
-            .from('file_access')
-            .select('*, files!inner(*)', { count: 'exact', head: true })
-            .eq('files.uploaded_by', user.id);
-
-        // Build query for all shares with file info
+        // Get all shares for the user (across all their files) with count in single query
         let query = adminClient
             .from('file_access')
-            .select('*, files!inner(id, original_filename, short_code, uploaded_by)')
+            .select('*, files!inner(id, original_filename, short_code, uploaded_by)', { count: 'exact' })
             .eq('files.uploaded_by', user.id)
             .order('created_at', { ascending: false });
 
@@ -82,7 +75,7 @@ export async function GET(request: NextRequest) {
             query = query.limit(limitNum);
         }
 
-        const { data: access, error: accessError } = await query;
+        const { data: access, count: totalCount, error: accessError } = await query;
 
         if (accessError) {
             return NextResponse.json({ error: 'Failed to fetch access list' }, { status: 500 });

@@ -14,9 +14,10 @@ export async function GET(request: NextRequest) {
         const adminClient = createAdminClient();
 
         // Get total files count and size (excluding soft-deleted)
-        const { data: files, error: filesError } = await adminClient
+        // Use count: 'exact' to get count in the same query
+        const { data: files, count: totalFiles, error: filesError } = await adminClient
             .from('files')
-            .select('file_size')
+            .select('id, file_size', { count: 'exact' })
             .eq('uploaded_by', user.id)
             .is('deleted_at', null);
 
@@ -24,21 +25,25 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to fetch stats' }, { status: 500 });
         }
 
-        const totalFiles = files?.length || 0;
         const totalSize = (files || []).reduce((sum: number, file: any) => sum + (file.file_size || 0), 0);
+        const fileIds = (files || []).map((f: any) => f.id);
 
-        // Get total access grants
-        const { count: totalAccess, error: accessError } = await adminClient
-            .from('file_access')
-            .select('*', { count: 'exact', head: true })
-            .in('file_id', (files || []).map((f: any) => f.id) || []);
+        // Get total access grants (only if user has files)
+        let totalAccess = 0;
+        if (fileIds.length > 0) {
+            const { count, error: accessError } = await adminClient
+                .from('file_access')
+                .select('*', { count: 'exact', head: true })
+                .in('file_id', fileIds);
+            if (!accessError) totalAccess = count || 0;
+        }
 
 
 
         return NextResponse.json({
-            totalFiles,
+            totalFiles: totalFiles || 0,
             totalSize,
-            totalAccess: totalAccess || 0,
+            totalAccess,
         });
     } catch (error) {
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

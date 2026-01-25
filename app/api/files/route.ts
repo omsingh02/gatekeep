@@ -18,20 +18,12 @@ export async function GET(request: NextRequest) {
         const limit = searchParams.get('limit');
         const limitNum = limit ? parseInt(limit, 10) : null;
 
-        // Get files from database
+        // Get files from database with count in single query
         const adminClient = createAdminClient();
         
-        // First get total count (excluding soft-deleted files)
-        const { count: totalCount } = await adminClient
-            .from('files')
-            .select('*', { count: 'exact', head: true })
-            .eq('uploaded_by', user.id)
-            .is('deleted_at', null);
-        
-        // Then get files with optional limit (excluding soft-deleted files)
         let query = adminClient
             .from('files')
-            .select('*')
+            .select('*', { count: 'exact' })
             .eq('uploaded_by', user.id)
             .is('deleted_at', null)
             .order('created_at', { ascending: false });
@@ -40,7 +32,7 @@ export async function GET(request: NextRequest) {
             query = query.limit(limitNum);
         }
         
-        const { data: files, error } = await query;
+        const { data: files, count: totalCount, error } = await query;
 
         if (error) {
             return NextResponse.json({ error: 'Failed to fetch files' }, { status: 500 });

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Button, Badge, LoadingSpinner } from '@/components/ui';
+import { Button, Badge, FileListSkeleton } from '@/components/ui';
 import { FileMetadata } from '@/lib/types';
 import { formatFileSize, getFileTypeInfo } from '@/lib/utils/fileTypes';
 import AccessManager from './AccessManager';
@@ -68,11 +68,7 @@ export default function FileList({ limit, showViewAll = false, viewAllHref = '/d
     };
 
     if (isLoading) {
-        return (
-            <div className="flex justify-center py-12">
-                <LoadingSpinner size="lg" />
-            </div>
-        );
+        return <FileListSkeleton count={limit || 3} />;
     }
 
     if (files.length === 0) {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Badge, LoadingSpinner } from '@/components/ui';
+import { Badge, FileListSkeleton } from '@/components/ui';
 import Link from 'next/link';
 
 interface ShareWithFile {
@@ -80,11 +80,7 @@ export default function ShareList({ limit, showViewAll = false, viewAllHref = '/
     };
 
     if (isLoading) {
-        return (
-            <div className="flex justify-center py-12">
-                <LoadingSpinner size="lg" />
-            </div>
-        );
+        return <FileListSkeleton count={limit || 3} />;
     }
 
     if (shares.length === 0) {

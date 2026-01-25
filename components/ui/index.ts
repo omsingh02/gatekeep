@@ -4,3 +4,4 @@ export { Modal } from './Modal';
 export { Card } from './Card';
 export { Badge } from './Badge';
 export { LoadingSpinner } from './LoadingSpinner';
+export { Skeleton, FileListSkeleton, StatCardSkeleton } from './Skeleton';

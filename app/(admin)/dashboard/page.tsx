@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { Card, LoadingSpinner } from '@/components/ui';
 import FileUploader from '@/components/admin/FileUploader';
 import FileList from '@/components/admin/FileList';
 import ShareList from '@/components/admin/ShareList';
-import AnalyticsDashboard from '@/components/admin/AnalyticsDashboard';
+
+// Lazy load analytics - only loaded when user clicks the tab
+const AnalyticsDashboard = lazy(() => import('@/components/admin/AnalyticsDashboard'));
 
 export default function DashboardPage() {
     const [activeTab, setActiveTab] = useState<'overview' | 'analytics'>('overview');
@@ -266,7 +268,13 @@ export default function DashboardPage() {
             </div>
                 </>
             ) : (
-                <AnalyticsDashboard />
+                <Suspense fallback={
+                    <div style={{ textAlign: 'center', padding: '3rem' }}>
+                        <LoadingSpinner />
+                    </div>
+                }>
+                    <AnalyticsDashboard />
+                </Suspense>
             )}
         </div>
     );
