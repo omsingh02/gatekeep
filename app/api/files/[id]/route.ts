@@ -51,8 +51,9 @@ export async function DELETE(
 
         // Step 1: Use database transaction to soft-delete and get filename
         // This is atomic - either fully succeeds or fully rolls back
-        const { data: deleteResult, error: rpcError } = await adminClient
-            .rpc('soft_delete_file', {
+        // Type assertion needed because Supabase types don't know about custom RPC functions
+        const { data: deleteResult, error: rpcError } = await (adminClient
+            .rpc as any)('soft_delete_file', {
                 p_file_id: id,
                 p_user_id: user.id,
             });
