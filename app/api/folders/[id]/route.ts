@@ -111,14 +111,15 @@ export async function PATCH(
             return NextResponse.json({ error: 'Failed to update folder', code: 'ERR_DB_ERROR' }, { status: 500 });
         }
 
+        const u = updated as any;
         return NextResponse.json({
             folder: {
-                id: updated.id,
-                name: updated.name,
-                parentId: updated.parent_id,
-                uploadedBy: updated.uploaded_by,
-                createdAt: updated.created_at,
-                updatedAt: updated.updated_at,
+                id: u.id,
+                name: u.name,
+                parentId: u.parent_id,
+                uploadedBy: u.uploaded_by,
+                createdAt: u.created_at,
+                updatedAt: u.updated_at,
             },
         });
     } catch (error) {

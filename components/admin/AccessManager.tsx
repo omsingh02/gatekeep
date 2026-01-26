@@ -104,7 +104,6 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
             } else {
                 payload.userIdentifier = userIdentifier;
             }
-        try {
             const response = await fetch('/api/access', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

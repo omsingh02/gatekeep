@@ -110,10 +110,11 @@ export async function POST(
             return NextResponse.json({ error: 'Failed to add member', code: 'ERR_DB_ERROR' }, { status: 500 });
         }
 
+        const insertedMember = member as { id: string; member_identifier: string };
         return NextResponse.json({
             member: {
-                id: member.id,
-                memberIdentifier: member.member_identifier,
+                id: insertedMember.id,
+                memberIdentifier: insertedMember.member_identifier,
             },
         });
     } catch (error) {

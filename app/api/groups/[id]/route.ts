@@ -34,14 +34,15 @@ export async function GET(
             return NextResponse.json({ error: 'Group not found', code: 'ERR_NOT_FOUND' }, { status: 404 });
         }
 
+        const g = group as { id: string; name: string; description: string | null; created_at: string; updated_at: string; group_members: any[] };
         return NextResponse.json({
             group: {
-                id: group.id,
-                name: group.name,
-                description: group.description,
-                createdAt: group.created_at,
-                updatedAt: group.updated_at,
-                members: (group.group_members || []).map((m: any) => ({
+                id: g.id,
+                name: g.name,
+                description: g.description,
+                createdAt: g.created_at,
+                updatedAt: g.updated_at,
+                members: (g.group_members || []).map((m: any) => ({
                     id: m.id,
                     memberIdentifier: m.member_identifier,
                 })),
@@ -126,13 +127,14 @@ export async function PATCH(
             return NextResponse.json({ error: 'Failed to update group', code: 'ERR_DB_ERROR' }, { status: 500 });
         }
 
+        const u = updated as { id: string; name: string; description: string | null; created_at: string; updated_at: string };
         return NextResponse.json({
             group: {
-                id: updated.id,
-                name: updated.name,
-                description: updated.description,
-                createdAt: updated.created_at,
-                updatedAt: updated.updated_at,
+                id: u.id,
+                name: u.name,
+                description: u.description,
+                createdAt: u.created_at,
+                updatedAt: u.updated_at,
             },
         });
     } catch (error) {

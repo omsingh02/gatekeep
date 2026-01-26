@@ -249,7 +249,7 @@ export async function POST(request: NextRequest) {
             .select()
             .single();
 
-        if (accessError) {
+        if (accessError || !access) {
             logError('/api/access', user.id, 'create-access-grant', accessError, {
                 fileId: fileId.substring(0, 8),
                 userIdentifier: sanitizedUserIdentifier?.substring(0, 10),
@@ -258,21 +258,22 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to create access grant', code: 'ERR_DB_ERROR' }, { status: 500 });
         }
 
+        const createdAccess = access as any;
         return NextResponse.json({
             success: true,
             access: {
-                id: access.id,
-                fileId: access.file_id,
+                id: createdAccess.id,
+                fileId: createdAccess.file_id,
                 type: groupId ? 'group' : 'user',
-                userIdentifier: access.user_identifier || undefined,
-                groupId: access.group_id,
-                passwordHash: access.password_hash,
-                expiresAt: access.expires_at,
-                accessCount: access.access_count,
-                downloadCount: access.download_count,
-                maxDownloads: access.max_downloads,
-                lastAccessed: access.last_accessed,
-                createdAt: access.created_at,
+                userIdentifier: createdAccess.user_identifier || undefined,
+                groupId: createdAccess.group_id,
+                passwordHash: createdAccess.password_hash,
+                expiresAt: createdAccess.expires_at,
+                accessCount: createdAccess.access_count,
+                downloadCount: createdAccess.download_count,
+                maxDownloads: createdAccess.max_downloads,
+                lastAccessed: createdAccess.last_accessed,
+                createdAt: createdAccess.created_at,
             },
         });
     } catch (error) {
@@ -398,11 +399,22 @@ export async function PATCH(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to update access grant' }, { status: 500 });
         }
 
+        const ua = updatedAccess as any;
         return NextResponse.json({
             success: true,
             access: {
-                ...updatedAccess,
-                type: (updatedAccess as any).group_id ? 'group' : 'user',
+                id: ua.id,
+                fileId: ua.file_id,
+                type: ua.group_id ? 'group' : 'user',
+                userIdentifier: ua.user_identifier || undefined,
+                groupId: ua.group_id,
+                passwordHash: ua.password_hash,
+                expiresAt: ua.expires_at,
+                accessCount: ua.access_count,
+                downloadCount: ua.download_count,
+                maxDownloads: ua.max_downloads,
+                lastAccessed: ua.last_accessed,
+                createdAt: ua.created_at,
             },
         });
     } catch (error) {

@@ -137,14 +137,15 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to create folder', code: 'ERR_DB_ERROR' }, { status: 500 });
         }
 
+        const f = folder as any;
         return NextResponse.json({
             folder: {
-                id: folder.id,
-                name: folder.name,
-                parentId: folder.parent_id,
-                uploadedBy: folder.uploaded_by,
-                createdAt: folder.created_at,
-                updatedAt: folder.updated_at,
+                id: f.id,
+                name: f.name,
+                parentId: f.parent_id,
+                uploadedBy: f.uploaded_by,
+                createdAt: f.created_at,
+                updatedAt: f.updated_at,
             },
         });
     } catch (error) {

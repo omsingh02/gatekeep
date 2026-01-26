@@ -94,12 +94,14 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to create group', code: 'ERR_DB_ERROR' }, { status: 500 });
         }
 
+        const g = group as { id: string; name: string; description: string | null; created_at: string; updated_at: string };
+
         // Optionally add initial members
         if (Array.isArray(members) && members.length > 0) {
             const sanitizedMembers = members
                 .map((m: string) => sanitizeUserIdentifier(m))
                 .filter(Boolean)
-                .map((m: string) => ({ group_id: group.id, member_identifier: m }));
+                .map((m: string) => ({ group_id: g.id, member_identifier: m }));
 
             if (sanitizedMembers.length > 0) {
                 await adminClient.from('group_members').insert(sanitizedMembers as any);
@@ -108,11 +110,11 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({
             group: {
-                id: group.id,
-                name: group.name,
-                description: group.description,
-                createdAt: group.created_at,
-                updatedAt: group.updated_at,
+                id: g.id,
+                name: g.name,
+                description: g.description,
+                createdAt: g.created_at,
+                updatedAt: g.updated_at,
                 members: [],
             },
         });
