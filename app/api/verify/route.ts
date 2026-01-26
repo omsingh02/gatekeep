@@ -72,15 +72,32 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'File not found' }, { status: 404 });
         }
 
-        // Get access grant
-        const { data: access, error: accessError } = await adminClient
+        // Get access grant (user-specific or group-based)
+        let access: any = null;
+
+        const { data: userAccess } = await adminClient
             .from('file_access')
             .select('*')
             .eq('file_id', (file as any).id)
             .eq('user_identifier', sanitizedUserIdentifier)
-            .single();
+            .maybeSingle();
 
-        if (accessError || !access) {
+        if (userAccess) {
+            access = userAccess;
+        } else {
+            const { data: groupAccess } = await adminClient
+                .from('file_access')
+                .select('*, groups:group_id(name), group_members!inner(member_identifier)')
+                .eq('file_id', (file as any).id)
+                .eq('group_members.member_identifier', sanitizedUserIdentifier)
+                .maybeSingle();
+
+            if (groupAccess) {
+                access = groupAccess;
+            }
+        }
+
+        if (!access) {
             await logAccess((file as any).id, sanitizedUserIdentifier, false, request);
             return NextResponse.json({ error: 'Access denied' }, { status: 403 });
         }

@@ -5,7 +5,7 @@ import { hashPassword } from '@/lib/utils/crypto';
 import { rateLimit, getClientIdentifier } from '@/lib/utils/ratelimit';
 import { sanitizeUserIdentifier } from '@/lib/utils/sanitization';
 import { logError, logWarning } from '@/lib/utils/logger';
-import { validateAuth, validateRequiredFields, validateAndSanitize } from '@/lib/utils/validation';
+import { validateAuth, validateAndSanitize } from '@/lib/utils/validation';
 
 export async function GET(request: NextRequest) {
     let user: any;
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
             // Get access list for this file
             const { data: access, error: accessError } = await adminClient
                 .from('file_access')
-                .select('*')
+                .select('*, groups:group_id(name)')
                 .eq('file_id', fileId)
                 .order('created_at', { ascending: false });
 
@@ -59,7 +59,10 @@ export async function GET(request: NextRequest) {
             const transformedAccess = (access || []).map((a: any) => ({
                 id: a.id,
                 fileId: a.file_id,
-                userIdentifier: a.user_identifier,
+                type: a.group_id ? 'group' : 'user',
+                userIdentifier: a.user_identifier || undefined,
+                groupId: a.group_id,
+                groupName: (a as any).groups?.name,
                 passwordHash: a.password_hash,
                 expiresAt: a.expires_at,
                 accessCount: a.access_count,
@@ -75,7 +78,7 @@ export async function GET(request: NextRequest) {
         // Get all shares for the user (across all their files) with count in single query
         let query = adminClient
             .from('file_access')
-            .select('*, files!inner(id, original_filename, short_code, uploaded_by)', { count: 'exact' })
+            .select('*, files!inner(id, original_filename, short_code, uploaded_by), groups:group_id(name)', { count: 'exact' })
             .eq('files.uploaded_by', user.id)
             .order('created_at', { ascending: false });
 
@@ -94,7 +97,10 @@ export async function GET(request: NextRequest) {
         const transformedAccess = (access || []).map((a: any) => ({
             id: a.id,
             fileId: a.file_id,
-            userIdentifier: a.user_identifier,
+            type: a.group_id ? 'group' : 'user',
+            userIdentifier: a.user_identifier || undefined,
+            groupId: a.group_id,
+            groupName: (a as any).groups?.name,
             passwordHash: a.password_hash,
             expiresAt: a.expires_at,
             accessCount: a.access_count,
@@ -139,15 +145,23 @@ export async function POST(request: NextRequest) {
         if (user instanceof NextResponse) return user;
 
         const body = await request.json();
-        const { fileId, userIdentifier, password, expiresAt, maxDownloads } = body;
+        const { fileId, userIdentifier, password, expiresAt, maxDownloads, groupId } = body;
 
-        // Validate required fields
-        const requiredError = validateRequiredFields(body, ['fileId', 'userIdentifier', 'password'], '/api/access');
-        if (requiredError) return requiredError;
+        if (!fileId || !password || (!userIdentifier && !groupId)) {
+            logWarning('/api/access', 'validation-failed', 'Missing required fields', { fileId: fileId || 'none' });
+            return NextResponse.json({ error: 'fileId, password, and a user or group are required', code: 'ERR_INVALID_INPUT' }, { status: 400 });
+        }
 
-        // Sanitize user identifier to prevent XSS
-        const sanitizedUserIdentifier = validateAndSanitize(userIdentifier, sanitizeUserIdentifier, '/api/access', 'user identifier');
-        if (sanitizedUserIdentifier instanceof NextResponse) return sanitizedUserIdentifier;
+        if (userIdentifier && groupId) {
+            return NextResponse.json({ error: 'Choose either a user or a group, not both', code: 'ERR_INVALID_INPUT' }, { status: 400 });
+        }
+
+        let sanitizedUserIdentifier: string | null = null;
+        if (userIdentifier) {
+            const sanitized = validateAndSanitize(userIdentifier, sanitizeUserIdentifier, '/api/access', 'user identifier');
+            if (sanitized instanceof NextResponse) return sanitized;
+            sanitizedUserIdentifier = sanitized;
+        }
 
         // Verify file ownership (exclude soft-deleted files)
         const adminClient = createAdminClient();
@@ -167,23 +181,55 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'File not found', code: 'ERR_NOT_FOUND' }, { status: 404 });
         }
 
-        // Check if access grant already exists for this user/file combo
-        const { data: existingAccess } = await adminClient
-            .from('file_access')
-            .select('id')
-            .eq('file_id', fileId)
-            .eq('user_identifier', sanitizedUserIdentifier)
-            .maybeSingle();
+        if (groupId) {
+            const { data: group, error: groupError } = await adminClient
+                .from('groups')
+                .select('id')
+                .eq('id', groupId)
+                .eq('created_by', user.id)
+                .is('deleted_at', null)
+                .single();
 
-        if (existingAccess) {
-            logWarning('/api/access', 'duplicate-access', 'User already has access to this file', {
-                fileId: fileId.substring(0, 8),
-                userIdentifier: sanitizedUserIdentifier.substring(0, 10),
-            });
-            return NextResponse.json(
-                { error: 'User already has access to this file. Use edit to modify the existing grant.', code: 'ERR_CONFLICT' },
-                { status: 409 }
-            );
+            if (groupError || !group) {
+                return NextResponse.json({ error: 'Group not found', code: 'ERR_GROUP_NOT_FOUND' }, { status: 404 });
+            }
+        }
+
+        // Check if access grant already exists for this user/file combo
+        if (sanitizedUserIdentifier) {
+            const { data: existingAccess } = await adminClient
+                .from('file_access')
+                .select('id')
+                .eq('file_id', fileId)
+                .eq('user_identifier', sanitizedUserIdentifier)
+                .maybeSingle();
+
+            if (existingAccess) {
+                logWarning('/api/access', 'duplicate-access', 'User already has access to this file', {
+                    fileId: fileId.substring(0, 8),
+                    userIdentifier: sanitizedUserIdentifier.substring(0, 10),
+                });
+                return NextResponse.json(
+                    { error: 'User already has access to this file. Use edit to modify the existing grant.', code: 'ERR_CONFLICT' },
+                    { status: 409 }
+                );
+            }
+        }
+
+        if (groupId) {
+            const { data: existingGroupAccess } = await adminClient
+                .from('file_access')
+                .select('id')
+                .eq('file_id', fileId)
+                .eq('group_id', groupId)
+                .maybeSingle();
+
+            if (existingGroupAccess) {
+                return NextResponse.json(
+                    { error: 'Group already has access to this file. Edit the existing grant instead.', code: 'ERR_CONFLICT' },
+                    { status: 409 }
+                );
+            }
         }
 
         // Hash password
@@ -195,6 +241,7 @@ export async function POST(request: NextRequest) {
             .insert({
                 file_id: fileId,
                 user_identifier: sanitizedUserIdentifier,
+                group_id: groupId || null,
                 password_hash: passwordHash,
                 expires_at: expiresAt || null,
                 max_downloads: maxDownloads || null,
@@ -205,12 +252,29 @@ export async function POST(request: NextRequest) {
         if (accessError) {
             logError('/api/access', user.id, 'create-access-grant', accessError, {
                 fileId: fileId.substring(0, 8),
-                userIdentifier: sanitizedUserIdentifier.substring(0, 10),
+                userIdentifier: sanitizedUserIdentifier?.substring(0, 10),
+                groupId: groupId?.substring(0, 8),
             });
             return NextResponse.json({ error: 'Failed to create access grant', code: 'ERR_DB_ERROR' }, { status: 500 });
         }
 
-        return NextResponse.json({ success: true, access });
+        return NextResponse.json({
+            success: true,
+            access: {
+                id: access.id,
+                fileId: access.file_id,
+                type: groupId ? 'group' : 'user',
+                userIdentifier: access.user_identifier || undefined,
+                groupId: access.group_id,
+                passwordHash: access.password_hash,
+                expiresAt: access.expires_at,
+                accessCount: access.access_count,
+                downloadCount: access.download_count,
+                maxDownloads: access.max_downloads,
+                lastAccessed: access.last_accessed,
+                createdAt: access.created_at,
+            },
+        });
     } catch (error) {
         logError('/api/access', user?.id, 'POST-access-request', error);
         return NextResponse.json({ error: 'Internal server error', code: 'ERR_ACCESS_POST' }, { status: 500 });
@@ -334,7 +398,13 @@ export async function PATCH(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to update access grant' }, { status: 500 });
         }
 
-        return NextResponse.json({ success: true, access: updatedAccess });
+        return NextResponse.json({
+            success: true,
+            access: {
+                ...updatedAccess,
+                type: (updatedAccess as any).group_id ? 'group' : 'user',
+            },
+        });
     } catch (error) {
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }

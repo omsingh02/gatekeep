@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Modal, Button, Input, Badge } from '@/components/ui';
-import { FileMetadata, FileAccess } from '@/lib/types';
+import { Modal } from '@/components/ui';
+import { FileMetadata, FileAccess, Group } from '@/lib/types';
 import { generateRandomPassword } from '@/lib/utils/crypto';
 import { formatDateTime } from '@/lib/utils/date';
 
@@ -11,6 +11,8 @@ interface AccessManagerProps {
     isOpen: boolean;
     onClose: () => void;
 }
+
+type GroupWithMembers = Group & { members?: { id: string; memberIdentifier: string }[] };
 
 export default function AccessManager({ file, isOpen, onClose }: AccessManagerProps) {
     const [accessList, setAccessList] = useState<FileAccess[]>([]);
@@ -31,11 +33,37 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
     const [isEditing, setIsEditing] = useState(false);
     const [duplicateUserIdentifier, setDuplicateUserIdentifier] = useState<string | null>(null);
 
+    // Group access state
+    const [grantMode, setGrantMode] = useState<'user' | 'group'>('user');
+    const [groups, setGroups] = useState<GroupWithMembers[]>([]);
+    const [isGroupsLoading, setIsGroupsLoading] = useState(false);
+    const [selectedGroupId, setSelectedGroupId] = useState<string>('');
+    const [newGroupMember, setNewGroupMember] = useState('');
+
     useEffect(() => {
         if (isOpen) {
             fetchAccessList();
+            fetchGroups();
+            setGrantMode('user');
+            setSelectedGroupId('');
+            setNewGroupMember('');
         }
     }, [isOpen, file.id]);
+
+    const fetchGroups = async () => {
+        try {
+            setIsGroupsLoading(true);
+            const response = await fetch('/api/groups');
+            if (response.ok) {
+                const data = await response.json();
+                setGroups(data.groups || []);
+            }
+        } catch (error) {
+            setGroups([]);
+        } finally {
+            setIsGroupsLoading(false);
+        }
+    };
 
     const fetchAccessList = async () => {
         try {
@@ -58,22 +86,35 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
             // Convert datetime-local to ISO string with timezone
             const expiresAtISO = expiresAt ? new Date(expiresAt).toISOString() : null;
 
+            if (grantMode === 'group' && !selectedGroupId) {
+                setError('Select a group to grant access');
+                setIsLoading(false);
+                return;
+            }
+
+            const payload: any = {
+                fileId: file.id,
+                password,
+                expiresAt: expiresAtISO,
+                maxDownloads: maxDownloads ? parseInt(maxDownloads) : null,
+            };
+
+            if (grantMode === 'group') {
+                payload.groupId = selectedGroupId;
+            } else {
+                payload.userIdentifier = userIdentifier;
+            }
+        try {
             const response = await fetch('/api/access', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    fileId: file.id,
-                    userIdentifier,
-                    password,
-                    expiresAt: expiresAtISO,
-                    maxDownloads: maxDownloads ? parseInt(maxDownloads) : null,
-                }),
+                body: JSON.stringify(payload),
             });
 
             if (!response.ok) {
                 const data = await response.json();
                 // Check if it's a duplicate error (409 Conflict)
-                if (response.status === 409) {
+                if (response.status === 409 && grantMode === 'user') {
                     setDuplicateUserIdentifier(userIdentifier);
                     setError(data.error || 'User already has access');
                 } else {
@@ -90,6 +131,9 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
             setPassword('');
             setExpiresAt('');
             setMaxDownloads('');
+            if (grantMode === 'group') {
+                setSelectedGroupId('');
+            }
 
             // Refresh list
             await fetchAccessList();
@@ -118,6 +162,55 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
 
     const handleGeneratePassword = () => {
         setPassword(generateRandomPassword(12));
+    };
+
+    const handleCreateGroup = async () => {
+        const name = window.prompt('Group name');
+        if (!name) return;
+
+        try {
+            const response = await fetch('/api/groups', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name }),
+            });
+
+            if (!response.ok) {
+                const data = await response.json();
+                alert(data.error || 'Failed to create group');
+                return;
+            }
+
+            await fetchGroups();
+        } catch (error) {
+            alert('Failed to create group');
+        }
+    };
+
+    const handleAddGroupMember = async () => {
+        if (!selectedGroupId || !newGroupMember.trim()) {
+            alert('Select a group and enter a member identifier');
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/groups/${selectedGroupId}/members`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ memberIdentifier: newGroupMember }),
+            });
+
+            if (!response.ok) {
+                const data = await response.json();
+                alert(data.error || 'Failed to add member');
+                return;
+            }
+
+            setNewGroupMember('');
+            await fetchGroups();
+        } catch (error) {
+            alert('Failed to add member');
+        }
     };
 
     const isExpired = (expiresAt: string | null) => {
@@ -177,6 +270,8 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
         setEditError('');
     };
 
+    const selectedGroup = groups.find((g) => g.id === selectedGroupId);
+
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Manage File Access" size="lg">
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -222,36 +317,229 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                         fontSize: '0.95rem',
                     }}>Grant New Access</h4>
 
-                    <div>
-                        <label style={{
-                            display: 'block',
-                            fontSize: '0.875rem',
-                            color: '#9ca3af',
-                            marginBottom: '0.5rem',
-                        }}>User Identifier (Email/Username)</label>
-                        <input
-                            value={userIdentifier}
-                            onChange={(e) => setUserIdentifier(e.target.value)}
-                            placeholder="user@example.com"
-                            required
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setGrantMode('user');
+                                setError('');
+                                setDuplicateUserIdentifier(null);
+                            }}
                             style={{
-                                width: '100%',
-                                padding: '0.625rem 0.875rem',
+                                padding: '0.5rem 0.75rem',
+                                fontSize: '0.85rem',
+                                fontWeight: 500,
+                                color: grantMode === 'user' ? '#ffffff' : '#9ca3af',
+                                backgroundColor: grantMode === 'user' ? '#2563eb' : 'transparent',
+                                border: `1px solid ${grantMode === 'user' ? '#3b82f6' : '#3a3a3a'}`,
                                 borderRadius: '4px',
-                                border: '1px solid #3a3a3a',
-                                backgroundColor: '#1a1a1a',
-                                color: '#e0e0e0',
-                                fontSize: '0.875rem',
-                                outline: 'none',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
                             }}
-                            onFocus={(e) => {
-                                e.target.style.borderColor = '#3b82f6';
+                        >
+                            User Access
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setGrantMode('group');
+                                setError('');
+                                setDuplicateUserIdentifier(null);
                             }}
-                            onBlur={(e) => {
-                                e.target.style.borderColor = '#3a3a3a';
+                            style={{
+                                padding: '0.5rem 0.75rem',
+                                fontSize: '0.85rem',
+                                fontWeight: 500,
+                                color: grantMode === 'group' ? '#ffffff' : '#9ca3af',
+                                backgroundColor: grantMode === 'group' ? '#2563eb' : 'transparent',
+                                border: `1px solid ${grantMode === 'group' ? '#3b82f6' : '#3a3a3a'}`,
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
                             }}
-                        />
+                        >
+                            Group Access
+                        </button>
                     </div>
+
+                    {grantMode === 'user' && (
+                        <div>
+                            <label style={{
+                                display: 'block',
+                                fontSize: '0.875rem',
+                                color: '#9ca3af',
+                                marginBottom: '0.5rem',
+                            }}>User Identifier (Email/Username)</label>
+                            <input
+                                value={userIdentifier}
+                                onChange={(e) => setUserIdentifier(e.target.value)}
+                                placeholder="user@example.com"
+                                required={grantMode === 'user'}
+                                style={{
+                                    width: '100%',
+                                    padding: '0.625rem 0.875rem',
+                                    borderRadius: '4px',
+                                    border: '1px solid #3a3a3a',
+                                    backgroundColor: '#1a1a1a',
+                                    color: '#e0e0e0',
+                                    fontSize: '0.875rem',
+                                    outline: 'none',
+                                }}
+                                onFocus={(e) => {
+                                    e.target.style.borderColor = '#3b82f6';
+                                }}
+                                onBlur={(e) => {
+                                    e.target.style.borderColor = '#3a3a3a';
+                                }}
+                            />
+                        </div>
+                    )}
+
+                    {grantMode === 'group' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                            <div>
+                                <label style={{
+                                    display: 'block',
+                                    fontSize: '0.875rem',
+                                    color: '#9ca3af',
+                                    marginBottom: '0.5rem',
+                                }}>Select Group</label>
+                                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                    <select
+                                        value={selectedGroupId}
+                                        onChange={(e) => setSelectedGroupId(e.target.value)}
+                                        required={grantMode === 'group'}
+                                        style={{
+                                            flex: 1,
+                                            minWidth: '200px',
+                                            padding: '0.625rem 0.875rem',
+                                            borderRadius: '4px',
+                                            border: '1px solid #3a3a3a',
+                                            backgroundColor: '#1a1a1a',
+                                            color: '#e0e0e0',
+                                            fontSize: '0.875rem',
+                                            outline: 'none',
+                                        }}
+                                        onFocus={(e) => {
+                                            e.target.style.borderColor = '#3b82f6';
+                                        }}
+                                        onBlur={(e) => {
+                                            e.target.style.borderColor = '#3a3a3a';
+                                        }}
+                                    >
+                                        <option value="" disabled>{isGroupsLoading ? 'Loading groups...' : 'Choose a group'}</option>
+                                        {groups.map((group) => (
+                                            <option key={group.id} value={group.id}>{group.name}</option>
+                                        ))}
+                                    </select>
+                                    <button
+                                        type="button"
+                                        onClick={fetchGroups}
+                                        style={{
+                                            padding: '0.625rem 0.875rem',
+                                            fontSize: '0.85rem',
+                                            color: '#9ca3af',
+                                            backgroundColor: 'transparent',
+                                            border: '1px solid #3a3a3a',
+                                            borderRadius: '4px',
+                                            cursor: 'pointer',
+                                        }}
+                                    >
+                                        Refresh
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleCreateGroup}
+                                        style={{
+                                            padding: '0.625rem 0.875rem',
+                                            fontSize: '0.85rem',
+                                            color: '#3b82f6',
+                                            backgroundColor: 'transparent',
+                                            border: '1px solid #3a3a3a',
+                                            borderRadius: '4px',
+                                            cursor: 'pointer',
+                                        }}
+                                    >
+                                        New Group
+                                    </button>
+                                </div>
+                                {groups.length === 0 && !isGroupsLoading && (
+                                    <p style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: '#9ca3af' }}>
+                                        No groups yet. Create one to grant access to multiple members.
+                                    </p>
+                                )}
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                <label style={{
+                                    fontSize: '0.875rem',
+                                    color: '#9ca3af',
+                                }}>Group Members</label>
+                                {selectedGroup && selectedGroup.members && selectedGroup.members.length > 0 ? (
+                                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                        {selectedGroup.members.map((member) => (
+                                            <span key={member.id} style={{
+                                                fontSize: '0.8rem',
+                                                padding: '0.2rem 0.5rem',
+                                                borderRadius: '3px',
+                                                backgroundColor: '#1e3a8a',
+                                                color: '#bfdbfe',
+                                                border: '1px solid #3b82f6',
+                                            }}>
+                                                {member.memberIdentifier}
+                                            </span>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p style={{ fontSize: '0.8rem', color: '#6b7280', margin: 0 }}>
+                                        {selectedGroup ? 'No members yet.' : 'Select a group to view members.'}
+                                    </p>
+                                )}
+
+                                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                    <input
+                                        type="text"
+                                        value={newGroupMember}
+                                        onChange={(e) => setNewGroupMember(e.target.value)}
+                                        placeholder="Add member identifier"
+                                        style={{
+                                            flex: 1,
+                                            minWidth: '200px',
+                                            padding: '0.625rem 0.875rem',
+                                            borderRadius: '4px',
+                                            border: '1px solid #3a3a3a',
+                                            backgroundColor: '#1a1a1a',
+                                            color: '#e0e0e0',
+                                            fontSize: '0.875rem',
+                                            outline: 'none',
+                                        }}
+                                        onFocus={(e) => {
+                                            e.target.style.borderColor = '#3b82f6';
+                                        }}
+                                        onBlur={(e) => {
+                                            e.target.style.borderColor = '#3a3a3a';
+                                        }}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={handleAddGroupMember}
+                                        style={{
+                                            padding: '0.625rem 0.875rem',
+                                            fontSize: '0.85rem',
+                                            color: '#ffffff',
+                                            backgroundColor: '#2563eb',
+                                            border: 'none',
+                                            borderRadius: '4px',
+                                            cursor: 'pointer',
+                                            opacity: selectedGroupId ? 1 : 0.6,
+                                        }}
+                                    >
+                                        Add Member
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     <div>
                         <label style={{
@@ -385,7 +673,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                     type="button"
                                     onClick={() => {
                                         const existingGrant = accessList.find(
-                                            a => a.userIdentifier.toLowerCase() === duplicateUserIdentifier.toLowerCase()
+                                            a => a.type === 'user' && a.userIdentifier && a.userIdentifier.toLowerCase() === duplicateUserIdentifier.toLowerCase()
                                         );
                                         if (existingGrant) {
                                             handleEditAccess(existingGrant);
@@ -474,12 +762,28 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                     }}
                                 >
                                     <div style={{ flex: 1 }}>
-                                        <p style={{
-                                            fontWeight: 500,
-                                            color: '#e0e0e0',
-                                            margin: 0,
-                                            fontSize: '0.875rem',
-                                        }}>{access.userIdentifier}</p>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                            <p style={{
+                                                fontWeight: 500,
+                                                color: '#e0e0e0',
+                                                margin: 0,
+                                                fontSize: '0.875rem',
+                                            }}>
+                                                {access.type === 'group'
+                                                    ? access.groupName || 'Group access'
+                                                    : access.userIdentifier || 'User access'}
+                                            </p>
+                                            <span style={{
+                                                fontSize: '0.7rem',
+                                                padding: '0.15rem 0.4rem',
+                                                borderRadius: '3px',
+                                                backgroundColor: access.type === 'group' ? '#1e3a8a' : '#1f2937',
+                                                color: access.type === 'group' ? '#bfdbfe' : '#d1d5db',
+                                                border: '1px solid #3a3a3a',
+                                            }}>
+                                                {access.type === 'group' ? 'Group' : 'User'}
+                                            </span>
+                                        </div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem', flexWrap: 'wrap' }}>
                                             <span style={{ fontSize: '0.75rem', color: '#9ca3af' }}>
                                                 Accessed {access.accessCount} times
@@ -605,7 +909,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                 color: '#e0e0e0',
                                 margin: 0,
                             }}>
-                                Edit Access: {editingAccess.userIdentifier}
+                                Edit Access: {editingAccess.type === 'group' ? (editingAccess.groupName || 'Group access') : (editingAccess.userIdentifier || 'User access')}
                             </h3>
 
                             <div>

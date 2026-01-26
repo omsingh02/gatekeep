@@ -49,6 +49,17 @@ export function sanitizeFilename(filename: string, maxLength: number = 255): str
 }
 
 /**
+ * Sanitize folder or group names while keeping friendly labels
+ */
+export function sanitizeFolderName(name: string, maxLength: number = 120): string {
+    return sanitizeFilename(name, maxLength);
+}
+
+export function sanitizeGroupName(name: string, maxLength: number = 120): string {
+    return sanitizeFilename(name, maxLength);
+}
+
+/**
  * Sanitize user identifier (email, username, etc.)
  * - Removes null bytes
  * - Removes control characters

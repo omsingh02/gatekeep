@@ -44,15 +44,33 @@ export async function POST(request: NextRequest) {
 
         // Get access grant and validate session token
         const tokenHash = await hashToken(sessionToken);
-        const { data: access, error: accessError } = await adminClient
+        let access: any = null;
+
+        const { data: userAccess } = await adminClient
             .from('file_access')
-            .select('id, download_count, max_downloads, expires_at, session_expires_at')
+            .select('id, download_count, max_downloads, expires_at, session_expires_at, session_token, group_id')
             .eq('file_id', (file as any).id)
             .eq('user_identifier', sanitizedUserIdentifier)
             .eq('session_token', tokenHash)
-            .single();
+            .maybeSingle();
 
-        if (accessError || !access) {
+        if (userAccess) {
+            access = userAccess;
+        } else {
+            const { data: groupAccess } = await adminClient
+                .from('file_access')
+                .select('id, download_count, max_downloads, expires_at, session_expires_at, session_token, group_id, group_members!inner(member_identifier)')
+                .eq('file_id', (file as any).id)
+                .eq('session_token', tokenHash)
+                .eq('group_members.member_identifier', sanitizedUserIdentifier)
+                .maybeSingle();
+
+            if (groupAccess) {
+                access = groupAccess;
+            }
+        }
+
+        if (!access) {
             return NextResponse.json({ error: 'Invalid session' }, { status: 403 });
         }
 

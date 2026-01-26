@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
         const page = searchParams.get('page');
         const search = searchParams.get('search');
         const fileType = searchParams.get('fileType');
+        const folderId = searchParams.get('folderId');
         const limitNum = limit ? parseInt(limit, 10) : 20; // Default 20 items per page
         const pageNum = page ? parseInt(page, 10) : 1;
 
@@ -34,6 +35,20 @@ export async function GET(request: NextRequest) {
 
         // Get files from database with count in single query
         const adminClient = createAdminClient();
+
+        if (folderId) {
+            const { data: folder, error: folderError } = await adminClient
+                .from('folders')
+                .select('id')
+                .eq('id', folderId)
+                .eq('uploaded_by', user.id)
+                .is('deleted_at', null)
+                .single();
+
+            if (folderError || !folder) {
+                return NextResponse.json({ error: 'Folder not found', code: 'ERR_FOLDER_NOT_FOUND' }, { status: 404 });
+            }
+        }
         
         let query = adminClient
             .from('files')
@@ -71,6 +86,11 @@ export async function GET(request: NextRequest) {
             }
         }
 
+        // Filter by folder when provided
+        if (folderId) {
+            query = query.eq('folder_id', folderId);
+        }
+
         query = query
             .order('created_at', { ascending: false })
             .range(offset, offset + limitNum - 1);
@@ -93,6 +113,7 @@ export async function GET(request: NextRequest) {
             uploadedBy: file.uploaded_by,
             createdAt: file.created_at,
             updatedAt: file.updated_at,
+            folderId: file.folder_id,
             shortUrl: `${env.app.url}/${file.short_code}`,
         }));
 
