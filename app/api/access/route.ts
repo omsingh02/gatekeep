@@ -4,15 +4,16 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { hashPassword } from '@/lib/utils/crypto';
 import { rateLimit, getClientIdentifier } from '@/lib/utils/ratelimit';
 import { sanitizeUserIdentifier } from '@/lib/utils/sanitization';
+import { logError, logWarning } from '@/lib/utils/logger';
+import { validateAuth, validateRequiredFields, validateAndSanitize } from '@/lib/utils/validation';
 
 export async function GET(request: NextRequest) {
+    let user: any;
     try {
         const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
+        const userData = await supabase.auth.getUser();
+        user = validateAuth(userData, '/api/access', 'GET');
+        if (user instanceof NextResponse) return user;
 
         const { searchParams } = new URL(request.url);
         const fileId = searchParams.get('fileId');
@@ -33,7 +34,11 @@ export async function GET(request: NextRequest) {
                 .single();
 
             if (fileError || !file) {
-                return NextResponse.json({ error: 'File not found' }, { status: 404 });
+                logWarning('/api/access', 'file-access', 'File not found or unauthorized', {
+                    fileId: fileId.substring(0, 8),
+                    userId: user.id.substring(0, 8),
+                });
+                return NextResponse.json({ error: 'File not found', code: 'ERR_NOT_FOUND' }, { status: 404 });
             }
 
             // Get access list for this file
@@ -44,7 +49,10 @@ export async function GET(request: NextRequest) {
                 .order('created_at', { ascending: false });
 
             if (accessError) {
-                return NextResponse.json({ error: 'Failed to fetch access list' }, { status: 500 });
+                logError('/api/access', user.id, 'fetch-access-list', accessError, {
+                    fileId: fileId.substring(0, 8),
+                });
+                return NextResponse.json({ error: 'Failed to fetch access list', code: 'ERR_DB_ERROR' }, { status: 500 });
             }
 
             // Transform to camelCase
@@ -78,7 +86,8 @@ export async function GET(request: NextRequest) {
         const { data: access, count: totalCount, error: accessError } = await query;
 
         if (accessError) {
-            return NextResponse.json({ error: 'Failed to fetch access list' }, { status: 500 });
+            logError('/api/access', user.id, 'fetch-all-access', accessError);
+            return NextResponse.json({ error: 'Failed to fetch access list', code: 'ERR_DB_ERROR' }, { status: 500 });
         }
 
         // Transform to camelCase with file info
@@ -102,42 +111,43 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({ access: transformedAccess, totalCount: totalCount || 0 });
     } catch (error) {
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        logError('/api/access', user?.id, 'GET-access-request', error);
+        return NextResponse.json({ error: 'Internal server error', code: 'ERR_ACCESS_GET' }, { status: 500 });
     }
 }
 
 export async function POST(request: NextRequest) {
+    let user: any;
     try {
         // Rate limiting: 20 access grants per minute per IP
         const identifier = getClientIdentifier(request);
         const { success } = rateLimit(identifier, 20, 60 * 1000);
         
         if (!success) {
+            logWarning('/api/access', 'rate-limit', 'Access grant rate limit exceeded', {
+                identifier: identifier.substring(0, 15),
+            });
             return NextResponse.json(
-                { error: 'Too many requests. Please try again later.' },
+                { error: 'Too many requests. Please try again later.', code: 'ERR_RATE_LIMIT' },
                 { status: 429 }
             );
         }
 
         const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
+        const userData = await supabase.auth.getUser();
+        user = validateAuth(userData, '/api/access', 'POST');
+        if (user instanceof NextResponse) return user;
 
         const body = await request.json();
         const { fileId, userIdentifier, password, expiresAt, maxDownloads } = body;
 
-        if (!fileId || !userIdentifier || !password) {
-            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-        }
+        // Validate required fields
+        const requiredError = validateRequiredFields(body, ['fileId', 'userIdentifier', 'password'], '/api/access');
+        if (requiredError) return requiredError;
 
         // Sanitize user identifier to prevent XSS
-        const sanitizedUserIdentifier = sanitizeUserIdentifier(userIdentifier);
-        if (!sanitizedUserIdentifier) {
-            return NextResponse.json({ error: 'Invalid user identifier' }, { status: 400 });
-        }
+        const sanitizedUserIdentifier = validateAndSanitize(userIdentifier, sanitizeUserIdentifier, '/api/access', 'user identifier');
+        if (sanitizedUserIdentifier instanceof NextResponse) return sanitizedUserIdentifier;
 
         // Verify file ownership (exclude soft-deleted files)
         const adminClient = createAdminClient();
@@ -150,7 +160,11 @@ export async function POST(request: NextRequest) {
             .single();
 
         if (fileError || !file) {
-            return NextResponse.json({ error: 'File not found' }, { status: 404 });
+            logWarning('/api/access', 'file-access', 'File not found or unauthorized', {
+                fileId: fileId.substring(0, 8),
+                userId: user.id.substring(0, 8),
+            });
+            return NextResponse.json({ error: 'File not found', code: 'ERR_NOT_FOUND' }, { status: 404 });
         }
 
         // Check if access grant already exists for this user/file combo
@@ -162,8 +176,12 @@ export async function POST(request: NextRequest) {
             .maybeSingle();
 
         if (existingAccess) {
+            logWarning('/api/access', 'duplicate-access', 'User already has access to this file', {
+                fileId: fileId.substring(0, 8),
+                userIdentifier: sanitizedUserIdentifier.substring(0, 10),
+            });
             return NextResponse.json(
-                { error: 'User already has access to this file. Use edit to modify the existing grant.' },
+                { error: 'User already has access to this file. Use edit to modify the existing grant.', code: 'ERR_CONFLICT' },
                 { status: 409 }
             );
         }
@@ -185,29 +203,34 @@ export async function POST(request: NextRequest) {
             .single();
 
         if (accessError) {
-            return NextResponse.json({ error: 'Failed to create access grant' }, { status: 500 });
+            logError('/api/access', user.id, 'create-access-grant', accessError, {
+                fileId: fileId.substring(0, 8),
+                userIdentifier: sanitizedUserIdentifier.substring(0, 10),
+            });
+            return NextResponse.json({ error: 'Failed to create access grant', code: 'ERR_DB_ERROR' }, { status: 500 });
         }
 
         return NextResponse.json({ success: true, access });
     } catch (error) {
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        logError('/api/access', user?.id, 'POST-access-request', error);
+        return NextResponse.json({ error: 'Internal server error', code: 'ERR_ACCESS_POST' }, { status: 500 });
     }
 }
 
 export async function DELETE(request: NextRequest) {
+    let user: any;
     try {
         const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
+        const userData = await supabase.auth.getUser();
+        user = validateAuth(userData, '/api/access', 'DELETE');
+        if (user instanceof NextResponse) return user;
 
         const { searchParams } = new URL(request.url);
         const accessId = searchParams.get('id');
 
         if (!accessId) {
-            return NextResponse.json({ error: 'Access ID required' }, { status: 400 });
+            logWarning('/api/access', 'validation-failed', 'Missing access ID');
+            return NextResponse.json({ error: 'Access ID required', code: 'ERR_INVALID_INPUT' }, { status: 400 });
         }
 
         const adminClient = createAdminClient();
@@ -220,7 +243,11 @@ export async function DELETE(request: NextRequest) {
             .single();
 
         if (fetchError || !access || (access as any).files?.uploaded_by !== user.id) {
-            return NextResponse.json({ error: 'Access grant not found' }, { status: 404 });
+            logWarning('/api/access', 'access-verification', 'Access grant not found or unauthorized', {
+                accessId: accessId.substring(0, 8),
+                userId: user.id.substring(0, 8),
+            });
+            return NextResponse.json({ error: 'Access grant not found', code: 'ERR_NOT_FOUND' }, { status: 404 });
         }
 
         // Delete access grant
@@ -230,23 +257,25 @@ export async function DELETE(request: NextRequest) {
             .eq('id', accessId);
 
         if (deleteError) {
-            return NextResponse.json({ error: 'Failed to delete access grant' }, { status: 500 });
+            logError('/api/access', user.id, 'delete-access-grant', deleteError, {
+                accessId: accessId.substring(0, 8),
+            });
+            return NextResponse.json({ error: 'Failed to delete access grant', code: 'ERR_DB_ERROR' }, { status: 500 });
         }
 
         return NextResponse.json({ success: true });
     } catch (error) {
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        logError('/api/access', user?.id, 'DELETE-access-request', error);
+        return NextResponse.json({ error: 'Internal server error', code: 'ERR_ACCESS_DELETE' }, { status: 500 });
     }
 }
 
 export async function PATCH(request: NextRequest) {
     try {
         const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
+        const userData = await supabase.auth.getUser();
+        const user = validateAuth(userData, '/api/access', 'PATCH');
+        if (user instanceof NextResponse) return user;
 
         const body = await request.json();
         const { accessId, password, expiresAt, maxDownloads, resetDownloads } = body;

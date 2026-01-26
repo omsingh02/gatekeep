@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { validateAuth } from '@/lib/utils/validation';
 
 export async function GET(request: NextRequest) {
     try {
         const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
+        const userData = await supabase.auth.getUser();
+        const user = validateAuth(userData, '/api/analytics', 'GET');
+        if (user instanceof NextResponse) return user;
 
         const adminClient = createAdminClient();
 

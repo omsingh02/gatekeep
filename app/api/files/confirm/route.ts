@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { env } from '@/lib/env';
+import { logError, logWarning } from '@/lib/utils/logger';
+import { validateAuth, validateRequiredFields } from '@/lib/utils/validation';
 
 /**
  * POST /api/files/confirm
@@ -12,25 +14,21 @@ import { env } from '@/lib/env';
  * Request body: { metadata: { uniqueFilename, sanitizedFilename, shortCode, fileSize, mimeType, userId } }
  */
 export async function POST(request: NextRequest) {
+    let user: any;
     try {
         // Verify admin authentication
         const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
+        const userData = await supabase.auth.getUser();
+        user = validateAuth(userData, '/api/files/confirm', 'POST');
+        if (user instanceof NextResponse) return user;
 
         // Parse request body
         const body = await request.json();
         const { metadata } = body;
 
-        if (!metadata) {
-            return NextResponse.json(
-                { error: 'Missing metadata' },
-                { status: 400 }
-            );
-        }
+        // Validate required metadata field
+        const requiredError = validateRequiredFields(body, ['metadata'], '/api/files/confirm');
+        if (requiredError) return requiredError;
 
         const {
             uniqueFilename,
@@ -43,7 +41,11 @@ export async function POST(request: NextRequest) {
 
         // Verify the user confirming is the same user who requested the presign
         if (userId !== user.id) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            logWarning('/api/files/confirm', 'auth-mismatch', 'User ID mismatch', {
+                requestUserId: userId?.substring(0, 8),
+                authUserId: user.id.substring(0, 8),
+            });
+            return NextResponse.json({ error: 'Unauthorized', code: 'ERR_UNAUTHORIZED' }, { status: 401 });
         }
 
         // Verify the file actually exists in storage
@@ -56,8 +58,11 @@ export async function POST(request: NextRequest) {
             });
 
         if (!fileExists || fileExists.length === 0) {
+            logWarning('/api/files/confirm', 'storage-check', 'File not found in storage', {
+                searchFilename: uniqueFilename.substring(0, 20),
+            });
             return NextResponse.json(
-                { error: 'File not found in storage. Upload may have failed.' },
+                { error: 'File not found in storage. Upload may have failed.', code: 'ERR_FILE_NOT_FOUND' },
                 { status: 400 }
             );
         }
@@ -78,11 +83,14 @@ export async function POST(request: NextRequest) {
             .single();
 
         if (dbError) {
-            console.error('Database error:', dbError);
+            logError('/api/files/confirm', user.id, 'save-metadata', dbError, {
+                filename: sanitizedFilename.substring(0, 20),
+                shortCode,
+            });
             // Clean up uploaded file since we couldn't save metadata
             await adminClient.storage.from('files').remove([uniqueFilename]);
             return NextResponse.json(
-                { error: 'Failed to save file metadata' },
+                { error: 'Failed to save file metadata', code: 'ERR_DB_ERROR' },
                 { status: 500 }
             );
         }
@@ -98,7 +106,7 @@ export async function POST(request: NextRequest) {
             },
         });
     } catch (error) {
-        console.error('Confirm error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        logError('/api/files/confirm', user?.id, 'confirm-upload', error);
+        return NextResponse.json({ error: 'Internal server error', code: 'ERR_CONFIRM' }, { status: 500 });
     }
 }

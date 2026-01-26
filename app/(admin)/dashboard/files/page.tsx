@@ -1,5 +1,3 @@
-'use client';
-
 import Link from 'next/link';
 import FileList from '@/components/admin/FileList';
 
@@ -48,7 +46,7 @@ export default function AllFilesPage() {
                 padding: '1.5rem',
                 border: '1px solid #3a3a3a',
             }}>
-                <FileList />
+                <FileList enablePagination={true} itemsPerPage={20} />
             </div>
         </div>
     );

@@ -88,6 +88,8 @@ export interface VerifyAccessResponse {
 
 export type FileCategory = 'image' | 'video' | 'audio' | 'pdf' | 'document' | 'other';
 
+export type FileTypeFilter = 'all' | FileCategory | 'archive';
+
 export interface FileTypeInfo {
     category: FileCategory;
     canPreview: boolean;

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Badge, FileListSkeleton } from '@/components/ui';
+import { Badge, Skeleton } from '@/components/ui';
 import { formatDateTime } from '@/lib/utils/date';
 import Link from 'next/link';
 
@@ -81,7 +81,34 @@ export default function ShareList({ limit, showViewAll = false, viewAllHref = '/
     };
 
     if (isLoading) {
-        return <FileListSkeleton count={limit || 3} />;
+        const skeletonCount = limit || 3;
+        return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {Array.from({ length: skeletonCount }).map((_, i) => (
+                    <div 
+                        key={i}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '1rem',
+                            padding: '1rem',
+                            backgroundColor: '#2a2a2a',
+                            borderRadius: '6px',
+                            border: '1px solid #3a3a3a',
+                        }}
+                    >
+                        <Skeleton width="40px" height="40px" />
+                        <div style={{ flex: 1 }}>
+                            <Skeleton variant="text" width="60%" height="1rem" />
+                            <div style={{ marginTop: '0.5rem' }}>
+                                <Skeleton variant="text" width="30%" height="0.75rem" />
+                            </div>
+                        </div>
+                        <Skeleton width="80px" height="32px" />
+                    </div>
+                ))}
+            </div>
+        );
     }
 
     if (shares.length === 0) {

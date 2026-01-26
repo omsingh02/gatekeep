@@ -50,3 +50,8 @@ export function getClientIdentifier(request: Request): string {
              'unknown';
   return ip;
 }
+
+// Testing/maintenance hook to clear in-memory state explicitly when needed.
+export function resetRateLimitStore(): void {
+  rateLimitStore.clear();
+}

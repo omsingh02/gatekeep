@@ -29,47 +29,6 @@ export default function FilePreview({ fileData, shortCode, userIdentifier, sessi
     const [isLoadingPreview, setIsLoadingPreview] = useState(false);
     const [downloadError, setDownloadError] = useState<string | null>(null);
 
-    // Disable right-click, text selection, and other content extraction methods
-    useEffect(() => {
-        // Prevent right-click context menu
-        const handleContextMenu = (e: MouseEvent) => {
-            e.preventDefault();
-            return false;
-        };
-
-        // Prevent keyboard shortcuts (Ctrl+S, Ctrl+U, Ctrl+Shift+I, F12, etc.)
-        const handleKeyDown = (e: KeyboardEvent) => {
-            // Ctrl+S (Save), Ctrl+U (View Source), Ctrl+Shift+I (DevTools), Ctrl+Shift+J (Console)
-            // Ctrl+Shift+C (Inspect), F12 (DevTools), Ctrl+P (Print)
-            if (
-                (e.ctrlKey && (e.key === 's' || e.key === 'S' || e.key === 'u' || e.key === 'U' || e.key === 'p' || e.key === 'P')) ||
-                (e.ctrlKey && e.shiftKey && (e.key === 'i' || e.key === 'I' || e.key === 'j' || e.key === 'J' || e.key === 'c' || e.key === 'C')) ||
-                e.key === 'F12'
-            ) {
-                e.preventDefault();
-                return false;
-            }
-        };
-
-        // Prevent drag and drop of images
-        const handleDragStart = (e: DragEvent) => {
-            e.preventDefault();
-            return false;
-        };
-
-        // Add event listeners
-        document.addEventListener('contextmenu', handleContextMenu);
-        document.addEventListener('keydown', handleKeyDown);
-        document.addEventListener('dragstart', handleDragStart);
-
-        // Cleanup on unmount
-        return () => {
-            document.removeEventListener('contextmenu', handleContextMenu);
-            document.removeEventListener('keydown', handleKeyDown);
-            document.removeEventListener('dragstart', handleDragStart);
-        };
-    }, []);
-
     // Check if file is text-based
     const isTextFile = file.mimeType.startsWith('text/') || 
                       file.mimeType === 'application/json' ||
@@ -393,11 +352,14 @@ export default function FilePreview({ fileData, shortCode, userIdentifier, sessi
     };
 
     return (
-        <div style={{
-            minHeight: '100vh',
-            padding: '2rem 1rem',
-            backgroundColor: '#1a1a1a',
-        }}>
+        <div
+            onContextMenu={(e) => e.preventDefault()}
+            style={{
+                minHeight: '100vh',
+                padding: '2rem 1rem',
+                backgroundColor: '#1a1a1a',
+            }}
+        >
             <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
                 {/* Header */}
                 <div style={{
