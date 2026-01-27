@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface ExpiryPickerProps {
     value: string; // ISO date string or datetime-local format
@@ -14,24 +14,31 @@ type PresetKey = '1h' | '24h' | '7d' | '30d' | '90d' | 'custom' | 'never';
 
 interface Preset {
     label: string;
-    getDate: () => Date | null;
+    duration: number | null; // in milliseconds, null for never/custom
 }
 
 const presets: Record<PresetKey, Preset> = {
-    '1h': { label: '1 Hour', getDate: () => new Date(Date.now() + 60 * 60 * 1000) },
-    '24h': { label: '24 Hours', getDate: () => new Date(Date.now() + 24 * 60 * 60 * 1000) },
-    '7d': { label: '7 Days', getDate: () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) },
-    '30d': { label: '30 Days', getDate: () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) },
-    '90d': { label: '90 Days', getDate: () => new Date(Date.now() + 90 * 24 * 60 * 60 * 1000) },
-    'custom': { label: 'Custom', getDate: () => null },
-    'never': { label: 'Never', getDate: () => null },
+    '1h': { label: '1 Hour', duration: 60 * 60 * 1000 },
+    '24h': { label: '24 Hours', duration: 24 * 60 * 60 * 1000 },
+    '7d': { label: '7 Days', duration: 7 * 24 * 60 * 60 * 1000 },
+    '30d': { label: '30 Days', duration: 30 * 24 * 60 * 60 * 1000 },
+    '90d': { label: '90 Days', duration: 90 * 24 * 60 * 60 * 1000 },
+    'custom': { label: 'Custom', duration: null },
+    'never': { label: 'Never', duration: null },
+};
+
+const presetLabels: Record<Exclude<PresetKey, 'custom' | 'never'>, string> = {
+    '1h': '1 hour',
+    '24h': '24 hours',
+    '7d': '7 days',
+    '30d': '30 days',
+    '90d': '90 days',
 };
 
 function toLocalDateTimeValue(date: Date | string | null): string {
     if (!date) return '';
     const d = typeof date === 'string' ? new Date(date) : date;
     if (isNaN(d.getTime())) return '';
-    // Format to YYYY-MM-DDTHH:mm for datetime-local input
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
@@ -40,7 +47,7 @@ function toLocalDateTimeValue(date: Date | string | null): string {
     return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
-function formatPreviewDate(value: string): string {
+function formatPreviewDate(value: string, activePreset: PresetKey | null): string {
     if (!value) return 'No expiry (permanent)';
     const d = new Date(value);
     if (isNaN(d.getTime())) return 'Invalid date';
@@ -52,14 +59,20 @@ function formatPreviewDate(value: string): string {
         return `Expired ${formatRelative(-diff)} ago`;
     }
     
+    // If a preset is active, show the preset label instead of calculated time
+    if (activePreset && activePreset !== 'custom' && activePreset !== 'never') {
+        const label = presetLabels[activePreset];
+        return `Expires in ${label} (${d.toLocaleDateString()} at ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`;
+    }
+    
     return `Expires in ${formatRelative(diff)} (${d.toLocaleDateString()} at ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`;
 }
 
 function formatRelative(ms: number): string {
-    const seconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-    const days = Math.floor(hours / 24);
+    const seconds = Math.round(ms / 1000);
+    const minutes = Math.round(seconds / 60);
+    const hours = Math.round(minutes / 60);
+    const days = Math.round(hours / 24);
     
     if (days > 0) {
         return days === 1 ? '1 day' : `${days} days`;
@@ -82,19 +95,36 @@ export default function ExpiryPicker({
 }: ExpiryPickerProps) {
     const [selectedPreset, setSelectedPreset] = useState<PresetKey>('never');
     const [showCustom, setShowCustom] = useState(false);
+    const userClickedCustom = useRef(false);
+    const lastSetPreset = useRef<PresetKey | null>(null);
 
-    // Initialize preset based on value
+    // Custom date/time state
+    const [customDate, setCustomDate] = useState('');
+    const [customTime, setCustomTime] = useState('12:00');
+
+    // Initialize preset based on value (only on mount or when value changes externally)
     useEffect(() => {
+        // Skip if user explicitly clicked custom
+        if (userClickedCustom.current) {
+            userClickedCustom.current = false;
+            return;
+        }
+        
+        // Skip if this change was from a preset we just set
+        if (lastSetPreset.current) {
+            lastSetPreset.current = null;
+            return;
+        }
+
         if (!value) {
             setSelectedPreset('never');
             setShowCustom(false);
         } else {
-            // Check if value matches any preset (within 1 minute tolerance)
             const targetDate = new Date(value).getTime();
             const now = Date.now();
             const diff = targetDate - now;
             
-            // Check preset matches (with 2 minute tolerance for timing)
+            // Check preset matches (with 2 minute tolerance)
             const tolerance = 2 * 60 * 1000;
             
             if (Math.abs(diff - 60 * 60 * 1000) < tolerance) {
@@ -115,11 +145,19 @@ export default function ExpiryPicker({
             } else {
                 setSelectedPreset('custom');
                 setShowCustom(true);
+                // Initialize custom date/time from value
+                const d = new Date(value);
+                setCustomDate(d.toISOString().split('T')[0]);
+                setCustomTime(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`);
             }
         }
     }, [value]);
 
     const handlePresetClick = (preset: PresetKey) => {
+        if (preset === 'custom') {
+            userClickedCustom.current = true;
+        }
+        lastSetPreset.current = preset;
         setSelectedPreset(preset);
         
         if (preset === 'never') {
@@ -127,32 +165,56 @@ export default function ExpiryPicker({
             setShowCustom(false);
         } else if (preset === 'custom') {
             setShowCustom(true);
-            // Keep existing value or set to 24h from now as default
+            // Set default to tomorrow at noon if no value
             if (!value) {
-                const defaultDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
-                onChange(toLocalDateTimeValue(defaultDate));
+                const tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                tomorrow.setHours(12, 0, 0, 0);
+                setCustomDate(tomorrow.toISOString().split('T')[0]);
+                setCustomTime('12:00');
+                onChange(toLocalDateTimeValue(tomorrow));
+            } else {
+                // Parse existing value into date and time
+                const d = new Date(value);
+                setCustomDate(d.toISOString().split('T')[0]);
+                setCustomTime(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`);
             }
         } else {
-            const date = presets[preset].getDate();
-            if (date) {
+            const duration = presets[preset].duration;
+            if (duration) {
+                const date = new Date(Date.now() + duration);
+                lastSetPreset.current = preset;
                 onChange(toLocalDateTimeValue(date));
             }
             setShowCustom(false);
         }
     };
 
-    const handleCustomChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        onChange(e.target.value);
+    const handleCustomDateChange = (newDate: string) => {
+        setCustomDate(newDate);
+        if (newDate && customTime) {
+            const combined = new Date(`${newDate}T${customTime}`);
+            onChange(toLocalDateTimeValue(combined));
+        }
+    };
+
+    const handleCustomTimeChange = (newTime: string) => {
+        setCustomTime(newTime);
+        if (customDate && newTime) {
+            const combined = new Date(`${customDate}T${newTime}`);
+            onChange(toLocalDateTimeValue(combined));
+        }
     };
 
     const handleClear = () => {
         onChange('');
         setSelectedPreset('never');
         setShowCustom(false);
+        setCustomDate('');
+        setCustomTime('12:00');
     };
 
     const inputStyle: React.CSSProperties = {
-        width: '100%',
         padding: '0.625rem 0.875rem',
         borderRadius: '4px',
         border: '1px solid #3a3a3a',
@@ -174,6 +236,21 @@ export default function ExpiryPicker({
         transition: 'all 0.15s',
         whiteSpace: 'nowrap' as const,
     });
+
+    // Generate time options (every 30 minutes)
+    const timeOptions: string[] = [];
+    for (let h = 0; h < 24; h++) {
+        for (let m = 0; m < 60; m += 30) {
+            timeOptions.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+        }
+    }
+
+    const formatTimeLabel = (time: string) => {
+        const [h, m] = time.split(':').map(Number);
+        const period = h >= 12 ? 'PM' : 'AM';
+        const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+        return `${hour12}:${String(m).padStart(2, '0')} ${period}`;
+    };
 
     return (
         <div>
@@ -217,28 +294,78 @@ export default function ExpiryPicker({
                 ))}
             </div>
 
-            {/* Custom Date/Time Input */}
+            {/* Custom Date/Time Inputs */}
             {showCustom && (
-                <div style={{ marginBottom: '0.5rem' }}>
-                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                        <input
-                            type="datetime-local"
-                            value={value}
-                            onChange={handleCustomChange}
-                            min={toLocalDateTimeValue(new Date())}
-                            style={{ ...inputStyle, flex: 1 }}
-                            onFocus={(e) => {
-                                e.target.style.borderColor = '#3b82f6';
-                            }}
-                            onBlur={(e) => {
-                                e.target.style.borderColor = '#3a3a3a';
-                            }}
-                        />
+                <div style={{ 
+                    marginBottom: '0.5rem',
+                    padding: '0.75rem',
+                    backgroundColor: '#252525',
+                    borderRadius: '6px',
+                    border: '1px solid #3a3a3a',
+                }}>
+                    <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                        {/* Date Input */}
+                        <div style={{ flex: '1 1 140px', minWidth: '140px' }}>
+                            <label style={{ 
+                                display: 'block', 
+                                fontSize: '0.7rem', 
+                                color: '#6b7280',
+                                marginBottom: '0.25rem',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em',
+                            }}>Date</label>
+                            <input
+                                type="date"
+                                value={customDate}
+                                onChange={(e) => handleCustomDateChange(e.target.value)}
+                                min={new Date().toISOString().split('T')[0]}
+                                style={{ ...inputStyle, width: '100%' }}
+                                onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+                                onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
+                            />
+                        </div>
+
+                        {/* Time Select */}
+                        <div style={{ flex: '1 1 120px', minWidth: '120px' }}>
+                            <label style={{ 
+                                display: 'block', 
+                                fontSize: '0.7rem', 
+                                color: '#6b7280',
+                                marginBottom: '0.25rem',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em',
+                            }}>Time</label>
+                            <select
+                                value={customTime}
+                                onChange={(e) => handleCustomTimeChange(e.target.value)}
+                                style={{ 
+                                    ...inputStyle, 
+                                    width: '100%',
+                                    cursor: 'pointer',
+                                    appearance: 'none',
+                                    backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                                    backgroundPosition: 'right 0.5rem center',
+                                    backgroundRepeat: 'no-repeat',
+                                    backgroundSize: '1.25rem',
+                                    paddingRight: '2rem',
+                                }}
+                                onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+                                onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
+                            >
+                                {timeOptions.map((time) => (
+                                    <option key={time} value={time}>
+                                        {formatTimeLabel(time)}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* Clear Button */}
                         <button
                             type="button"
                             onClick={handleClear}
                             style={{
-                                padding: '0.625rem',
+                                padding: '0.625rem 0.875rem',
                                 fontSize: '0.8rem',
                                 color: '#9ca3af',
                                 backgroundColor: 'transparent',
@@ -246,6 +373,9 @@ export default function ExpiryPicker({
                                 borderRadius: '4px',
                                 cursor: 'pointer',
                                 transition: 'all 0.15s',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.375rem',
                             }}
                             onMouseEnter={(e) => {
                                 e.currentTarget.style.color = '#ef4444';
@@ -257,9 +387,10 @@ export default function ExpiryPicker({
                             }}
                             title="Clear expiry"
                         >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M18 6L6 18M6 6l12 12" />
                             </svg>
+                            <span>Clear</span>
                         </button>
                     </div>
                 </div>
@@ -272,7 +403,7 @@ export default function ExpiryPicker({
                 color: value ? (new Date(value) < new Date() ? '#f87171' : '#22c55e') : '#6b7280',
                 fontStyle: value ? 'normal' : 'italic',
             }}>
-                {formatPreviewDate(value)}
+                {formatPreviewDate(value, selectedPreset)}
             </p>
             
             {helperText && !value && (
