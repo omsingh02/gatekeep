@@ -556,27 +556,29 @@ function DateTimePickerModal({
                                     data-selected={selectedPeriod === p}
                                     onClick={() => setSelectedPeriod(p)}
                                     style={{
-                                        padding: '1rem 0.75rem',
-                                        textAlign: 'center',
+                                        padding: '0.875rem',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
                                         cursor: 'pointer',
                                         color: selectedPeriod === p ? '#ffffff' : '#9ca3af',
                                         backgroundColor: selectedPeriod === p ? '#2563eb' : 'transparent',
-                                        border: selectedPeriod === p ? '2px solid #3b82f6' : '2px solid #444444',
-                                        fontWeight: selectedPeriod === p ? 700 : 500,
-                                        fontSize: '1rem',
+                                        border: selectedPeriod === p ? '1px solid #3b82f6' : '1px solid #3a3a3a',
+                                        fontWeight: selectedPeriod === p ? 600 : 500,
+                                        fontSize: '0.9rem',
                                         transition: 'all 0.15s',
-                                        borderRadius: '8px',
+                                        borderRadius: '6px',
                                     }}
                                     onMouseEnter={(e) => {
                                         if (selectedPeriod !== p) {
-                                            e.currentTarget.style.backgroundColor = '#252525';
-                                            e.currentTarget.style.borderColor = '#555555';
+                                            e.currentTarget.style.backgroundColor = '#333333';
+                                            e.currentTarget.style.borderColor = '#4a4a4a';
                                         }
                                     }}
                                     onMouseLeave={(e) => {
                                         if (selectedPeriod !== p) {
                                             e.currentTarget.style.backgroundColor = 'transparent';
-                                            e.currentTarget.style.borderColor = '#444444';
+                                            e.currentTarget.style.borderColor = '#3a3a3a';
                                         }
                                     }}
                                 >
