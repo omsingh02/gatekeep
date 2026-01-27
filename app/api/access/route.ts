@@ -18,7 +18,11 @@ export async function GET(request: NextRequest) {
         const { searchParams } = new URL(request.url);
         const fileId = searchParams.get('fileId');
         const limit = searchParams.get('limit');
-        const limitNum = limit ? parseInt(limit, 10) : null;
+        const page = searchParams.get('page');
+        const search = searchParams.get('search');
+        const status = searchParams.get('status'); // active, expired, limit_reached
+        const limitNum = limit ? parseInt(limit, 10) : 20;
+        const pageNum = page ? parseInt(page, 10) : 1;
 
         const adminClient = createAdminClient();
 
@@ -75,6 +79,9 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ access: transformedAccess });
         }
 
+        // Calculate offset for pagination
+        const offset = (pageNum - 1) * limitNum;
+
         // Get all shares for the user (across all their files) with count in single query
         let query = adminClient
             .from('file_access')
@@ -82,9 +89,14 @@ export async function GET(request: NextRequest) {
             .eq('files.uploaded_by', user.id)
             .order('created_at', { ascending: false });
 
-        if (limitNum && limitNum > 0) {
-            query = query.limit(limitNum);
+        // Search filter - search by user identifier or filename
+        if (search && search.trim()) {
+            const sanitized = search.trim().slice(0, 100);
+            query = query.or(`user_identifier.ilike.%${sanitized}%,files.original_filename.ilike.%${sanitized}%`);
         }
+
+        // Apply pagination
+        query = query.range(offset, offset + limitNum - 1);
 
         const { data: access, count: totalCount, error: accessError } = await query;
 
@@ -94,28 +106,50 @@ export async function GET(request: NextRequest) {
         }
 
         // Transform to camelCase with file info
-        const transformedAccess = (access || []).map((a: any) => ({
-            id: a.id,
-            fileId: a.file_id,
-            type: a.group_id ? 'group' : 'user',
-            userIdentifier: a.user_identifier || undefined,
-            groupId: a.group_id,
-            groupName: (a as any).groups?.name,
-            passwordHash: a.password_hash,
-            expiresAt: a.expires_at,
-            accessCount: a.access_count,
-            downloadCount: a.download_count,
-            maxDownloads: a.max_downloads,
-            lastAccessed: a.last_accessed,
-            createdAt: a.created_at,
-            file: {
-                id: a.files.id,
-                originalFilename: a.files.original_filename,
-                shortCode: a.files.short_code,
-            },
-        }));
+        const now = new Date();
+        let transformedAccess = (access || []).map((a: any) => {
+            const expiresAt = a.expires_at ? new Date(a.expires_at) : null;
+            const isExpired = expiresAt ? expiresAt < now : false;
+            const isLimitReached = a.max_downloads ? (a.download_count || 0) >= a.max_downloads : false;
 
-        return NextResponse.json({ access: transformedAccess, totalCount: totalCount || 0 });
+            return {
+                id: a.id,
+                fileId: a.file_id,
+                type: a.group_id ? 'group' : 'user',
+                userIdentifier: a.user_identifier || undefined,
+                groupId: a.group_id,
+                groupName: (a as any).groups?.name,
+                passwordHash: a.password_hash,
+                expiresAt: a.expires_at,
+                accessCount: a.access_count,
+                downloadCount: a.download_count,
+                maxDownloads: a.max_downloads,
+                lastAccessed: a.last_accessed,
+                createdAt: a.created_at,
+                file: {
+                    id: a.files.id,
+                    originalFilename: a.files.original_filename,
+                    shortCode: a.files.short_code,
+                },
+                status: isExpired ? 'expired' : isLimitReached ? 'limit_reached' : 'active',
+            };
+        });
+
+        // Filter by status (done after fetch since we need computed status)
+        if (status && status !== 'all') {
+            transformedAccess = transformedAccess.filter(a => a.status === status);
+        }
+
+        // Calculate pagination metadata
+        const totalPages = Math.ceil((totalCount || 0) / limitNum);
+
+        return NextResponse.json({ 
+            access: transformedAccess, 
+            totalCount: totalCount || 0,
+            page: pageNum,
+            limit: limitNum,
+            totalPages,
+        });
     } catch (error) {
         logError('/api/access', user?.id, 'GET-access-request', error);
         return NextResponse.json({ error: 'Internal server error', code: 'ERR_ACCESS_GET' }, { status: 500 });
