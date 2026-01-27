@@ -222,10 +222,10 @@ function DateTimePickerModal({
         }} onClick={onClose}>
             <div 
                 style={{
-                    backgroundColor: '#141414',
-                    borderRadius: '12px',
-                    border: '2px solid #333333',
-                    boxShadow: '0 25px 80px rgba(0,0,0,0.7)',
+                    backgroundColor: '#2a2a2a',
+                    borderRadius: '8px',
+                    border: '1px solid #3a3a3a',
+                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
                     display: 'flex',
                     overflow: 'hidden',
                     maxWidth: '95vw',
@@ -233,7 +233,7 @@ function DateTimePickerModal({
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Calendar Side */}
-                <div style={{ padding: '1.5rem', borderRight: '2px solid #333333' }}>
+                <div style={{ padding: '1.5rem', borderRight: '1px solid #3a3a3a' }}>
                     {/* Month/Year Header */}
                     <div style={{ 
                         display: 'flex', 
@@ -467,11 +467,11 @@ function DateTimePickerModal({
                 </div>
 
                 {/* Time Picker Side */}
-                <div style={{ display: 'flex', flexDirection: 'column', backgroundColor: '#181818' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', backgroundColor: '#252525' }}>
                     {/* Time Header */}
                     <div style={{
                         padding: '1rem 1.25rem',
-                        borderBottom: '2px solid #333333',
+                        borderBottom: '1px solid #3a3a3a',
                         textAlign: 'center',
                     }}>
                         <span style={{ color: '#6b7280', fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -487,7 +487,7 @@ function DateTimePickerModal({
                                 width: '80px', 
                                 height: '280px',
                                 overflowY: 'auto',
-                                borderRight: '2px solid #333333',
+                                borderRight: '1px solid #3a3a3a',
                                 padding: '0.75rem 0',
                             }}
                         >
@@ -516,7 +516,7 @@ function DateTimePickerModal({
                                 width: '80px', 
                                 height: '280px',
                                 overflowY: 'auto',
-                                borderRight: '2px solid #333333',
+                                borderRight: '1px solid #3a3a3a',
                                 padding: '0.75rem 0',
                             }}
                         >
@@ -592,8 +592,8 @@ function DateTimePickerModal({
                         justifyContent: 'flex-end',
                         gap: '0.75rem',
                         padding: '1rem 1.25rem',
-                        borderTop: '2px solid #333333',
-                        backgroundColor: '#141414',
+                        borderTop: '1px solid #3a3a3a',
+                        backgroundColor: '#2a2a2a',
                     }}>
                         <button
                             type="button"
