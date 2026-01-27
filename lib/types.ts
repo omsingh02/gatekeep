@@ -57,6 +57,7 @@ export interface Database {
                     id: string;
                     name: string;
                     description: string | null;
+                    parent_id: string | null;
                     created_by: string;
                     created_at: string;
                     updated_at: string;
@@ -150,21 +151,56 @@ export interface Folder {
     createdAt: string;
     updatedAt: string;
     deletedAt?: string | null;
+    // Extended fields (from GET single folder or contents)
+    subfolderCount?: number;
+    fileCount?: number;
+    path?: Array<{ id: string; name: string }>;
+}
+
+export interface FolderContents {
+    folder: {
+        id: string;
+        name: string;
+        parentId: string | null;
+    };
+    path: Array<{ id: string; name: string }>;
+    subfolders: Folder[];
+    files: FileMetadata[];
+    totalItems: number;
 }
 
 export interface Group {
     id: string;
     name: string;
     description?: string | null;
+    parentId?: string | null;
     createdBy: string;
     createdAt: string;
     updatedAt: string;
     deletedAt?: string | null;
+    // Extended fields (from GET single group or contents)
+    memberCount?: number;
+    subgroupCount?: number;
+    path?: Array<{ id: string; name: string }>;
+    members?: GroupMember[];
 }
 
 export interface GroupMember {
     id: string;
-    groupId: string;
+    groupId?: string;
     memberIdentifier: string;
     createdAt: string;
+}
+
+export interface GroupContents {
+    group: {
+        id: string;
+        name: string;
+        description?: string | null;
+        parentId: string | null;
+    };
+    path: Array<{ id: string; name: string }>;
+    subgroups: Group[];
+    members: GroupMember[];
+    totalItems: number;
 }

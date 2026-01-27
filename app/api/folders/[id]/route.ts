@@ -5,6 +5,127 @@ import { validateAuth } from '@/lib/utils/validation';
 import { sanitizeFolderName } from '@/lib/utils/sanitization';
 import { logError, logWarning } from '@/lib/utils/logger';
 
+// Helper: Get all descendant folder IDs recursively
+async function getDescendantFolderIds(adminClient: any, folderId: string, userId: string): Promise<string[]> {
+    const descendants: string[] = [];
+    const queue = [folderId];
+
+    while (queue.length > 0) {
+        const currentId = queue.shift()!;
+        const { data: children } = await adminClient
+            .from('folders')
+            .select('id')
+            .eq('parent_id', currentId)
+            .eq('uploaded_by', userId)
+            .is('deleted_at', null);
+
+        if (children) {
+            for (const child of children) {
+                descendants.push(child.id);
+                queue.push(child.id);
+            }
+        }
+    }
+
+    return descendants;
+}
+
+// Helper: Check if targetId is a descendant of folderId (would cause circular reference)
+async function isDescendant(adminClient: any, folderId: string, targetId: string, userId: string): Promise<boolean> {
+    const descendants = await getDescendantFolderIds(adminClient, folderId, userId);
+    return descendants.includes(targetId);
+}
+
+// Helper: Get folder path/breadcrumbs
+async function getFolderPath(adminClient: any, folderId: string, userId: string): Promise<Array<{ id: string; name: string }>> {
+    const path: Array<{ id: string; name: string }> = [];
+    let currentId: string | null = folderId;
+
+    while (currentId) {
+        const { data: folder } = await adminClient
+            .from('folders')
+            .select('id, name, parent_id')
+            .eq('id', currentId)
+            .eq('uploaded_by', userId)
+            .is('deleted_at', null)
+            .single();
+
+        if (!folder) break;
+
+        path.unshift({ id: folder.id, name: folder.name });
+        currentId = folder.parent_id;
+    }
+
+    return path;
+}
+
+export async function GET(
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    let user: any;
+    try {
+        const { id } = await params;
+        const supabase = await createClient();
+        const userData = await supabase.auth.getUser();
+        user = validateAuth(userData, '/api/folders/[id]', 'GET');
+        if (user instanceof NextResponse) return user;
+
+        const adminClient = createAdminClient();
+
+        const { data: folder, error: folderError } = await adminClient
+            .from('folders')
+            .select('*')
+            .eq('id', id)
+            .eq('uploaded_by', user.id)
+            .is('deleted_at', null)
+            .single();
+
+        if (folderError || !folder) {
+            logWarning('/api/folders/[id]', 'folder-not-found', 'Folder not found or unauthorized', {
+                folderId: id.substring(0, 8),
+                userId: user.id.substring(0, 8),
+            });
+            return NextResponse.json({ error: 'Folder not found', code: 'ERR_NOT_FOUND' }, { status: 404 });
+        }
+
+        // Get folder stats
+        const [subfolderCount, fileCount, path] = await Promise.all([
+            adminClient
+                .from('folders')
+                .select('id', { count: 'exact', head: true })
+                .eq('parent_id', id)
+                .eq('uploaded_by', user.id)
+                .is('deleted_at', null),
+            adminClient
+                .from('files')
+                .select('id', { count: 'exact', head: true })
+                .eq('folder_id', id)
+                .eq('uploaded_by', user.id)
+                .is('deleted_at', null),
+            getFolderPath(adminClient, id, user.id),
+        ]);
+
+        const f = folder as any;
+        return NextResponse.json({
+            folder: {
+                id: f.id,
+                name: f.name,
+                parentId: f.parent_id,
+                uploadedBy: f.uploaded_by,
+                createdAt: f.created_at,
+                updatedAt: f.updated_at,
+                subfolderCount: subfolderCount.count || 0,
+                fileCount: fileCount.count || 0,
+                path,
+            },
+        });
+    } catch (error) {
+        logError('/api/folders/[id]', user?.id, 'GET-folder', error);
+        return NextResponse.json({ error: 'Internal server error', code: 'ERR_FOLDERS_GET' }, { status: 500 });
+    }
+}
+
 export async function PATCH(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
@@ -64,6 +185,12 @@ export async function PATCH(
 
                 if (parentError || !parent) {
                     return NextResponse.json({ error: 'Parent folder not found', code: 'ERR_NOT_FOUND' }, { status: 404 });
+                }
+
+                // Prevent circular reference: target parent cannot be a descendant
+                const wouldCycle = await isDescendant(adminClient, id, parentId, user.id);
+                if (wouldCycle) {
+                    return NextResponse.json({ error: 'Cannot move folder into its own subfolder', code: 'ERR_CIRCULAR_REF' }, { status: 400 });
                 }
             }
 
@@ -140,6 +267,9 @@ export async function DELETE(
         user = validateAuth(userData, '/api/folders/[id]', 'DELETE');
         if (user instanceof NextResponse) return user;
 
+        const { searchParams } = new URL(request.url);
+        const deleteContents = searchParams.get('deleteContents') === 'true';
+
         const adminClient = createAdminClient();
 
         const { data: folder, error: folderError } = await adminClient
@@ -160,24 +290,43 @@ export async function DELETE(
 
         const deletedAt = new Date().toISOString();
 
+        // Get all descendant folder IDs
+        const descendantIds = await getDescendantFolderIds(adminClient, id, user.id);
+        const allFolderIds = [id, ...descendantIds];
+
+        // Soft delete all folders (parent + descendants)
         const { error: deleteError } = await adminClient
             .from('folders')
             .update({ deleted_at: deletedAt } as never)
-            .eq('id', id);
+            .in('id', allFolderIds);
 
         if (deleteError) {
             logError('/api/folders/[id]', user.id, 'delete-folder', deleteError);
             return NextResponse.json({ error: 'Failed to delete folder', code: 'ERR_DB_ERROR' }, { status: 500 });
         }
 
-        // Detach files from this folder to avoid orphaned views
-        await adminClient
-            .from('files')
-            .update({ folder_id: null } as never)
-            .eq('folder_id', id)
-            .is('deleted_at', null);
+        // Handle files in deleted folders
+        if (deleteContents) {
+            // Soft delete all files in deleted folders
+            await adminClient
+                .from('files')
+                .update({ deleted_at: deletedAt } as never)
+                .in('folder_id', allFolderIds)
+                .is('deleted_at', null);
+        } else {
+            // Detach files from deleted folders (move to root)
+            await adminClient
+                .from('files')
+                .update({ folder_id: null } as never)
+                .in('folder_id', allFolderIds)
+                .is('deleted_at', null);
+        }
 
-        return NextResponse.json({ success: true });
+        return NextResponse.json({
+            success: true,
+            deletedFolders: allFolderIds.length,
+            contentsDeleted: deleteContents,
+        });
     } catch (error) {
         logError('/api/folders/[id]', user?.id, 'DELETE-folder', error);
         return NextResponse.json({ error: 'Internal server error', code: 'ERR_FOLDERS_DELETE' }, { status: 500 });

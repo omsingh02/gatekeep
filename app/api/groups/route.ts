@@ -13,14 +13,44 @@ export async function GET(request: NextRequest) {
         user = validateAuth(userData, '/api/groups', 'GET');
         if (user instanceof NextResponse) return user;
 
+        const { searchParams } = new URL(request.url);
+        const parentId = searchParams.get('parentId');
+
         const adminClient = createAdminClient();
 
-        const { data: groups, error } = await adminClient
+        // If parentId specified, verify it exists and belongs to user
+        if (parentId) {
+            const { data: parent, error: parentError } = await adminClient
+                .from('groups')
+                .select('id')
+                .eq('id', parentId)
+                .eq('created_by', user.id)
+                .is('deleted_at', null)
+                .single();
+
+            if (parentError || !parent) {
+                logWarning('/api/groups', 'parent-not-found', 'Parent group missing or unauthorized', {
+                    parentId: parentId.substring(0, 8),
+                    userId: user.id.substring(0, 8),
+                });
+                return NextResponse.json({ error: 'Parent group not found', code: 'ERR_NOT_FOUND' }, { status: 404 });
+            }
+        }
+
+        let query = adminClient
             .from('groups')
-            .select('id, name, description, created_at, updated_at, group_members(id, member_identifier)')
+            .select('id, name, description, parent_id, created_at, updated_at, group_members(id, member_identifier)')
             .eq('created_by', user.id)
             .is('deleted_at', null)
             .order('created_at', { ascending: true });
+
+        if (parentId) {
+            query = query.eq('parent_id', parentId);
+        } else {
+            query = query.is('parent_id', null);
+        }
+
+        const { data: groups, error } = await query;
 
         if (error) {
             logError('/api/groups', user.id, 'fetch-groups', error);
@@ -31,6 +61,7 @@ export async function GET(request: NextRequest) {
             id: group.id,
             name: group.name,
             description: group.description,
+            parentId: group.parent_id,
             createdAt: group.created_at,
             updatedAt: group.updated_at,
             members: (group.group_members || []).map((m: any) => ({
@@ -55,7 +86,7 @@ export async function POST(request: NextRequest) {
         if (user instanceof NextResponse) return user;
 
         const body = await request.json();
-        const { name, description, members } = body || {};
+        const { name, description, members, parentId } = body || {};
 
         const sanitizedName = sanitizeGroupName(name || '');
         if (!sanitizedName) {
@@ -66,17 +97,43 @@ export async function POST(request: NextRequest) {
 
         const adminClient = createAdminClient();
 
-        // Prevent duplicate names per owner
-        const { data: conflict } = await adminClient
+        // If parentId specified, verify it exists and belongs to user
+        if (parentId) {
+            const { data: parent, error: parentError } = await adminClient
+                .from('groups')
+                .select('id')
+                .eq('id', parentId)
+                .eq('created_by', user.id)
+                .is('deleted_at', null)
+                .single();
+
+            if (parentError || !parent) {
+                logWarning('/api/groups', 'parent-not-found', 'Parent group missing or unauthorized', {
+                    parentId: parentId.substring(0, 8),
+                    userId: user.id.substring(0, 8),
+                });
+                return NextResponse.json({ error: 'Parent group not found', code: 'ERR_NOT_FOUND' }, { status: 404 });
+            }
+        }
+
+        // Prevent duplicate names within same parent
+        let conflictQuery = adminClient
             .from('groups')
             .select('id')
             .eq('created_by', user.id)
             .eq('name', sanitizedName)
-            .is('deleted_at', null)
-            .maybeSingle();
+            .is('deleted_at', null);
+
+        if (parentId) {
+            conflictQuery = conflictQuery.eq('parent_id', parentId);
+        } else {
+            conflictQuery = conflictQuery.is('parent_id', null);
+        }
+
+        const { data: conflict } = await conflictQuery.maybeSingle();
 
         if (conflict) {
-            return NextResponse.json({ error: 'A group with that name already exists', code: 'ERR_CONFLICT' }, { status: 409 });
+            return NextResponse.json({ error: 'A group with that name already exists here', code: 'ERR_CONFLICT' }, { status: 409 });
         }
 
         const { data: group, error } = await adminClient
@@ -84,9 +141,10 @@ export async function POST(request: NextRequest) {
             .insert({
                 name: sanitizedName,
                 description: sanitizedDescription,
+                parent_id: parentId || null,
                 created_by: user.id,
             } as any)
-            .select('id, name, description, created_at, updated_at')
+            .select('id, name, description, parent_id, created_at, updated_at')
             .single();
 
         if (error || !group) {
@@ -94,7 +152,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to create group', code: 'ERR_DB_ERROR' }, { status: 500 });
         }
 
-        const g = group as { id: string; name: string; description: string | null; created_at: string; updated_at: string };
+        const g = group as { id: string; name: string; description: string | null; parent_id: string | null; created_at: string; updated_at: string };
 
         // Optionally add initial members
         if (Array.isArray(members) && members.length > 0) {
@@ -113,6 +171,7 @@ export async function POST(request: NextRequest) {
                 id: g.id,
                 name: g.name,
                 description: g.description,
+                parentId: g.parent_id,
                 createdAt: g.created_at,
                 updatedAt: g.updated_at,
                 members: [],
