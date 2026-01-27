@@ -23,6 +23,10 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
     const [maxDownloads, setMaxDownloads] = useState('');
     const [error, setError] = useState('');
     
+    // Identifier type state (email or username)
+    const [identifierType, setIdentifierType] = useState<'email' | 'username'>('username');
+    const [notifyOnGrant, setNotifyOnGrant] = useState(false);
+    
     // Edit mode state
     const [editingAccess, setEditingAccess] = useState<FileAccess | null>(null);
     const [editPassword, setEditPassword] = useState('');
@@ -115,6 +119,8 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                 payload.groupId = selectedGroupId;
             } else {
                 payload.userIdentifier = userIdentifier;
+                payload.identifierType = identifierType;
+                payload.notifyOnGrant = notifyOnGrant;
             }
             const response = await fetch('/api/access', {
                 method: 'POST',
@@ -135,13 +141,24 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                 return;
             }
 
+            const responseData = await response.json();
             setDuplicateUserIdentifier(null);
+
+            // Show success toast with email status
+            if (responseData.emailSent) {
+                toast.success('Access granted and email notification sent');
+            } else if (notifyOnGrant && identifierType === 'email') {
+                toast.warning('Access granted but email notification failed');
+            } else {
+                toast.success('Access granted successfully');
+            }
 
             // Reset form
             setUserIdentifier('');
             setPassword('');
             setExpiresAt('');
             setMaxDownloads('');
+            setNotifyOnGrant(false);
             if (grantMode === 'group') {
                 setSelectedGroupId('');
             }
@@ -387,35 +404,116 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                     </div>
 
                     {grantMode === 'user' && (
-                        <div>
-                            <label style={{
-                                display: 'block',
-                                fontSize: '0.875rem',
-                                color: '#9ca3af',
-                                marginBottom: '0.5rem',
-                            }}>User Identifier (Email/Username)</label>
-                            <input
-                                value={userIdentifier}
-                                onChange={(e) => setUserIdentifier(e.target.value)}
-                                placeholder="user@example.com"
-                                required={grantMode === 'user'}
-                                style={{
-                                    width: '100%',
-                                    padding: '0.625rem 0.875rem',
-                                    borderRadius: '4px',
-                                    border: '1px solid #3a3a3a',
-                                    backgroundColor: '#1a1a1a',
-                                    color: '#e0e0e0',
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                            {/* Email/Username Toggle */}
+                            <div>
+                                <label style={{
+                                    display: 'block',
                                     fontSize: '0.875rem',
-                                    outline: 'none',
-                                }}
-                                onFocus={(e) => {
-                                    e.target.style.borderColor = '#3b82f6';
-                                }}
-                                onBlur={(e) => {
-                                    e.target.style.borderColor = '#3a3a3a';
-                                }}
-                            />
+                                    color: '#9ca3af',
+                                    marginBottom: '0.5rem',
+                                }}>Identifier Type</label>
+                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setIdentifierType('username');
+                                            setNotifyOnGrant(false);
+                                        }}
+                                        style={{
+                                            padding: '0.4rem 0.75rem',
+                                            fontSize: '0.8rem',
+                                            fontWeight: 500,
+                                            color: identifierType === 'username' ? '#ffffff' : '#9ca3af',
+                                            backgroundColor: identifierType === 'username' ? '#374151' : 'transparent',
+                                            border: `1px solid ${identifierType === 'username' ? '#4b5563' : '#3a3a3a'}`,
+                                            borderRadius: '4px',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s',
+                                        }}
+                                    >
+                                        Username
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIdentifierType('email')}
+                                        style={{
+                                            padding: '0.4rem 0.75rem',
+                                            fontSize: '0.8rem',
+                                            fontWeight: 500,
+                                            color: identifierType === 'email' ? '#ffffff' : '#9ca3af',
+                                            backgroundColor: identifierType === 'email' ? '#374151' : 'transparent',
+                                            border: `1px solid ${identifierType === 'email' ? '#4b5563' : '#3a3a3a'}`,
+                                            borderRadius: '4px',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s',
+                                        }}
+                                    >
+                                        Email
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label style={{
+                                    display: 'block',
+                                    fontSize: '0.875rem',
+                                    color: '#9ca3af',
+                                    marginBottom: '0.5rem',
+                                }}>{identifierType === 'email' ? 'Email Address' : 'Username'}</label>
+                                <input
+                                    type={identifierType === 'email' ? 'email' : 'text'}
+                                    value={userIdentifier}
+                                    onChange={(e) => setUserIdentifier(e.target.value)}
+                                    placeholder={identifierType === 'email' ? 'user@example.com' : 'Enter username'}
+                                    required={grantMode === 'user'}
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.625rem 0.875rem',
+                                        borderRadius: '4px',
+                                        border: '1px solid #3a3a3a',
+                                        backgroundColor: '#1a1a1a',
+                                        color: '#e0e0e0',
+                                        fontSize: '0.875rem',
+                                        outline: 'none',
+                                    }}
+                                    onFocus={(e) => {
+                                        e.target.style.borderColor = '#3b82f6';
+                                    }}
+                                    onBlur={(e) => {
+                                        e.target.style.borderColor = '#3a3a3a';
+                                    }}
+                                />
+                            </div>
+
+                            {/* Email notification option */}
+                            {identifierType === 'email' && (
+                                <label style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    fontSize: '0.875rem',
+                                    color: '#9ca3af',
+                                    cursor: 'pointer',
+                                    padding: '0.5rem',
+                                    borderRadius: '4px',
+                                    backgroundColor: notifyOnGrant ? '#1e3a5f' : 'transparent',
+                                    border: `1px solid ${notifyOnGrant ? '#3b82f6' : '#3a3a3a'}`,
+                                    transition: 'all 0.2s',
+                                }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={notifyOnGrant}
+                                        onChange={(e) => setNotifyOnGrant(e.target.checked)}
+                                        style={{ 
+                                            width: '16px', 
+                                            height: '16px',
+                                            accentColor: '#3b82f6',
+                                        }}
+                                    />
+                                    <span>Send email notification with access details</span>
+                                </label>
+                            )}
                         </div>
                     )}
 

@@ -6,6 +6,7 @@ import { rateLimit, getClientIdentifier } from '@/lib/utils/ratelimit';
 import { sanitizeUserIdentifier } from '@/lib/utils/sanitization';
 import { logError, logWarning } from '@/lib/utils/logger';
 import { validateAuth, validateAndSanitize } from '@/lib/utils/validation';
+import { sendAccessGrantEmail } from '@/lib/email';
 
 export async function GET(request: NextRequest) {
     let user: any;
@@ -21,8 +22,8 @@ export async function GET(request: NextRequest) {
         const page = searchParams.get('page');
         const search = searchParams.get('search');
         const status = searchParams.get('status'); // active, expired, limit_reached
-        const limitNum = limit ? parseInt(limit, 10) : 20;
-        const pageNum = page ? parseInt(page, 10) : 1;
+        const limitNum = Math.min(Math.max(parseInt(limit || '', 10) || 20, 1), 100); // Bounded 1-100, default 20
+        const pageNum = Math.max(parseInt(page || '', 10) || 1, 1); // Minimum 1
 
         const adminClient = createAdminClient();
 
@@ -179,7 +180,11 @@ export async function POST(request: NextRequest) {
         if (user instanceof NextResponse) return user;
 
         const body = await request.json();
-        const { fileId, userIdentifier, password, expiresAt, maxDownloads, groupId } = body;
+        const { fileId, userIdentifier, password, expiresAt, maxDownloads, groupId, identifierType, notifyOnGrant } = body;
+
+        // Validate identifier type
+        const validIdentifierType = identifierType === 'email' ? 'email' : 'username';
+        const shouldNotify = validIdentifierType === 'email' && notifyOnGrant === true;
 
         if (!fileId || !password || (!userIdentifier && !groupId)) {
             logWarning('/api/access', 'validation-failed', 'Missing required fields', { fileId: fileId || 'none' });
@@ -279,6 +284,8 @@ export async function POST(request: NextRequest) {
                 password_hash: passwordHash,
                 expires_at: expiresAt || null,
                 max_downloads: maxDownloads || null,
+                identifier_type: validIdentifierType,
+                notify_on_grant: shouldNotify,
             } as any)
             .select()
             .single();
@@ -293,8 +300,28 @@ export async function POST(request: NextRequest) {
         }
 
         const createdAccess = access as any;
+
+        // Send email notification if requested (fire and forget - don't block on email)
+        let emailSent = false;
+        if (shouldNotify && sanitizedUserIdentifier) {
+            try {
+                emailSent = await sendAccessGrantEmail({
+                    to: sanitizedUserIdentifier,
+                    fileName: (file as any).original_filename,
+                    shortCode: (file as any).short_code,
+                    password: password, // Original password before hashing
+                    expiresAt: expiresAt || null,
+                    maxDownloads: maxDownloads || null,
+                });
+            } catch (emailError) {
+                // Log but don't fail the request
+                console.error('[Email] Failed to send notification:', emailError);
+            }
+        }
+
         return NextResponse.json({
             success: true,
+            emailSent,
             access: {
                 id: createdAccess.id,
                 fileId: createdAccess.file_id,

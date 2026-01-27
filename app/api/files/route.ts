@@ -20,8 +20,8 @@ export async function GET(request: NextRequest) {
         const fileType = searchParams.get('fileType');
         const folderId = searchParams.get('folderId');
         const showAll = searchParams.get('showAll') === 'true'; // For recent files view
-        const limitNum = limit ? parseInt(limit, 10) : 20; // Default 20 items per page
-        const pageNum = page ? parseInt(page, 10) : 1;
+        const limitNum = Math.min(Math.max(parseInt(limit || '', 10) || 20, 1), 100); // Bounded 1-100, default 20
+        const pageNum = Math.max(parseInt(page || '', 10) || 1, 1); // Minimum 1
 
         // Validate search input
         if (search && search.length > 100) {
