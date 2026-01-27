@@ -109,10 +109,12 @@ function DateTimePickerModal({
     const [selectedHour, setSelectedHour] = useState(initialDate.getHours() % 12 || 12);
     const [selectedMinute, setSelectedMinute] = useState(initialDate.getMinutes());
     const [selectedPeriod, setSelectedPeriod] = useState<'AM' | 'PM'>(initialDate.getHours() >= 12 ? 'PM' : 'AM');
+    const [showYearDropdown, setShowYearDropdown] = useState(false);
     
     const hourRef = useRef<HTMLDivElement>(null);
     const minuteRef = useRef<HTMLDivElement>(null);
     const periodRef = useRef<HTMLDivElement>(null);
+    const yearDropdownRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         if (isOpen) {
@@ -122,6 +124,7 @@ function DateTimePickerModal({
             setSelectedHour(initialDate.getHours() % 12 || 12);
             setSelectedMinute(initialDate.getMinutes());
             setSelectedPeriod(initialDate.getHours() >= 12 ? 'PM' : 'AM');
+            setShowYearDropdown(false);
         }
     }, [isOpen, initialDate]);
 
@@ -136,12 +139,27 @@ function DateTimePickerModal({
         }
     }, [isOpen]);
 
+    // Close year dropdown when clicking outside
+    useEffect(() => {
+        if (showYearDropdown) {
+            const handleClickOutside = (e: MouseEvent) => {
+                if (yearDropdownRef.current && !yearDropdownRef.current.contains(e.target as Node)) {
+                    setShowYearDropdown(false);
+                }
+            };
+            document.addEventListener('mousedown', handleClickOutside);
+            return () => document.removeEventListener('mousedown', handleClickOutside);
+        }
+    }, [showYearDropdown]);
+
     if (!isOpen) return null;
 
     const daysInMonth = getDaysInMonth(viewYear, viewMonth);
     const firstDay = getFirstDayOfMonth(viewYear, viewMonth);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const currentYear = new Date().getFullYear();
+    const yearOptions = Array.from({ length: 10 }, (_, i) => currentYear + i);
 
     const handlePrevMonth = () => {
         if (viewMonth === 0) {
@@ -182,21 +200,21 @@ function DateTimePickerModal({
     };
 
     const scrollItemStyle = (isSelected: boolean): React.CSSProperties => ({
-        padding: '0.5rem 1rem',
+        padding: '0.75rem 1.25rem',
         textAlign: 'center',
         cursor: 'pointer',
         color: isSelected ? '#3b82f6' : '#9ca3af',
         fontWeight: isSelected ? 600 : 400,
-        fontSize: '0.9rem',
+        fontSize: '1rem',
         transition: 'all 0.15s',
-        borderRadius: '4px',
+        borderRadius: '6px',
     });
 
     return (
         <div style={{
             position: 'fixed',
             inset: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -204,10 +222,10 @@ function DateTimePickerModal({
         }} onClick={onClose}>
             <div 
                 style={{
-                    backgroundColor: '#1a1a1a',
-                    borderRadius: '8px',
-                    border: '1px solid #2a2a2a',
-                    boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+                    backgroundColor: '#141414',
+                    borderRadius: '12px',
+                    border: '2px solid #333333',
+                    boxShadow: '0 25px 80px rgba(0,0,0,0.7)',
                     display: 'flex',
                     overflow: 'hidden',
                     maxWidth: '95vw',
@@ -215,39 +233,124 @@ function DateTimePickerModal({
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Calendar Side */}
-                <div style={{ padding: '1rem', borderRight: '1px solid #2a2a2a' }}>
+                <div style={{ padding: '1.5rem', borderRight: '2px solid #333333' }}>
                     {/* Month/Year Header */}
                     <div style={{ 
                         display: 'flex', 
                         alignItems: 'center', 
                         justifyContent: 'space-between',
-                        marginBottom: '1rem',
+                        marginBottom: '1.25rem',
+                        gap: '1rem',
                     }}>
-                        <span style={{ 
-                            color: '#e0e0e0', 
-                            fontWeight: 500,
-                            fontSize: '0.9rem',
-                        }}>
-                            {MONTHS[viewMonth]} {viewYear}
-                        </span>
-                        <div style={{ display: 'flex', gap: '0.25rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', position: 'relative' }} ref={yearDropdownRef}>
+                            <span style={{ 
+                                color: '#e0e0e0', 
+                                fontWeight: 600,
+                                fontSize: '1.1rem',
+                            }}>
+                                {MONTHS[viewMonth]}
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => setShowYearDropdown(!showYearDropdown)}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.25rem',
+                                    padding: '0.375rem 0.625rem',
+                                    backgroundColor: showYearDropdown ? '#2a2a2a' : 'transparent',
+                                    border: '1px solid #444444',
+                                    borderRadius: '6px',
+                                    color: '#e0e0e0',
+                                    fontWeight: 600,
+                                    fontSize: '1.1rem',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.15s',
+                                }}
+                            >
+                                {viewYear}
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                    <path d="M6 9l6 6 6-6" />
+                                </svg>
+                            </button>
+                            
+                            {/* Year Dropdown */}
+                            {showYearDropdown && (
+                                <div style={{
+                                    position: 'absolute',
+                                    top: '100%',
+                                    left: 0,
+                                    marginTop: '0.5rem',
+                                    backgroundColor: '#1a1a1a',
+                                    border: '2px solid #444444',
+                                    borderRadius: '8px',
+                                    boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+                                    maxHeight: '200px',
+                                    overflowY: 'auto',
+                                    zIndex: 10,
+                                    minWidth: '100px',
+                                }}>
+                                    {yearOptions.map((year) => (
+                                        <button
+                                            key={year}
+                                            type="button"
+                                            onClick={() => {
+                                                setViewYear(year);
+                                                setShowYearDropdown(false);
+                                            }}
+                                            style={{
+                                                display: 'block',
+                                                width: '100%',
+                                                padding: '0.75rem 1rem',
+                                                backgroundColor: viewYear === year ? '#2563eb' : 'transparent',
+                                                border: 'none',
+                                                color: viewYear === year ? '#ffffff' : '#e0e0e0',
+                                                fontWeight: viewYear === year ? 600 : 400,
+                                                fontSize: '1rem',
+                                                cursor: 'pointer',
+                                                textAlign: 'left',
+                                                transition: 'background-color 0.15s',
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                if (viewYear !== year) e.currentTarget.style.backgroundColor = '#2a2a2a';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                if (viewYear !== year) e.currentTarget.style.backgroundColor = 'transparent';
+                                            }}
+                                        >
+                                            {year}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
                             <button
                                 type="button"
                                 onClick={handlePrevMonth}
                                 style={{
-                                    width: '28px',
-                                    height: '28px',
+                                    width: '40px',
+                                    height: '40px',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    backgroundColor: 'transparent',
-                                    border: '1px solid #3a3a3a',
-                                    borderRadius: '4px',
+                                    backgroundColor: '#1a1a1a',
+                                    border: '2px solid #444444',
+                                    borderRadius: '8px',
                                     color: '#9ca3af',
                                     cursor: 'pointer',
+                                    transition: 'all 0.15s',
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.backgroundColor = '#2a2a2a';
+                                    e.currentTarget.style.borderColor = '#555555';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor = '#1a1a1a';
+                                    e.currentTarget.style.borderColor = '#444444';
                                 }}
                             >
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                                     <path d="M15 18l-6-6 6-6" />
                                 </svg>
                             </button>
@@ -255,19 +358,28 @@ function DateTimePickerModal({
                                 type="button"
                                 onClick={handleNextMonth}
                                 style={{
-                                    width: '28px',
-                                    height: '28px',
+                                    width: '40px',
+                                    height: '40px',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    backgroundColor: 'transparent',
-                                    border: '1px solid #3a3a3a',
-                                    borderRadius: '4px',
+                                    backgroundColor: '#1a1a1a',
+                                    border: '2px solid #444444',
+                                    borderRadius: '8px',
                                     color: '#9ca3af',
                                     cursor: 'pointer',
+                                    transition: 'all 0.15s',
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.backgroundColor = '#2a2a2a';
+                                    e.currentTarget.style.borderColor = '#555555';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor = '#1a1a1a';
+                                    e.currentTarget.style.borderColor = '#444444';
                                 }}
                             >
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                                     <path d="M9 18l6-6-6-6" />
                                 </svg>
                             </button>
@@ -277,17 +389,18 @@ function DateTimePickerModal({
                     {/* Weekday Headers */}
                     <div style={{ 
                         display: 'grid', 
-                        gridTemplateColumns: 'repeat(7, 32px)',
-                        gap: '2px',
-                        marginBottom: '0.5rem',
+                        gridTemplateColumns: 'repeat(7, 44px)',
+                        gap: '4px',
+                        marginBottom: '0.75rem',
                     }}>
                         {WEEKDAYS.map((day, i) => (
                             <div key={i} style={{
                                 textAlign: 'center',
                                 color: '#6b7280',
-                                fontSize: '0.7rem',
-                                fontWeight: 500,
-                                padding: '0.25rem',
+                                fontSize: '0.85rem',
+                                fontWeight: 600,
+                                padding: '0.5rem',
+                                textTransform: 'uppercase',
                             }}>
                                 {day}
                             </div>
@@ -297,19 +410,19 @@ function DateTimePickerModal({
                     {/* Calendar Grid */}
                     <div style={{ 
                         display: 'grid', 
-                        gridTemplateColumns: 'repeat(7, 32px)',
-                        gap: '2px',
+                        gridTemplateColumns: 'repeat(7, 44px)',
+                        gap: '4px',
                     }}>
                         {/* Empty cells for days before month starts */}
                         {Array.from({ length: firstDay }).map((_, i) => (
-                            <div key={`empty-${i}`} style={{ width: '32px', height: '32px' }} />
+                            <div key={`empty-${i}`} style={{ width: '44px', height: '44px' }} />
                         ))}
                         
                         {/* Day cells */}
                         {Array.from({ length: daysInMonth }).map((_, i) => {
                             const day = i + 1;
                             const disabled = isDateDisabled(day);
-                            const selected = day === selectedDay && viewMonth === initialDate.getMonth() && viewYear === initialDate.getFullYear() ? day === selectedDay : day === selectedDay;
+                            const selected = day === selectedDay;
                             const isTodayDate = isToday(day);
                             
                             return (
@@ -319,19 +432,31 @@ function DateTimePickerModal({
                                     disabled={disabled}
                                     onClick={() => setSelectedDay(day)}
                                     style={{
-                                        width: '32px',
-                                        height: '32px',
+                                        width: '44px',
+                                        height: '44px',
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
                                         backgroundColor: selected ? '#2563eb' : 'transparent',
-                                        border: isTodayDate && !selected ? '1px solid #4b5563' : 'none',
-                                        borderRadius: '50%',
+                                        border: isTodayDate && !selected ? '2px solid #555555' : selected ? '2px solid #3b82f6' : '2px solid transparent',
+                                        borderRadius: '8px',
                                         color: disabled ? '#4b5563' : selected ? '#ffffff' : '#e0e0e0',
                                         cursor: disabled ? 'not-allowed' : 'pointer',
-                                        fontSize: '0.8rem',
-                                        fontWeight: selected ? 600 : 400,
+                                        fontSize: '1rem',
+                                        fontWeight: selected ? 700 : 500,
                                         transition: 'all 0.15s',
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        if (!disabled && !selected) {
+                                            e.currentTarget.style.backgroundColor = '#252525';
+                                            e.currentTarget.style.borderColor = '#555555';
+                                        }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        if (!disabled && !selected) {
+                                            e.currentTarget.style.backgroundColor = 'transparent';
+                                            e.currentTarget.style.borderColor = isTodayDate ? '#555555' : 'transparent';
+                                        }
                                     }}
                                 >
                                     {day}
@@ -342,17 +467,28 @@ function DateTimePickerModal({
                 </div>
 
                 {/* Time Picker Side */}
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', backgroundColor: '#181818' }}>
+                    {/* Time Header */}
+                    <div style={{
+                        padding: '1rem 1.25rem',
+                        borderBottom: '2px solid #333333',
+                        textAlign: 'center',
+                    }}>
+                        <span style={{ color: '#6b7280', fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            Select Time
+                        </span>
+                    </div>
+                    
                     <div style={{ display: 'flex', flex: 1 }}>
                         {/* Hour Column */}
                         <div 
                             ref={hourRef}
                             style={{ 
-                                width: '60px', 
-                                height: '220px',
+                                width: '80px', 
+                                height: '280px',
                                 overflowY: 'auto',
-                                borderRight: '1px solid #2a2a2a',
-                                padding: '0.5rem 0',
+                                borderRight: '2px solid #333333',
+                                padding: '0.75rem 0',
                             }}
                         >
                             {Array.from({ length: 12 }, (_, i) => i + 1).map((h) => (
@@ -377,11 +513,11 @@ function DateTimePickerModal({
                         <div 
                             ref={minuteRef}
                             style={{ 
-                                width: '60px', 
-                                height: '220px',
+                                width: '80px', 
+                                height: '280px',
                                 overflowY: 'auto',
-                                borderRight: '1px solid #2a2a2a',
-                                padding: '0.5rem 0',
+                                borderRight: '2px solid #333333',
+                                padding: '0.75rem 0',
                             }}
                         >
                             {Array.from({ length: 60 }, (_, i) => i).map((m) => (
@@ -406,12 +542,12 @@ function DateTimePickerModal({
                         <div 
                             ref={periodRef}
                             style={{ 
-                                width: '60px', 
+                                width: '80px', 
                                 display: 'flex',
                                 flexDirection: 'column',
                                 justifyContent: 'center',
-                                padding: '0.5rem',
-                                gap: '0.5rem',
+                                padding: '1rem',
+                                gap: '0.75rem',
                             }}
                         >
                             {(['AM', 'PM'] as const).map((p) => (
@@ -420,14 +556,28 @@ function DateTimePickerModal({
                                     data-selected={selectedPeriod === p}
                                     onClick={() => setSelectedPeriod(p)}
                                     style={{
-                                        ...scrollItemStyle(selectedPeriod === p),
-                                        padding: '0.75rem 0.5rem',
+                                        padding: '1rem 0.75rem',
+                                        textAlign: 'center',
+                                        cursor: 'pointer',
+                                        color: selectedPeriod === p ? '#ffffff' : '#9ca3af',
+                                        backgroundColor: selectedPeriod === p ? '#2563eb' : 'transparent',
+                                        border: selectedPeriod === p ? '2px solid #3b82f6' : '2px solid #444444',
+                                        fontWeight: selectedPeriod === p ? 700 : 500,
+                                        fontSize: '1rem',
+                                        transition: 'all 0.15s',
+                                        borderRadius: '8px',
                                     }}
                                     onMouseEnter={(e) => {
-                                        if (selectedPeriod !== p) e.currentTarget.style.backgroundColor = '#252525';
+                                        if (selectedPeriod !== p) {
+                                            e.currentTarget.style.backgroundColor = '#252525';
+                                            e.currentTarget.style.borderColor = '#555555';
+                                        }
                                     }}
                                     onMouseLeave={(e) => {
-                                        if (selectedPeriod !== p) e.currentTarget.style.backgroundColor = 'transparent';
+                                        if (selectedPeriod !== p) {
+                                            e.currentTarget.style.backgroundColor = 'transparent';
+                                            e.currentTarget.style.borderColor = '#444444';
+                                        }
                                     }}
                                 >
                                     {p}
@@ -440,41 +590,58 @@ function DateTimePickerModal({
                     <div style={{ 
                         display: 'flex', 
                         justifyContent: 'flex-end',
-                        gap: '0.5rem',
-                        padding: '0.75rem',
-                        borderTop: '1px solid #2a2a2a',
+                        gap: '0.75rem',
+                        padding: '1rem 1.25rem',
+                        borderTop: '2px solid #333333',
+                        backgroundColor: '#141414',
                     }}>
                         <button
                             type="button"
                             onClick={onClose}
                             style={{
-                                padding: '0.5rem 1rem',
-                                fontSize: '0.8rem',
-                                fontWeight: 500,
+                                padding: '0.75rem 1.5rem',
+                                fontSize: '0.9rem',
+                                fontWeight: 600,
                                 color: '#9ca3af',
                                 backgroundColor: 'transparent',
-                                border: 'none',
-                                borderRadius: '4px',
+                                border: '2px solid #444444',
+                                borderRadius: '8px',
                                 cursor: 'pointer',
+                                transition: 'all 0.15s',
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#252525';
+                                e.currentTarget.style.borderColor = '#555555';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = 'transparent';
+                                e.currentTarget.style.borderColor = '#444444';
                             }}
                         >
-                            CANCEL
+                            Cancel
                         </button>
                         <button
                             type="button"
                             onClick={handleConfirm}
                             style={{
-                                padding: '0.5rem 1rem',
-                                fontSize: '0.8rem',
-                                fontWeight: 500,
-                                color: '#3b82f6',
-                                backgroundColor: 'transparent',
-                                border: 'none',
-                                borderRadius: '4px',
+                                padding: '0.75rem 1.5rem',
+                                fontSize: '0.9rem',
+                                fontWeight: 600,
+                                color: '#ffffff',
+                                backgroundColor: '#2563eb',
+                                border: '2px solid #3b82f6',
+                                borderRadius: '8px',
                                 cursor: 'pointer',
+                                transition: 'all 0.15s',
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#1d4ed8';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = '#2563eb';
                             }}
                         >
-                            OK
+                            Confirm
                         </button>
                     </div>
                 </div>
