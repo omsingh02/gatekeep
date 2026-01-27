@@ -752,13 +752,28 @@ export default function FileList({
                                         transition: 'all 0.15s',
                                     }}
                                 >
-                                    <input
-                                        type="checkbox"
-                                        checked={selectedFolderIds.has(folder.id)}
-                                        onChange={() => toggleFolderSelection(folder.id)}
-                                        onClick={(e) => e.stopPropagation()}
-                                        style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#3b82f6' }}
-                                    />
+                                    <div
+                                        onClick={(e) => { e.stopPropagation(); toggleFolderSelection(folder.id); }}
+                                        style={{
+                                            width: '18px',
+                                            height: '18px',
+                                            borderRadius: '4px',
+                                            border: `2px solid ${selectedFolderIds.has(folder.id) ? '#3b82f6' : '#4a4a4a'}`,
+                                            backgroundColor: selectedFolderIds.has(folder.id) ? '#3b82f6' : 'transparent',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            transition: 'all 0.15s',
+                                            flexShrink: 0,
+                                        }}
+                                    >
+                                        {selectedFolderIds.has(folder.id) && (
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                                <polyline points="20 6 9 17 4 12" />
+                                            </svg>
+                                        )}
+                                    </div>
                                     <button
                                         onClick={() => handleEnterFolder(folder)}
                                         style={{
@@ -774,7 +789,9 @@ export default function FileList({
                                             minWidth: 0,
                                         }}
                                     >
-                                        <span style={{ fontSize: '1.1rem' }}>📁</span>
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="#60a5fa" stroke="none">
+                                            <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                                        </svg>
                                         <span
                                             style={{
                                                 color: '#e0e0e0',
@@ -891,12 +908,27 @@ export default function FileList({
                                 <thead>
                                     <tr style={{ borderBottom: '1px solid #3a3a3a' }}>
                                         <th style={{ padding: '0.75rem 0.5rem', textAlign: 'left', width: '40px' }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={allSelected && (files.length > 0 || folders.length > 0)}
-                                                onChange={selectAll}
-                                                style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#3b82f6' }}
-                                            />
+                                            <div
+                                                onClick={selectAll}
+                                                style={{
+                                                    width: '18px',
+                                                    height: '18px',
+                                                    borderRadius: '4px',
+                                                    border: `2px solid ${allSelected && (files.length > 0 || folders.length > 0) ? '#3b82f6' : '#4a4a4a'}`,
+                                                    backgroundColor: allSelected && (files.length > 0 || folders.length > 0) ? '#3b82f6' : 'transparent',
+                                                    cursor: 'pointer',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    transition: 'all 0.15s',
+                                                }}
+                                            >
+                                                {allSelected && (files.length > 0 || folders.length > 0) && (
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                                        <polyline points="20 6 9 17 4 12" />
+                                                    </svg>
+                                                )}
+                                            </div>
                                         </th>
                                         <th style={{ padding: '0.75rem 0.5rem', textAlign: 'left', color: '#9ca3af', fontWeight: 500 }}>NAME</th>
                                         <th style={{ padding: '0.75rem 0.5rem', textAlign: 'left', color: '#9ca3af', fontWeight: 500, width: '100px' }}>SIZE</th>
@@ -919,12 +951,27 @@ export default function FileList({
                                                 }}
                                             >
                                                 <td style={{ padding: '0.75rem 0.5rem' }}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={isSelected}
-                                                        onChange={() => toggleFileSelection(file.id)}
-                                                        style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#3b82f6' }}
-                                                    />
+                                                    <div
+                                                        onClick={() => toggleFileSelection(file.id)}
+                                                        style={{
+                                                            width: '18px',
+                                                            height: '18px',
+                                                            borderRadius: '4px',
+                                                            border: `2px solid ${isSelected ? '#3b82f6' : '#4a4a4a'}`,
+                                                            backgroundColor: isSelected ? '#3b82f6' : 'transparent',
+                                                            cursor: 'pointer',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            transition: 'all 0.15s',
+                                                        }}
+                                                    >
+                                                        {isSelected && (
+                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                                                <polyline points="20 6 9 17 4 12" />
+                                                            </svg>
+                                                        )}
+                                                    </div>
                                                 </td>
                                                 <td style={{ padding: '0.75rem 0.5rem' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -934,7 +981,10 @@ export default function FileList({
                                                                 {file.originalFilename}
                                                             </div>
                                                             {file.folderName && (
-                                                                <span style={{ fontSize: '0.75rem', color: '#60a5fa' }}>📁 {file.folderName}</span>
+                                                                <span style={{ fontSize: '0.75rem', color: '#60a5fa', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="#60a5fa" stroke="none"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
+                                                                    {file.folderName}
+                                                                </span>
                                                             )}
                                                         </div>
                                                     </div>
@@ -999,12 +1049,28 @@ export default function FileList({
                                             transition: 'all 0.15s',
                                         }}
                                     >
-                                        <input
-                                            type="checkbox"
-                                            checked={isSelected}
-                                            onChange={() => toggleFileSelection(file.id)}
-                                            style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#3b82f6' }}
-                                        />
+                                        <div
+                                            onClick={() => toggleFileSelection(file.id)}
+                                            style={{
+                                                width: '18px',
+                                                height: '18px',
+                                                borderRadius: '4px',
+                                                border: `2px solid ${isSelected ? '#3b82f6' : '#4a4a4a'}`,
+                                                backgroundColor: isSelected ? '#3b82f6' : 'transparent',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                transition: 'all 0.15s',
+                                                flexShrink: 0,
+                                            }}
+                                        >
+                                            {isSelected && (
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                                    <polyline points="20 6 9 17 4 12" />
+                                                </svg>
+                                            )}
+                                        </div>
                                         <div style={{ fontSize: '1.5rem', opacity: 0.7 }}>{typeInfo.icon}</div>
                                         <div style={{ flex: 1, minWidth: 0 }}>
                                             <h3 style={{ fontWeight: 500, color: '#e0e0e0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0, fontSize: '0.95rem' }}>
@@ -1014,8 +1080,9 @@ export default function FileList({
                                                 <span style={{ fontSize: '0.8rem', color: '#9ca3af' }}>{formatFileSize(file.fileSize)}</span>
                                                 <span style={{ fontSize: '0.75rem', color: '#6b7280', padding: '0.125rem 0.5rem', borderRadius: '3px', backgroundColor: '#1a1a1a' }}>{typeInfo.category}</span>
                                                 {file.folderName && (
-                                                    <span style={{ fontSize: '0.75rem', color: '#60a5fa', padding: '0.125rem 0.5rem', borderRadius: '3px', backgroundColor: 'rgba(59, 130, 246, 0.1)' }}>
-                                                        📁 {file.folderName}
+                                                    <span style={{ fontSize: '0.75rem', color: '#60a5fa', padding: '0.125rem 0.5rem', borderRadius: '3px', backgroundColor: 'rgba(59, 130, 246, 0.1)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="#60a5fa" stroke="none"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
+                                                        {file.folderName}
                                                     </span>
                                                 )}
                                                 <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>{formatDateTime(file.createdAt)}</span>
@@ -1281,7 +1348,10 @@ export default function FileList({
                                 textAlign: 'left',
                             }}
                         >
-                            <span style={{ fontSize: '1rem' }}>🏠</span>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                <polyline points="9 22 9 12 15 12 15 22" />
+                            </svg>
                             <span style={{ color: '#e0e0e0', fontWeight: 500 }}>Root (Home)</span>
                         </button>
                         {allFolders
@@ -1304,7 +1374,9 @@ export default function FileList({
                                         textAlign: 'left',
                                     }}
                                 >
-                                    <span style={{ fontSize: '1rem' }}>📁</span>
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="#60a5fa" stroke="none">
+                                        <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                                    </svg>
                                     <span style={{ color: '#e0e0e0' }}>{folder.name}</span>
                                 </button>
                             ))}
