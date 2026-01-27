@@ -143,6 +143,11 @@ export default function FileList({
                 params.append('folderId', currentFolder.id);
             }
 
+            // For recent files view (no folder navigation), show all files across folders
+            if (!showFolderNavigation) {
+                params.append('showAll', 'true');
+            }
+
             if (params.toString()) {
                 url += `?${params.toString()}`;
             }

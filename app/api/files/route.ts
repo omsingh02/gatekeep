@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
         const search = searchParams.get('search');
         const fileType = searchParams.get('fileType');
         const folderId = searchParams.get('folderId');
+        const showAll = searchParams.get('showAll') === 'true'; // For recent files view
         const limitNum = limit ? parseInt(limit, 10) : 20; // Default 20 items per page
         const pageNum = page ? parseInt(page, 10) : 1;
 
@@ -86,9 +87,13 @@ export async function GET(request: NextRequest) {
             }
         }
 
-        // Filter by folder when provided
+        // Filter by folder - Google Drive-like behavior
+        // When showAll is false (default), filter to current folder level
         if (folderId) {
             query = query.eq('folder_id', folderId);
+        } else if (!showAll && !search) {
+            // At root level: only show files with no folder (unless searching or showing all)
+            query = query.is('folder_id', null);
         }
 
         query = query
