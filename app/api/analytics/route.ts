@@ -95,6 +95,7 @@ export async function GET(request: NextRequest) {
                 accessGranted: log.access_granted,
                 ipAddress: log.ip_address,
                 accessedAt: log.accessed_at,
+                denialReason: log.denial_reason,
             };
         });
 

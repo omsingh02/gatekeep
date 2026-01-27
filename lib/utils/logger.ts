@@ -3,14 +3,53 @@
  * Minimal logger that adds context without external dependencies.
  * 
  * Usage:
- *   logError('/api/presign', userId, 'generate-upload-url', error, { filename: 'test.jpg' })
+ *   const reqId = generateRequestId();
+ *   logInfo('/api/verify', 'access-attempt', { requestId: reqId, shortCode: 'abc123' });
+ *   logError('/api/presign', userId, 'generate-upload-url', error, { requestId: reqId });
  * 
- * Logs to console.error in JSON format for easy parsing in production logs.
+ * Logs to console in JSON format for easy parsing in production logs.
+ * These are SERVER-SIDE ONLY logs - never visible to end users.
  * Never logs sensitive data (passwords, tokens, full email addresses).
  */
 
 interface LogContext {
     [key: string]: string | number | boolean | undefined;
+}
+
+/**
+ * Generate a short unique request ID for correlating logs
+ */
+export function generateRequestId(): string {
+    return Math.random().toString(36).substring(2, 10);
+}
+
+function redactSensitive(context: LogContext): LogContext {
+    return Object.entries(context).reduce((acc, [key, val]) => {
+        if (key.toLowerCase().includes('password') || 
+            key.toLowerCase().includes('token') || 
+            key.toLowerCase().includes('secret')) {
+            acc[key] = '[REDACTED]';
+        } else {
+            acc[key] = val;
+        }
+        return acc;
+    }, {} as LogContext);
+}
+
+export function logInfo(
+    route: string,
+    action: string,
+    context?: LogContext
+): void {
+    const logEntry = {
+        timestamp: new Date().toISOString(),
+        level: 'INFO',
+        route,
+        action,
+        ...(context && redactSensitive(context)),
+    };
+
+    console.log(JSON.stringify(logEntry));
 }
 
 export function logError(
@@ -31,17 +70,7 @@ export function logError(
         action,
         errorType,
         errorMessage,
-        ...(context && Object.entries(context).reduce((acc, [key, val]) => {
-            // Redact sensitive keys
-            if (key.toLowerCase().includes('password') || 
-                key.toLowerCase().includes('token') || 
-                key.toLowerCase().includes('secret')) {
-                acc[key] = '[REDACTED]';
-            } else {
-                acc[key] = val;
-            }
-            return acc;
-        }, {} as LogContext)),
+        ...(context && redactSensitive(context)),
     };
 
     console.error(JSON.stringify(logEntry));
@@ -59,16 +88,7 @@ export function logWarning(
         route,
         action,
         message,
-        ...(context && Object.entries(context).reduce((acc, [key, val]) => {
-            if (key.toLowerCase().includes('password') || 
-                key.toLowerCase().includes('token') || 
-                key.toLowerCase().includes('secret')) {
-                acc[key] = '[REDACTED]';
-            } else {
-                acc[key] = val;
-            }
-            return acc;
-        }, {} as LogContext)),
+        ...(context && redactSensitive(context)),
     };
 
     console.warn(JSON.stringify(logEntry));

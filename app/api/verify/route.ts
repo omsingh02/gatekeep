@@ -4,13 +4,18 @@ import { verifyPassword } from '@/lib/utils/crypto';
 import { generateAccessToken, hashToken } from '@/lib/utils/tokens';
 import { rateLimit, getClientIdentifier } from '@/lib/utils/ratelimit';
 import { sanitizeUserIdentifier, sanitizeShortCode } from '@/lib/utils/sanitization';
+import { generateRequestId, logInfo } from '@/lib/utils/logger';
+
+type DenialReason = 'file_not_found' | 'no_access_grant' | 'expired' | 'wrong_password' | 'download_limit' | 'invalid_session' | 'session_expired';
 
 // Helper to log access attempts
 async function logAccess(
     fileId: string,
     userIdentifier: string,
     granted: boolean,
-    request: NextRequest
+    request: NextRequest,
+    requestId: string,
+    denialReason?: DenialReason
 ) {
     const adminClient = createAdminClient();
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim() || 
@@ -24,10 +29,14 @@ async function logAccess(
         access_granted: granted,
         ip_address: ip,
         user_agent: userAgent,
+        request_id: requestId,
+        denial_reason: denialReason || null,
     } as any);
 }
 
 export async function POST(request: NextRequest) {
+    const requestId = generateRequestId();
+    
     try {
         // Rate limiting: 5 attempts per minute per IP
         const identifier = getClientIdentifier(request);
@@ -83,7 +92,7 @@ export async function POST(request: NextRequest) {
 
         if (fileError || !file) {
             // Log failed attempt (file not found)
-            await logAccess('00000000-0000-0000-0000-000000000000', sanitizedUserIdentifier || 'public', false, request);
+            await logAccess('00000000-0000-0000-0000-000000000000', sanitizedUserIdentifier || 'public', false, request, requestId, 'file_not_found');
             return NextResponse.json({ error: 'File not found' }, { status: 404 });
         }
 
@@ -129,13 +138,13 @@ export async function POST(request: NextRequest) {
         }
 
         if (!access) {
-            await logAccess((file as any).id, sanitizedUserIdentifier || 'public', false, request);
+            await logAccess((file as any).id, sanitizedUserIdentifier || 'public', false, request, requestId, 'no_access_grant');
             return NextResponse.json({ error: 'Access denied' }, { status: 403 });
         }
 
         // Check if expired
         if ((access as any).expires_at && new Date((access as any).expires_at) < new Date()) {
-            await logAccess((file as any).id, sanitizedUserIdentifier || 'public', false, request);
+            await logAccess((file as any).id, sanitizedUserIdentifier || 'public', false, request, requestId, 'expired');
             return NextResponse.json({ error: 'Access expired' }, { status: 403 });
         }
 
@@ -143,7 +152,7 @@ export async function POST(request: NextRequest) {
         const maxDownloads = (access as any).max_downloads;
         const downloadCount = (access as any).download_count || 0;
         if (maxDownloads !== null && downloadCount >= maxDownloads) {
-            await logAccess((file as any).id, sanitizedUserIdentifier || 'public', false, request);
+            await logAccess((file as any).id, sanitizedUserIdentifier || 'public', false, request, requestId, 'download_limit');
             return NextResponse.json({ error: 'Download limit reached' }, { status: 403 });
         }
 
@@ -154,19 +163,20 @@ export async function POST(request: NextRequest) {
             // Session token authentication
             const tokenHash = await hashToken(sessionToken);
             if ((access as any).session_token !== tokenHash) {
+                await logAccess((file as any).id, sanitizedUserIdentifier || 'public', false, request, requestId, 'invalid_session');
                 return NextResponse.json({ error: 'Invalid session' }, { status: 403 });
             }
 
             // Check if session expired
             if ((access as any).session_expires_at && new Date((access as any).session_expires_at) < new Date()) {
-                await logAccess((file as any).id, sanitizedUserIdentifier || 'public', false, request);
+                await logAccess((file as any).id, sanitizedUserIdentifier || 'public', false, request, requestId, 'session_expired');
                 return NextResponse.json({ error: 'Session expired' }, { status: 403 });
             }
         } else if (password) {
             // Password authentication - create new session
             const isValid = await verifyPassword(password, (access as any).password_hash);
             if (!isValid) {
-                await logAccess((file as any).id, sanitizedUserIdentifier || 'public', false, request);
+                await logAccess((file as any).id, sanitizedUserIdentifier || 'public', false, request, requestId, 'wrong_password');
                 return NextResponse.json({ error: 'Invalid password' }, { status: 403 });
             }
 
@@ -186,7 +196,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Log successful access
-        await logAccess((file as any).id, sanitizedUserIdentifier || 'public', true, request);
+        await logAccess((file as any).id, sanitizedUserIdentifier || 'public', true, request, requestId);
 
         // Update access_count (page views) and timestamp
         // download_count is now tracked separately in /api/access/download when user actually downloads

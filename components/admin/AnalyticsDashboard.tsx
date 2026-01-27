@@ -11,6 +11,7 @@ interface ActivityLog {
     accessGranted: boolean;
     ipAddress: string;
     accessedAt: string;
+    denialReason?: string;
 }
 
 interface FileStats {
@@ -201,6 +202,9 @@ export default function AnalyticsDashboard() {
                                         Status
                                     </th>
                                     <th style={{ textAlign: 'left', padding: '0.5rem 0.75rem', fontSize: '0.7rem', color: '#6b7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                        Reason
+                                    </th>
+                                    <th style={{ textAlign: 'left', padding: '0.5rem 0.75rem', fontSize: '0.7rem', color: '#6b7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                         File
                                     </th>
                                     <th style={{ textAlign: 'left', padding: '0.5rem 0.75rem', fontSize: '0.7rem', color: '#6b7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -229,6 +233,9 @@ export default function AnalyticsDashboard() {
                                             }}>
                                                 {log.accessGranted ? 'OK' : 'DENIED'}
                                             </span>
+                                        </td>
+                                        <td style={{ padding: '0.5rem 0.75rem', fontSize: '0.75rem', color: '#9ca3af' }}>
+                                            {log.denialReason ? log.denialReason.replace(/_/g, ' ') : '-'}
                                         </td>
                                         <td style={{ padding: '0.5rem 0.75rem', fontSize: '0.8rem', color: '#e0e0e0', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                             {log.filename}
