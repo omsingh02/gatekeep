@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
         
         let query = adminClient
             .from('files')
-            .select('*', { count: 'exact' })
+            .select('*, folders!folder_id(id, name)', { count: 'exact' })
             .eq('uploaded_by', user.id)
             .is('deleted_at', null);
 
@@ -114,6 +114,7 @@ export async function GET(request: NextRequest) {
             createdAt: file.created_at,
             updatedAt: file.updated_at,
             folderId: file.folder_id,
+            folderName: file.folders?.name || null,
             shortUrl: `${env.app.url}/${file.short_code}`,
         }));
 

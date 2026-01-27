@@ -93,6 +93,7 @@ export interface FileMetadata {
     updatedAt: string;
     shortUrl?: string;
     folderId?: string | null;
+    folderName?: string | null;
 }
 
 export interface FileAccess {

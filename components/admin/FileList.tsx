@@ -588,7 +588,7 @@ export default function FileList({
                                         >
                                             {file.originalFilename}
                                         </h3>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.25rem' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.25rem', flexWrap: 'wrap' }}>
                                             <span style={{ fontSize: '0.8rem', color: '#9ca3af' }}>{formatFileSize(file.fileSize)}</span>
                                             <span
                                                 style={{
@@ -601,6 +601,22 @@ export default function FileList({
                                             >
                                                 {typeInfo.category}
                                             </span>
+                                            {file.folderName && (
+                                                <span
+                                                    style={{
+                                                        fontSize: '0.75rem',
+                                                        color: '#60a5fa',
+                                                        padding: '0.125rem 0.5rem',
+                                                        borderRadius: '3px',
+                                                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '0.25rem',
+                                                    }}
+                                                >
+                                                    📁 {file.folderName}
+                                                </span>
+                                            )}
                                             <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>{formatDateTime(file.createdAt)}</span>
                                         </div>
                                     </div>
