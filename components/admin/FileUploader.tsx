@@ -23,12 +23,105 @@ interface PresignResponse {
     };
 }
 
+interface FileWithPath extends File {
+    relativePath?: string;
+}
+
 export default function FileUploader({ onUploadComplete }: FileUploaderProps) {
     const [isDragging, setIsDragging] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
     const [error, setError] = useState('');
     const abortControllerRef = useRef<AbortController | null>(null);
+
+    /**
+     * Recursively reads all files from a directory entry
+     */
+    const readDirectoryEntries = async (directoryEntry: FileSystemDirectoryEntry, basePath: string = ''): Promise<FileWithPath[]> => {
+        const files: FileWithPath[] = [];
+        const reader = directoryEntry.createReader();
+        
+        const readEntries = (): Promise<FileSystemEntry[]> => {
+            return new Promise((resolve, reject) => {
+                reader.readEntries(resolve, reject);
+            });
+        };
+
+        // Read entries in batches (readEntries may not return all at once)
+        let entries: FileSystemEntry[] = [];
+        let batch: FileSystemEntry[];
+        do {
+            batch = await readEntries();
+            entries = entries.concat(batch);
+        } while (batch.length > 0);
+
+        for (const entry of entries) {
+            const entryPath = basePath ? `${basePath}/${entry.name}` : entry.name;
+            
+            if (entry.isFile) {
+                const fileEntry = entry as FileSystemFileEntry;
+                const file = await new Promise<FileWithPath>((resolve, reject) => {
+                    fileEntry.file((f) => {
+                        const fileWithPath = f as FileWithPath;
+                        fileWithPath.relativePath = entryPath;
+                        resolve(fileWithPath);
+                    }, reject);
+                });
+                files.push(file);
+            } else if (entry.isDirectory) {
+                const dirEntry = entry as FileSystemDirectoryEntry;
+                const subFiles = await readDirectoryEntries(dirEntry, entryPath);
+                files.push(...subFiles);
+            }
+        }
+        
+        return files;
+    };
+
+    /**
+     * Process dropped items and extract files from folders
+     */
+    const processDroppedItems = async (dataTransfer: DataTransfer): Promise<FileWithPath[]> => {
+        const files: FileWithPath[] = [];
+        const items = dataTransfer.items;
+
+        // Check if webkitGetAsEntry is available (for folder support)
+        if (items && items.length > 0 && items[0].webkitGetAsEntry) {
+            const entries: FileSystemEntry[] = [];
+            
+            for (let i = 0; i < items.length; i++) {
+                const entry = items[i].webkitGetAsEntry();
+                if (entry) {
+                    entries.push(entry);
+                }
+            }
+
+            for (const entry of entries) {
+                if (entry.isFile) {
+                    const fileEntry = entry as FileSystemFileEntry;
+                    const file = await new Promise<FileWithPath>((resolve, reject) => {
+                        fileEntry.file((f) => {
+                            const fileWithPath = f as FileWithPath;
+                            fileWithPath.relativePath = f.name;
+                            resolve(fileWithPath);
+                        }, reject);
+                    });
+                    files.push(file);
+                } else if (entry.isDirectory) {
+                    const dirEntry = entry as FileSystemDirectoryEntry;
+                    const subFiles = await readDirectoryEntries(dirEntry, entry.name);
+                    files.push(...subFiles);
+                }
+            }
+        } else {
+            // Fallback: just use files directly
+            const fileList = Array.from(dataTransfer.files) as FileWithPath[];
+            fileList.forEach(f => f.relativePath = f.name);
+            files.push(...fileList);
+        }
+
+        return files;
+    };
 
     const handleDragOver = useCallback((e: React.DragEvent) => {
         e.preventDefault();
@@ -40,25 +133,40 @@ export default function FileUploader({ onUploadComplete }: FileUploaderProps) {
         setIsDragging(false);
     }, []);
 
-    const handleDrop = useCallback((e: React.DragEvent) => {
+    const handleDrop = useCallback(async (e: React.DragEvent) => {
         e.preventDefault();
         setIsDragging(false);
 
-        const files = Array.from(e.dataTransfer.files);
-        handleFiles(files);
+        try {
+            const files = await processDroppedItems(e.dataTransfer);
+            if (files.length > 0) {
+                handleFiles(files);
+            }
+        } catch (err) {
+            setError('Failed to process dropped items');
+        }
     }, []);
 
     const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files) {
-            const files = Array.from(e.target.files);
+            const files = Array.from(e.target.files) as FileWithPath[];
+            // For folder selection, webkitRelativePath contains the relative path
+            files.forEach(f => {
+                const webkitPath = (f as any).webkitRelativePath;
+                f.relativePath = webkitPath || f.name;
+            });
             handleFiles(files);
+            // Reset input value to allow selecting the same folder again
+            e.target.value = '';
         }
     }, []);
 
     /**
      * Upload a single file using presigned URL (direct to Supabase)
      */
-    const uploadFileWithPresignedUrl = async (file: File): Promise<void> => {
+    const uploadFileWithPresignedUrl = async (file: FileWithPath): Promise<void> => {
+        const displayName = file.relativePath || file.name;
+        
         // Step 1: Get presigned upload URL from our API
         const presignResponse = await fetch('/api/files/presign', {
             method: 'POST',
@@ -85,7 +193,7 @@ export default function FileUploader({ onUploadComplete }: FileUploaderProps) {
             xhr.upload.addEventListener('progress', (event) => {
                 if (event.lengthComputable) {
                     const percentComplete = Math.round((event.loaded / event.total) * 95); // Reserve 5% for confirm
-                    setUploadProgress(prev => ({ ...prev, [file.name]: percentComplete }));
+                    setUploadProgress(prev => ({ ...prev, [displayName]: percentComplete }));
                 }
             });
 
@@ -119,7 +227,7 @@ export default function FileUploader({ onUploadComplete }: FileUploaderProps) {
         });
 
         // Step 3: Confirm upload and save metadata
-        setUploadProgress(prev => ({ ...prev, [file.name]: 97 }));
+        setUploadProgress(prev => ({ ...prev, [displayName]: 97 }));
         
         const confirmResponse = await fetch('/api/files/confirm', {
             method: 'POST',
@@ -134,10 +242,10 @@ export default function FileUploader({ onUploadComplete }: FileUploaderProps) {
             throw new Error(errorData.error || 'Failed to confirm upload');
         }
 
-        setUploadProgress(prev => ({ ...prev, [file.name]: 100 }));
+        setUploadProgress(prev => ({ ...prev, [displayName]: 100 }));
     };
 
-    const handleFiles = async (files: File[]) => {
+    const handleFiles = async (files: FileWithPath[]) => {
         setError('');
         setIsUploading(true);
 
@@ -146,10 +254,11 @@ export default function FileUploader({ onUploadComplete }: FileUploaderProps) {
                 // Client-side validation
                 const validation = validateFile(file);
                 if (!validation.valid) {
-                    throw new Error(validation.error);
+                    throw new Error(`${file.relativePath || file.name}: ${validation.error}`);
                 }
 
-                setUploadProgress(prev => ({ ...prev, [file.name]: 0 }));
+                const displayName = file.relativePath || file.name;
+                setUploadProgress(prev => ({ ...prev, [displayName]: 0 }));
 
                 // Use presigned URL upload for all files
                 await uploadFileWithPresignedUrl(file);
@@ -204,10 +313,10 @@ export default function FileUploader({ onUploadComplete }: FileUploaderProps) {
                             color: '#e0e0e0',
                             marginBottom: '0.25rem',
                         }}>
-                            Drop files here or click to browse
+                            Drop files or folders here
                         </p>
                         <p style={{ fontSize: '0.875rem', color: '#9ca3af' }}>
-                            Max {formatFileSize(getMaxFileSize())} • Images, Videos, Audio, Documents, PDFs
+                            Max {formatFileSize(getMaxFileSize())} per file • Supports folders
                         </p>
                     </div>
 
@@ -220,31 +329,68 @@ export default function FileUploader({ onUploadComplete }: FileUploaderProps) {
                         disabled={isUploading}
                     />
 
-                    <button
-                        type="button"
-                        onClick={() => document.getElementById('file-upload')?.click()}
+                    {/* @ts-expect-error webkitdirectory is a non-standard attribute */}
+                    <input
+                        type="file"
+                        id="folder-upload"
+                        webkitdirectory=""
+                        onChange={handleFileSelect}
+                        style={{ display: 'none' }}
                         disabled={isUploading}
-                        style={{
-                            padding: '0.625rem 1.5rem',
-                            fontSize: '0.875rem',
-                            fontWeight: 500,
-                            color: 'white',
-                            backgroundColor: '#3b82f6',
-                            border: 'none',
-                            borderRadius: '4px',
-                            cursor: isUploading ? 'not-allowed' : 'pointer',
-                            opacity: isUploading ? 0.6 : 1,
-                            transition: 'all 0.2s',
-                        }}
-                        onMouseEnter={(e) => {
-                            if (!isUploading) e.currentTarget.style.backgroundColor = '#2563eb';
-                        }}
-                        onMouseLeave={(e) => {
-                            if (!isUploading) e.currentTarget.style.backgroundColor = '#3b82f6';
-                        }}
-                    >
-                        {isUploading ? 'Uploading...' : 'Select Files'}
-                    </button>
+                    />
+
+                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                        <button
+                            type="button"
+                            onClick={() => document.getElementById('file-upload')?.click()}
+                            disabled={isUploading}
+                            style={{
+                                padding: '0.625rem 1.5rem',
+                                fontSize: '0.875rem',
+                                fontWeight: 500,
+                                color: 'white',
+                                backgroundColor: '#3b82f6',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: isUploading ? 'not-allowed' : 'pointer',
+                                opacity: isUploading ? 0.6 : 1,
+                                transition: 'all 0.2s',
+                            }}
+                            onMouseEnter={(e) => {
+                                if (!isUploading) e.currentTarget.style.backgroundColor = '#2563eb';
+                            }}
+                            onMouseLeave={(e) => {
+                                if (!isUploading) e.currentTarget.style.backgroundColor = '#3b82f6';
+                            }}
+                        >
+                            {isUploading ? 'Uploading...' : 'Select Files'}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => document.getElementById('folder-upload')?.click()}
+                            disabled={isUploading}
+                            style={{
+                                padding: '0.625rem 1.5rem',
+                                fontSize: '0.875rem',
+                                fontWeight: 500,
+                                color: '#e0e0e0',
+                                backgroundColor: 'transparent',
+                                border: '1px solid #3a3a3a',
+                                borderRadius: '4px',
+                                cursor: isUploading ? 'not-allowed' : 'pointer',
+                                opacity: isUploading ? 0.6 : 1,
+                                transition: 'all 0.2s',
+                            }}
+                            onMouseEnter={(e) => {
+                                if (!isUploading) e.currentTarget.style.borderColor = '#6b7280';
+                            }}
+                            onMouseLeave={(e) => {
+                                if (!isUploading) e.currentTarget.style.borderColor = '#3a3a3a';
+                            }}
+                        >
+                            Select Folder
+                        </button>
+                    </div>
                 </div>
             </div>
 
