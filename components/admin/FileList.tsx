@@ -656,7 +656,7 @@ export default function FileList({
                 </div>
             )}
 
-            {/* Folder Navigation */}
+            {/* Folder Navigation - Breadcrumbs and New Folder */}
             {showFolderNavigation && (
             <div
                 style={{
@@ -666,8 +666,10 @@ export default function FileList({
                     border: '1px solid #3a3a3a',
                     backgroundColor: '#1f1f1f',
                     display: 'flex',
-                    flexDirection: 'column',
-                    gap: '0.75rem',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '1rem',
+                    flexWrap: 'wrap',
                 }}
             >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -694,175 +696,26 @@ export default function FileList({
                     ))}
                 </div>
 
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                    <button
-                        onClick={() => setFolderPrompt({ isOpen: true, isLoading: false, mode: 'create' })}
-                        style={{
-                            padding: '0.5rem 0.85rem',
-                            fontSize: '0.85rem',
-                            color: '#e0e0e0',
-                            backgroundColor: '#2563eb',
-                            border: 'none',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            fontWeight: 500,
-                        }}
-                    >
-                        New Folder
-                    </button>
-
-                    {currentFolder.id && breadcrumbs.length > 1 && (
-                        <button
-                            onClick={() => handleBreadcrumbClick(Math.max(0, breadcrumbs.length - 2))}
-                            style={{
-                                padding: '0.5rem 0.85rem',
-                                fontSize: '0.85rem',
-                                color: '#9ca3af',
-                                backgroundColor: 'transparent',
-                                border: '1px solid #3a3a3a',
-                                borderRadius: '4px',
-                                cursor: 'pointer',
-                            }}
-                        >
-                            Up one level
-                        </button>
-                    )}
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    {isFoldersLoading ? (
-                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                            {Array.from({ length: 3 }).map((_, idx) => (
-                                <div
-                                    key={idx}
-                                    style={{
-                                        minWidth: '180px',
-                                        flex: '1',
-                                        padding: '0.75rem',
-                                        borderRadius: '6px',
-                                        border: '1px solid #3a3a3a',
-                                        backgroundColor: '#252525',
-                                    }}
-                                >
-                                    <Skeleton width="80px" height="14px" />
-                                </div>
-                            ))}
-                        </div>
-                    ) : folders.length === 0 ? (
-                        <p style={{ margin: 0, fontSize: '0.85rem', color: '#9ca3af' }}>No folders here yet</p>
-                    ) : (
-                        <div style={{ display: 'grid', gap: '0.5rem', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))' }}>
-                            {folders.map((folder) => (
-                                <div
-                                    key={folder.id}
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '0.5rem',
-                                        padding: '0.6rem 0.75rem',
-                                        borderRadius: '6px',
-                                        border: `1px solid ${selectedFolderIds.has(folder.id) ? '#3b82f6' : '#3a3a3a'}`,
-                                        backgroundColor: selectedFolderIds.has(folder.id) ? '#1e3a5f' : '#252525',
-                                        transition: 'all 0.15s',
-                                    }}
-                                >
-                                    <div
-                                        onClick={(e) => { e.stopPropagation(); toggleFolderSelection(folder.id); }}
-                                        style={{
-                                            width: '18px',
-                                            height: '18px',
-                                            borderRadius: '4px',
-                                            border: `2px solid ${selectedFolderIds.has(folder.id) ? '#3b82f6' : '#4a4a4a'}`,
-                                            backgroundColor: selectedFolderIds.has(folder.id) ? '#3b82f6' : 'transparent',
-                                            cursor: 'pointer',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            transition: 'all 0.15s',
-                                            flexShrink: 0,
-                                        }}
-                                    >
-                                        {selectedFolderIds.has(folder.id) && (
-                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                                                <polyline points="20 6 9 17 4 12" />
-                                            </svg>
-                                        )}
-                                    </div>
-                                    <button
-                                        onClick={() => handleEnterFolder(folder)}
-                                        style={{
-                                            flex: 1,
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '0.5rem',
-                                            background: 'none',
-                                            border: 'none',
-                                            cursor: 'pointer',
-                                            textAlign: 'left',
-                                            padding: 0,
-                                            minWidth: 0,
-                                        }}
-                                    >
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="#60a5fa" stroke="none">
-                                            <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                                        </svg>
-                                        <span
-                                            style={{
-                                                color: '#e0e0e0',
-                                                fontWeight: 500,
-                                                overflow: 'hidden',
-                                                textOverflow: 'ellipsis',
-                                                whiteSpace: 'nowrap',
-                                                fontSize: '0.9rem',
-                                            }}
-                                        >
-                                            {folder.name}
-                                        </span>
-                                    </button>
-                                    <div style={{ display: 'flex', gap: '0.25rem' }}>
-                                        <button
-                                            onClick={() => handleRenameFolder(folder)}
-                                            title="Rename"
-                                            style={{
-                                                padding: '0.3rem',
-                                                backgroundColor: 'transparent',
-                                                border: 'none',
-                                                borderRadius: '3px',
-                                                cursor: 'pointer',
-                                                color: '#6b7280',
-                                            }}
-                                        >
-                                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                            </svg>
-                                        </button>
-                                        <button
-                                            onClick={() => confirmDeleteFolder(folder)}
-                                            title="Delete"
-                                            style={{
-                                                padding: '0.3rem',
-                                                backgroundColor: 'transparent',
-                                                border: 'none',
-                                                borderRadius: '3px',
-                                                cursor: 'pointer',
-                                                color: '#ef4444',
-                                            }}
-                                        >
-                                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                            </svg>
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
+                <button
+                    onClick={() => setFolderPrompt({ isOpen: true, isLoading: false, mode: 'create' })}
+                    style={{
+                        padding: '0.5rem 0.85rem',
+                        fontSize: '0.85rem',
+                        color: '#e0e0e0',
+                        backgroundColor: '#2563eb',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontWeight: 500,
+                    }}
+                >
+                    New Folder
+                </button>
             </div>
             )}
 
-            {/* File List */}
-            {files.length === 0 ? (
+            {/* File and Folder List */}
+            {files.length === 0 && (!showFolderNavigation || folders.length === 0) ? (
                 <div className="text-center py-12">
                     <div className="w-16 h-16 bg-[var(--background)] rounded mx-auto mb-4 flex items-center justify-center">
                         <svg className="w-8 h-8 text-[var(--text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -953,6 +806,91 @@ export default function FileList({
                                     </tr>
                                 </thead>
                                 <tbody>
+                                    {/* Folders first */}
+                                    {showFolderNavigation && folders.map((folder) => {
+                                        const isSelected = selectedFolderIds.has(folder.id);
+                                        return (
+                                            <tr
+                                                key={`folder-${folder.id}`}
+                                                style={{
+                                                    borderBottom: '1px solid #2a2a2a',
+                                                    backgroundColor: isSelected ? '#1e3a5f' : 'transparent',
+                                                    transition: 'background-color 0.15s',
+                                                    cursor: 'pointer',
+                                                }}
+                                                onDoubleClick={() => handleEnterFolder(folder)}
+                                            >
+                                                <td style={{ padding: '0.75rem 0.5rem' }}>
+                                                    <div
+                                                        onClick={(e) => { e.stopPropagation(); toggleFolderSelection(folder.id); }}
+                                                        style={{
+                                                            width: '18px',
+                                                            height: '18px',
+                                                            borderRadius: '4px',
+                                                            border: `2px solid ${isSelected ? '#3b82f6' : '#4a4a4a'}`,
+                                                            backgroundColor: isSelected ? '#3b82f6' : 'transparent',
+                                                            cursor: 'pointer',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            transition: 'all 0.15s',
+                                                        }}
+                                                    >
+                                                        {isSelected && (
+                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                                                <polyline points="20 6 9 17 4 12" />
+                                                            </svg>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td style={{ padding: '0.75rem 0.5rem' }}>
+                                                    <button
+                                                        onClick={() => handleEnterFolder(folder)}
+                                                        style={{
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '0.5rem',
+                                                            background: 'none',
+                                                            border: 'none',
+                                                            cursor: 'pointer',
+                                                            padding: 0,
+                                                        }}
+                                                    >
+                                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="#60a5fa" stroke="none">
+                                                            <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                                                        </svg>
+                                                        <span style={{ color: '#e0e0e0', fontWeight: 500 }}>{folder.name}</span>
+                                                    </button>
+                                                </td>
+                                                <td style={{ padding: '0.75rem 0.5rem', color: '#6b7280' }}>—</td>
+                                                <td style={{ padding: '0.75rem 0.5rem', color: '#6b7280', fontSize: '0.8rem' }}>{formatDateTime(folder.createdAt)}</td>
+                                                <td style={{ padding: '0.75rem 0.5rem', color: '#6b7280', fontSize: '0.8rem' }}>{formatDateTime(folder.createdAt)}</td>
+                                                <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.25rem' }}>
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); handleRenameFolder(folder); }}
+                                                            title="Rename"
+                                                            style={{ padding: '0.3rem', backgroundColor: 'transparent', border: 'none', borderRadius: '3px', cursor: 'pointer', color: '#6b7280' }}
+                                                        >
+                                                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                            </svg>
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); confirmDeleteFolder(folder); }}
+                                                            title="Delete"
+                                                            style={{ padding: '0.3rem', backgroundColor: 'transparent', border: 'none', borderRadius: '3px', cursor: 'pointer', color: '#ef4444' }}
+                                                        >
+                                                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                            </svg>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                    {/* Files */}
                                     {files.map((file) => {
                                         const typeInfo = getFileTypeInfo(file.mimeType);
                                         const isSelected = selectedFileIds.has(file.id);
@@ -1047,6 +985,110 @@ export default function FileList({
                     ) : (
                         /* Card Grid View */
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+                            {/* Folder Cards */}
+                            {showFolderNavigation && folders.map((folder) => {
+                                const isSelected = selectedFolderIds.has(folder.id);
+                                return (
+                                    <div
+                                        key={`folder-${folder.id}`}
+                                        style={{
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            padding: '1rem',
+                                            borderRadius: '8px',
+                                            border: `1px solid ${isSelected ? '#3b82f6' : '#3a3a3a'}`,
+                                            backgroundColor: isSelected ? '#1e3a5f' : '#252525',
+                                            transition: 'all 0.15s',
+                                            position: 'relative',
+                                            cursor: 'pointer',
+                                        }}
+                                        onDoubleClick={() => handleEnterFolder(folder)}
+                                    >
+                                        {/* Checkbox */}
+                                        <div
+                                            onClick={(e) => { e.stopPropagation(); toggleFolderSelection(folder.id); }}
+                                            style={{
+                                                position: 'absolute',
+                                                top: '0.75rem',
+                                                left: '0.75rem',
+                                                width: '18px',
+                                                height: '18px',
+                                                borderRadius: '4px',
+                                                border: `2px solid ${isSelected ? '#3b82f6' : '#4a4a4a'}`,
+                                                backgroundColor: isSelected ? '#3b82f6' : 'rgba(26, 26, 26, 0.8)',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                transition: 'all 0.15s',
+                                                zIndex: 1,
+                                            }}
+                                        >
+                                            {isSelected && (
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                                    <polyline points="20 6 9 17 4 12" />
+                                                </svg>
+                                            )}
+                                        </div>
+
+                                        {/* Folder Icon */}
+                                        <div 
+                                            onClick={() => handleEnterFolder(folder)}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                height: '80px',
+                                                marginBottom: '0.75rem',
+                                                backgroundColor: '#1a1a1a',
+                                                borderRadius: '6px',
+                                                cursor: 'pointer',
+                                            }}
+                                        >
+                                            <svg width="48" height="48" viewBox="0 0 24 24" fill="#60a5fa" stroke="none">
+                                                <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                                            </svg>
+                                        </div>
+
+                                        {/* Folder Name */}
+                                        <h3 
+                                            onClick={() => handleEnterFolder(folder)}
+                                            style={{
+                                                fontWeight: 500,
+                                                color: '#e0e0e0',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                whiteSpace: 'nowrap',
+                                                margin: 0,
+                                                fontSize: '0.9rem',
+                                                marginBottom: '0.5rem',
+                                                cursor: 'pointer',
+                                            }}
+                                        >
+                                            {folder.name}
+                                        </h3>
+
+                                        {/* Meta info */}
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                                            <span style={{ fontSize: '0.7rem', color: '#60a5fa', padding: '0.1rem 0.4rem', borderRadius: '3px', backgroundColor: 'rgba(59, 130, 246, 0.1)' }}>Folder</span>
+                                        </div>
+
+                                        {/* Date */}
+                                        <span style={{ fontSize: '0.7rem', color: '#6b7280', marginBottom: '0.75rem' }}>{formatDateTime(folder.createdAt)}</span>
+
+                                        {/* Actions */}
+                                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.25rem', borderTop: '1px solid #3a3a3a', paddingTop: '0.75rem', marginTop: 'auto' }}>
+                                            <button onClick={(e) => { e.stopPropagation(); handleRenameFolder(folder); }} title="Rename" style={{ padding: '0.4rem', backgroundColor: 'transparent', border: 'none', borderRadius: '3px', cursor: 'pointer', color: '#6b7280' }}>
+                                                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                            </button>
+                                            <button onClick={(e) => { e.stopPropagation(); confirmDeleteFolder(folder); }} title="Delete" style={{ padding: '0.4rem', backgroundColor: 'transparent', border: 'none', borderRadius: '3px', cursor: 'pointer', color: '#ef4444' }}>
+                                                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                            {/* File Cards */}
                             {files.map((file) => {
                                 const typeInfo = getFileTypeInfo(file.mimeType);
                                 const isSelected = selectedFileIds.has(file.id);
