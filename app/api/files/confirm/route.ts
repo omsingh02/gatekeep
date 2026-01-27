@@ -37,6 +37,7 @@ export async function POST(request: NextRequest) {
             fileSize,
             mimeType,
             userId,
+            folderId,
         } = metadata;
 
         // Verify the user confirming is the same user who requested the presign
@@ -78,6 +79,7 @@ export async function POST(request: NextRequest) {
                 mime_type: mimeType,
                 short_code: shortCode,
                 uploaded_by: user.id,
+                folder_id: folderId || null,
             } as any)
             .select()
             .single();

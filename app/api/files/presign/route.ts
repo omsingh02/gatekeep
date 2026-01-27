@@ -93,7 +93,10 @@ export async function POST(request: NextRequest) {
         // Generate a unique file key to track this upload
         const fileKey = randomUUID();
 
-        // Return the signed URL and metadata needed for confirm step
+        // Get optional folderId from request
+        const { folderId } = body;
+
+        // Return these so the client can send them in the confirm request
         return NextResponse.json({
             uploadUrl: signedUrlData.signedUrl,
             token: signedUrlData.token,
@@ -107,6 +110,7 @@ export async function POST(request: NextRequest) {
                 fileSize,
                 mimeType,
                 userId: user.id,
+                folderId: folderId || null,
             },
         });
     } catch (error) {

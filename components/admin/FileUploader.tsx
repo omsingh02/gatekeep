@@ -6,6 +6,7 @@ import { validateFile, formatFileSize, getMaxFileSize } from '@/lib/utils/fileTy
 
 interface FileUploaderProps {
     onUploadComplete?: () => void;
+    currentFolderId?: string | null;
 }
 
 interface PresignResponse {
@@ -20,14 +21,16 @@ interface PresignResponse {
         fileSize: number;
         mimeType: string;
         userId: string;
+        folderId: string | null;
     };
 }
 
 interface FileWithPath extends File {
     relativePath?: string;
+    targetFolderId?: string | null;
 }
 
-export default function FileUploader({ onUploadComplete }: FileUploaderProps) {
+export default function FileUploader({ onUploadComplete, currentFolderId }: FileUploaderProps) {
     const [isDragging, setIsDragging] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
@@ -41,6 +44,25 @@ export default function FileUploader({ onUploadComplete }: FileUploaderProps) {
             folderInputRef.current.setAttribute('webkitdirectory', '');
         }
     }, []);
+
+    /**
+     * Creates a folder via API and returns its ID
+     */
+    const createFolder = async (name: string, parentId: string | null): Promise<string> => {
+        const response = await fetch('/api/folders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, parentId }),
+        });
+
+        if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.error || 'Failed to create folder');
+        }
+
+        const data = await response.json();
+        return data.folder.id;
+    };
 
     /**
      * Recursively reads all files from a directory entry
@@ -88,10 +110,12 @@ export default function FileUploader({ onUploadComplete }: FileUploaderProps) {
 
     /**
      * Process dropped items and extract files from folders
+     * Returns: { files, rootFolderName } - rootFolderName is set if a single folder was dropped
      */
-    const processDroppedItems = async (dataTransfer: DataTransfer): Promise<FileWithPath[]> => {
+    const processDroppedItems = async (dataTransfer: DataTransfer): Promise<{ files: FileWithPath[]; rootFolderName: string | null }> => {
         const files: FileWithPath[] = [];
         const items = dataTransfer.items;
+        let rootFolderName: string | null = null;
 
         // Check if webkitGetAsEntry is available (for folder support)
         if (items && items.length > 0 && items[0].webkitGetAsEntry) {
@@ -102,6 +126,11 @@ export default function FileUploader({ onUploadComplete }: FileUploaderProps) {
                 if (entry) {
                     entries.push(entry);
                 }
+            }
+
+            // Check if exactly one directory was dropped (folder upload)
+            if (entries.length === 1 && entries[0].isDirectory) {
+                rootFolderName = entries[0].name;
             }
 
             for (const entry of entries) {
@@ -117,7 +146,8 @@ export default function FileUploader({ onUploadComplete }: FileUploaderProps) {
                     files.push(file);
                 } else if (entry.isDirectory) {
                     const dirEntry = entry as FileSystemDirectoryEntry;
-                    const subFiles = await readDirectoryEntries(dirEntry, entry.name);
+                    // For folder uploads, we only want the files inside (not the folder path prefix)
+                    const subFiles = await readDirectoryEntries(dirEntry, '');
                     files.push(...subFiles);
                 }
             }
@@ -128,7 +158,7 @@ export default function FileUploader({ onUploadComplete }: FileUploaderProps) {
             files.push(...fileList);
         }
 
-        return files;
+        return { files, rootFolderName };
     };
 
     const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -146,28 +176,79 @@ export default function FileUploader({ onUploadComplete }: FileUploaderProps) {
         setIsDragging(false);
 
         try {
-            const files = await processDroppedItems(e.dataTransfer);
+            const { files, rootFolderName } = await processDroppedItems(e.dataTransfer);
             if (files.length > 0) {
+                let targetFolderId = currentFolderId || null;
+                
+                // If a folder was dropped, create it first
+                if (rootFolderName) {
+                    try {
+                        targetFolderId = await createFolder(rootFolderName, currentFolderId || null);
+                    } catch (err: any) {
+                        setError(`Failed to create folder "${rootFolderName}": ${err.message}`);
+                        return;
+                    }
+                }
+                
+                // Set target folder for all files
+                files.forEach(f => f.targetFolderId = targetFolderId);
                 handleFiles(files);
             }
         } catch (err) {
             setError('Failed to process dropped items');
         }
-    }, []);
+    }, [currentFolderId]);
 
     const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files) {
             const files = Array.from(e.target.files) as FileWithPath[];
-            // For folder selection, webkitRelativePath contains the relative path
+            
+            // For folder selection, webkitRelativePath contains "folderName/path/to/file"
+            // Detect if this is a folder upload by checking if paths have a common root
+            let rootFolderName: string | null = null;
+            const firstPath = (files[0] as any)?.webkitRelativePath;
+            if (firstPath && firstPath.includes('/')) {
+                const potentialRoot = firstPath.split('/')[0];
+                const allSameRoot = files.every((f: any) => 
+                    f.webkitRelativePath?.startsWith(potentialRoot + '/')
+                );
+                if (allSameRoot) {
+                    rootFolderName = potentialRoot;
+                }
+            }
+            
+            // Set relative paths (strip root folder name since we're creating the folder)
             files.forEach(f => {
                 const webkitPath = (f as any).webkitRelativePath;
-                f.relativePath = webkitPath || f.name;
+                if (webkitPath && rootFolderName) {
+                    // Remove the root folder prefix from display path
+                    f.relativePath = webkitPath.substring(rootFolderName.length + 1);
+                } else {
+                    f.relativePath = webkitPath || f.name;
+                }
             });
-            handleFiles(files);
+            
+            // Create folder and upload
+            (async () => {
+                let targetFolderId = currentFolderId || null;
+                
+                if (rootFolderName) {
+                    try {
+                        targetFolderId = await createFolder(rootFolderName, currentFolderId || null);
+                    } catch (err: any) {
+                        setError(`Failed to create folder "${rootFolderName}": ${err.message}`);
+                        return;
+                    }
+                }
+                
+                files.forEach(f => f.targetFolderId = targetFolderId);
+                handleFiles(files);
+            })();
+            
             // Reset input value to allow selecting the same folder again
             e.target.value = '';
         }
-    }, []);
+    }, [currentFolderId]);
 
     /**
      * Upload a single file using presigned URL (direct to Supabase)
@@ -183,6 +264,7 @@ export default function FileUploader({ onUploadComplete }: FileUploaderProps) {
                 filename: file.name,
                 fileSize: file.size,
                 mimeType: file.type || 'application/octet-stream',
+                folderId: file.targetFolderId || null,
             }),
         });
 
