@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { Card, LoadingSpinner } from '@/components/ui';
-import { formatDateTime } from '@/lib/utils/date';
 
 interface ActivityLog {
     id: string;
@@ -28,6 +27,21 @@ interface AnalyticsData {
     totalFiles: number;
     recentActivity: ActivityLog[];
     topFiles: FileStats[];
+}
+
+function formatRelativeTime(dateString: string): string {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
 }
 
 export default function AnalyticsDashboard() {
@@ -68,36 +82,57 @@ export default function AnalyticsDashboard() {
         );
     }
 
+    const successCount = data.recentActivity.filter(a => a.accessGranted).length;
+    const failedCount = data.recentActivity.filter(a => !a.accessGranted).length;
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             {/* Summary Cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
                 <Card>
-                    <h3 style={{ fontSize: '0.875rem', color: '#9ca3af', marginBottom: '0.5rem', fontWeight: 500 }}>
+                    <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                         Total Files
-                    </h3>
-                    <p style={{ fontSize: '2rem', fontWeight: 600, color: '#e0e0e0', margin: 0 }}>
+                    </p>
+                    <p style={{ fontSize: '1.75rem', fontWeight: 700, color: '#e0e0e0', margin: 0 }}>
                         {data.totalFiles}
                     </p>
                 </Card>
                 
                 <Card>
-                    <h3 style={{ fontSize: '0.875rem', color: '#9ca3af', marginBottom: '0.5rem', fontWeight: 500 }}>
+                    <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                         Recent Activity
-                    </h3>
-                    <p style={{ fontSize: '2rem', fontWeight: 600, color: '#e0e0e0', margin: 0 }}>
+                    </p>
+                    <p style={{ fontSize: '1.75rem', fontWeight: 700, color: '#e0e0e0', margin: 0 }}>
                         {data.recentActivity.length}
+                    </p>
+                </Card>
+
+                <Card>
+                    <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Successful
+                    </p>
+                    <p style={{ fontSize: '1.75rem', fontWeight: 700, color: '#10b981', margin: 0 }}>
+                        {successCount}
+                    </p>
+                </Card>
+
+                <Card>
+                    <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Denied
+                    </p>
+                    <p style={{ fontSize: '1.75rem', fontWeight: 700, color: '#ef4444', margin: 0 }}>
+                        {failedCount}
                     </p>
                 </Card>
             </div>
 
             {/* Top Files by Access */}
             <Card>
-                <h2 style={{ fontSize: '1.125rem', fontWeight: 600, color: '#e0e0e0', marginBottom: '1rem' }}>
+                <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#e0e0e0', marginBottom: '1rem' }}>
                     Most Accessed Files
                 </h2>
                 {data.topFiles.length === 0 ? (
-                    <p style={{ fontSize: '0.875rem', color: '#9ca3af', textAlign: 'center', padding: '2rem 0' }}>
+                    <p style={{ fontSize: '0.8rem', color: '#6b7280', textAlign: 'center', padding: '1.5rem 0' }}>
                         No access data yet
                     </p>
                 ) : (
@@ -105,39 +140,39 @@ export default function AnalyticsDashboard() {
                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead>
                                 <tr style={{ borderBottom: '1px solid #3a3a3a' }}>
-                                    <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.875rem', color: '#9ca3af', fontWeight: 500 }}>
+                                    <th style={{ textAlign: 'left', padding: '0.5rem 0.75rem', fontSize: '0.7rem', color: '#6b7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                         File
                                     </th>
-                                    <th style={{ textAlign: 'center', padding: '0.75rem', fontSize: '0.875rem', color: '#9ca3af', fontWeight: 500 }}>
-                                        Total Accesses
+                                    <th style={{ textAlign: 'right', padding: '0.5rem 0.75rem', fontSize: '0.7rem', color: '#6b7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                        Total
                                     </th>
-                                    <th style={{ textAlign: 'center', padding: '0.75rem', fontSize: '0.875rem', color: '#9ca3af', fontWeight: 500 }}>
-                                        Successful
+                                    <th style={{ textAlign: 'right', padding: '0.5rem 0.75rem', fontSize: '0.7rem', color: '#6b7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                        Success
                                     </th>
-                                    <th style={{ textAlign: 'center', padding: '0.75rem', fontSize: '0.875rem', color: '#9ca3af', fontWeight: 500 }}>
+                                    <th style={{ textAlign: 'right', padding: '0.5rem 0.75rem', fontSize: '0.7rem', color: '#6b7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                         Failed
                                     </th>
-                                    <th style={{ textAlign: 'center', padding: '0.75rem', fontSize: '0.875rem', color: '#9ca3af', fontWeight: 500 }}>
-                                        Unique Users
+                                    <th style={{ textAlign: 'right', padding: '0.5rem 0.75rem', fontSize: '0.7rem', color: '#6b7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                        Users
                                     </th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {data.topFiles.map((file) => (
                                     <tr key={file.id} style={{ borderBottom: '1px solid #2a2a2a' }}>
-                                        <td style={{ padding: '0.75rem', fontSize: '0.875rem', color: '#e0e0e0' }}>
+                                        <td style={{ padding: '0.5rem 0.75rem', fontSize: '0.8rem', color: '#e0e0e0', maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                             {file.filename}
                                         </td>
-                                        <td style={{ textAlign: 'center', padding: '0.75rem', fontSize: '0.875rem', color: '#e0e0e0' }}>
+                                        <td style={{ textAlign: 'right', padding: '0.5rem 0.75rem', fontSize: '0.8rem', color: '#e0e0e0', fontWeight: 600 }}>
                                             {file.totalAccesses}
                                         </td>
-                                        <td style={{ textAlign: 'center', padding: '0.75rem', fontSize: '0.875rem', color: '#10b981' }}>
+                                        <td style={{ textAlign: 'right', padding: '0.5rem 0.75rem', fontSize: '0.8rem', color: '#10b981', fontWeight: 500 }}>
                                             {file.successfulAccesses}
                                         </td>
-                                        <td style={{ textAlign: 'center', padding: '0.75rem', fontSize: '0.875rem', color: '#ef4444' }}>
+                                        <td style={{ textAlign: 'right', padding: '0.5rem 0.75rem', fontSize: '0.8rem', color: '#ef4444', fontWeight: 500 }}>
                                             {file.failedAccesses}
                                         </td>
-                                        <td style={{ textAlign: 'center', padding: '0.75rem', fontSize: '0.875rem', color: '#3b82f6' }}>
+                                        <td style={{ textAlign: 'right', padding: '0.5rem 0.75rem', fontSize: '0.8rem', color: '#3b82f6', fontWeight: 500 }}>
                                             {file.uniqueUsers}
                                         </td>
                                     </tr>
@@ -148,64 +183,69 @@ export default function AnalyticsDashboard() {
                 )}
             </Card>
 
-            {/* Recent Activity */}
+            {/* Recent Activity - Compact Table */}
             <Card>
-                <h2 style={{ fontSize: '1.125rem', fontWeight: 600, color: '#e0e0e0', marginBottom: '1rem' }}>
-                    Recent Access Attempts
+                <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#e0e0e0', marginBottom: '1rem' }}>
+                    Recent Access Log
                 </h2>
                 {data.recentActivity.length === 0 ? (
-                    <p style={{ fontSize: '0.875rem', color: '#9ca3af', textAlign: 'center', padding: '2rem 0' }}>
+                    <p style={{ fontSize: '0.8rem', color: '#6b7280', textAlign: 'center', padding: '1.5rem 0' }}>
                         No recent activity
                     </p>
                 ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                        {data.recentActivity.map((log) => (
-                            <div
-                                key={log.id}
-                                style={{
-                                    padding: '0.75rem',
-                                    borderRadius: '4px',
-                                    backgroundColor: '#252525',
-                                    border: '1px solid #3a3a3a',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '1rem',
-                                    flexWrap: 'wrap',
-                                }}
-                            >
-                                <div
-                                    style={{
-                                        width: '8px',
-                                        height: '8px',
-                                        borderRadius: '50%',
-                                        backgroundColor: log.accessGranted ? '#10b981' : '#ef4444',
-                                        flexShrink: 0,
-                                    }}
-                                />
-                                <div style={{ flex: 1, minWidth: '200px' }}>
-                                    <p style={{ fontSize: '0.875rem', color: '#e0e0e0', marginBottom: '0.25rem', fontWeight: 500 }}>
-                                        {log.filename}
-                                    </p>
-                                    <p style={{ fontSize: '0.75rem', color: '#9ca3af', margin: 0 }}>
-                                        {log.userIdentifier} • {log.ipAddress}
-                                    </p>
-                                </div>
-                                <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>
-                                    {formatDateTime(log.accessedAt)}
-                                </div>
-                                <div
-                                    style={{
-                                        padding: '0.25rem 0.5rem',
-                                        borderRadius: '3px',
-                                        fontSize: '0.75rem',
-                                        backgroundColor: log.accessGranted ? '#064e3b' : '#7f1d1d',
-                                        color: log.accessGranted ? '#6ee7b7' : '#fecaca',
-                                    }}
-                                >
-                                    {log.accessGranted ? 'Success' : 'Denied'}
-                                </div>
-                            </div>
-                        ))}
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                            <thead>
+                                <tr style={{ borderBottom: '1px solid #3a3a3a' }}>
+                                    <th style={{ textAlign: 'left', padding: '0.5rem 0.75rem', fontSize: '0.7rem', color: '#6b7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                        Status
+                                    </th>
+                                    <th style={{ textAlign: 'left', padding: '0.5rem 0.75rem', fontSize: '0.7rem', color: '#6b7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                        File
+                                    </th>
+                                    <th style={{ textAlign: 'left', padding: '0.5rem 0.75rem', fontSize: '0.7rem', color: '#6b7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                        User
+                                    </th>
+                                    <th style={{ textAlign: 'left', padding: '0.5rem 0.75rem', fontSize: '0.7rem', color: '#6b7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                        IP Address
+                                    </th>
+                                    <th style={{ textAlign: 'right', padding: '0.5rem 0.75rem', fontSize: '0.7rem', color: '#6b7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                        Time
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {data.recentActivity.map((log) => (
+                                    <tr key={log.id} style={{ borderBottom: '1px solid #2a2a2a' }}>
+                                        <td style={{ padding: '0.5rem 0.75rem' }}>
+                                            <span style={{
+                                                display: 'inline-block',
+                                                padding: '0.125rem 0.5rem',
+                                                borderRadius: '3px',
+                                                fontSize: '0.7rem',
+                                                fontWeight: 600,
+                                                backgroundColor: log.accessGranted ? '#064e3b' : '#7f1d1d',
+                                                color: log.accessGranted ? '#6ee7b7' : '#fecaca',
+                                            }}>
+                                                {log.accessGranted ? 'OK' : 'DENIED'}
+                                            </span>
+                                        </td>
+                                        <td style={{ padding: '0.5rem 0.75rem', fontSize: '0.8rem', color: '#e0e0e0', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            {log.filename}
+                                        </td>
+                                        <td style={{ padding: '0.5rem 0.75rem', fontSize: '0.8rem', color: '#9ca3af', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            {log.userIdentifier}
+                                        </td>
+                                        <td style={{ padding: '0.5rem 0.75rem', fontSize: '0.75rem', color: '#6b7280', fontFamily: 'monospace' }}>
+                                            {log.ipAddress}
+                                        </td>
+                                        <td style={{ textAlign: 'right', padding: '0.5rem 0.75rem', fontSize: '0.75rem', color: '#6b7280', whiteSpace: 'nowrap' }}>
+                                            {formatRelativeTime(log.accessedAt)}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
                 )}
             </Card>
