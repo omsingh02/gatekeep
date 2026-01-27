@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui';
 import { validateFile, formatFileSize, getMaxFileSize } from '@/lib/utils/fileTypes';
 
@@ -33,6 +33,14 @@ export default function FileUploader({ onUploadComplete }: FileUploaderProps) {
     const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
     const [error, setError] = useState('');
     const abortControllerRef = useRef<AbortController | null>(null);
+    const folderInputRef = useRef<HTMLInputElement>(null);
+
+    // Set webkitdirectory attribute on mount (non-standard attribute)
+    useEffect(() => {
+        if (folderInputRef.current) {
+            folderInputRef.current.setAttribute('webkitdirectory', '');
+        }
+    }, []);
 
     /**
      * Recursively reads all files from a directory entry
@@ -329,11 +337,10 @@ export default function FileUploader({ onUploadComplete }: FileUploaderProps) {
                         disabled={isUploading}
                     />
 
-                    {/* @ts-expect-error webkitdirectory is a non-standard attribute */}
                     <input
+                        ref={folderInputRef}
                         type="file"
                         id="folder-upload"
-                        webkitdirectory=""
                         onChange={handleFileSelect}
                         style={{ display: 'none' }}
                         disabled={isUploading}

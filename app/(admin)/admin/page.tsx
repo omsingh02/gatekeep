@@ -248,7 +248,7 @@ export default function DashboardPage() {
                     color: '#e0e0e0',
                     marginBottom: '1rem',
                 }}>Recent Uploads</h2>
-                <FileList key={refreshKey} limit={5} showViewAll={true} viewAllHref="/dashboard/files" />
+                <FileList key={refreshKey} limit={5} showViewAll={true} viewAllHref="/admin/files" />
             </div>
 
             {/* Shares List */}
@@ -264,7 +264,7 @@ export default function DashboardPage() {
                     color: '#e0e0e0',
                     marginBottom: '1rem',
                 }}>Recent Shares</h2>
-                <ShareList key={refreshKey} limit={5} showViewAll={true} viewAllHref="/dashboard/shares" />
+                <ShareList key={refreshKey} limit={5} showViewAll={true} viewAllHref="/admin/access" />
             </div>
                 </>
             ) : (

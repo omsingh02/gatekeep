@@ -28,7 +28,7 @@ interface ShareListProps {
     viewAllHref?: string;
 }
 
-export default function ShareList({ limit, showViewAll = false, viewAllHref = '/dashboard/shares' }: ShareListProps) {
+export default function ShareList({ limit, showViewAll = false, viewAllHref = '/admin/access' }: ShareListProps) {
     const [shares, setShares] = useState<ShareWithFile[]>([]);
     const [totalCount, setTotalCount] = useState(0);
     const [isLoading, setIsLoading] = useState(true);

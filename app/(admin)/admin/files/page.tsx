@@ -7,7 +7,7 @@ export default function AllFilesPage() {
             {/* Header with Back Link */}
             <div>
                 <Link
-                    href="/dashboard"
+                    href="/admin"
                     style={{
                         display: 'inline-flex',
                         alignItems: 'center',
@@ -22,7 +22,7 @@ export default function AllFilesPage() {
                     <svg style={{ width: '16px', height: '16px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                     </svg>
-                    Back to Dashboard
+                    Back to Admin
                 </Link>
                 <h1 style={{
                     fontSize: '1.5rem',

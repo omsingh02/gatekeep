@@ -20,7 +20,7 @@ interface FileListProps {
 export default function FileList({
     limit,
     showViewAll = false,
-    viewAllHref = '/dashboard/files',
+    viewAllHref = '/admin/files',
     enablePagination = false,
     itemsPerPage = 20,
 }: FileListProps) {
