@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Modal, ConfirmDialog, PromptDialog, useToast } from '@/components/ui';
+import { Modal, ConfirmDialog, PromptDialog, useToast, ExpiryPicker } from '@/components/ui';
 import { FileMetadata, FileAccess, Group } from '@/lib/types';
 import { generateRandomPassword } from '@/lib/utils/crypto';
 import { formatDateTime } from '@/lib/utils/date';
@@ -783,40 +783,11 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                         />
                     </div>
 
-                    <div>
-                        <label style={{
-                            display: 'block',
-                            fontSize: '0.875rem',
-                            color: '#9ca3af',
-                            marginBottom: '0.5rem',
-                        }}>Expiry Date/Time (Optional)</label>
-                        <input
-                            type="datetime-local"
-                            value={expiresAt}
-                            onChange={(e) => setExpiresAt(e.target.value)}
-                            style={{
-                                width: '100%',
-                                padding: '0.625rem 0.875rem',
-                                borderRadius: '4px',
-                                border: '1px solid #3a3a3a',
-                                backgroundColor: '#1a1a1a',
-                                color: '#e0e0e0',
-                                fontSize: '0.875rem',
-                                outline: 'none',
-                            }}
-                            onFocus={(e) => {
-                                e.target.style.borderColor = '#3b82f6';
-                            }}
-                            onBlur={(e) => {
-                                e.target.style.borderColor = '#3a3a3a';
-                            }}
-                        />
-                        <p style={{
-                            marginTop: '0.25rem',
-                            fontSize: '0.75rem',
-                            color: '#6b7280',
-                        }}>Leave empty for permanent access</p>
-                    </div>
+                    <ExpiryPicker
+                        value={expiresAt}
+                        onChange={setExpiresAt}
+                        label="Expiry (Optional)"
+                    />
 
                     {error && (
                         <div style={{
@@ -1148,32 +1119,11 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                 </label>
                             </div>
 
-                            <div>
-                                <label style={{
-                                    display: 'block',
-                                    fontSize: '0.875rem',
-                                    color: '#9ca3af',
-                                    marginBottom: '0.5rem',
-                                }}>Expiry Date/Time</label>
-                                <input
-                                    type="datetime-local"
-                                    value={editExpiresAt}
-                                    onChange={(e) => setEditExpiresAt(e.target.value)}
-                                    style={{
-                                        width: '100%',
-                                        padding: '0.625rem 0.875rem',
-                                        borderRadius: '4px',
-                                        border: '1px solid #3a3a3a',
-                                        backgroundColor: '#1a1a1a',
-                                        color: '#e0e0e0',
-                                        fontSize: '0.875rem',
-                                        outline: 'none',
-                                    }}
-                                />
-                                <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
-                                    Leave empty for permanent access
-                                </p>
-                            </div>
+                            <ExpiryPicker
+                                value={editExpiresAt}
+                                onChange={setEditExpiresAt}
+                                label="Expiry"
+                            />
 
                             {editError && (
                                 <div style={{
