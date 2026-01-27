@@ -248,7 +248,7 @@ export default function DashboardPage() {
                     color: '#e0e0e0',
                     marginBottom: '1rem',
                 }}>Recent Uploads</h2>
-                <FileList key={refreshKey} limit={5} showViewAll={true} viewAllHref="/admin/files" />
+                <FileList key={refreshKey} limit={5} showViewAll={true} viewAllHref="/admin/files" showFolderNavigation={false} />
             </div>
 
             {/* Shares List */}

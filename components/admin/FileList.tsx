@@ -17,6 +17,7 @@ interface FileListProps {
     viewAllHref?: string;
     enablePagination?: boolean;
     itemsPerPage?: number;
+    showFolderNavigation?: boolean;
 }
 
 export default function FileList({
@@ -25,6 +26,7 @@ export default function FileList({
     viewAllHref = '/admin/files',
     enablePagination = false,
     itemsPerPage = 20,
+    showFolderNavigation = true,
 }: FileListProps) {
     const [files, setFiles] = useState<FileMetadata[]>([]);
     const [totalCount, setTotalCount] = useState(0);
@@ -644,6 +646,7 @@ export default function FileList({
             )}
 
             {/* Folder Navigation */}
+            {showFolderNavigation && (
             <div
                 style={{
                     marginBottom: '1rem',
@@ -845,6 +848,7 @@ export default function FileList({
                     )}
                 </div>
             </div>
+            )}
 
             {/* File List */}
             {files.length === 0 ? (
