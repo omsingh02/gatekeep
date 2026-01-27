@@ -682,7 +682,7 @@ export default function FileList({
 
                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                     <button
-                        onClick={() => setFolderPrompt({ isOpen: true, isLoading: false })}
+                        onClick={() => setFolderPrompt({ isOpen: true, isLoading: false, mode: 'create' })}
                         style={{
                             padding: '0.5rem 0.85rem',
                             fontSize: '0.85rem',
