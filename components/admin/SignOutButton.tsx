@@ -12,22 +12,22 @@ export default function SignOutButton() {
                     padding: '0.5rem 1rem',
                     fontSize: '0.8125rem',
                     fontWeight: 500,
-                    color: 'rgba(255, 255, 255, 0.6)',
-                    backgroundColor: 'transparent',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    color: '#9ca3af',
+                    backgroundColor: '#2a2a2a',
+                    border: '1px solid #3a3a3a',
                     borderRadius: '6px',
                     cursor: 'pointer',
-                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                    transition: 'all 0.15s',
                 }}
                 onMouseEnter={(e) => {
-                    e.currentTarget.style.color = '#ffffff';
-                    e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.04)';
-                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)';
+                    e.currentTarget.style.color = '#e0e0e0';
+                    e.currentTarget.style.backgroundColor = '#333333';
+                    e.currentTarget.style.borderColor = '#4a4a4a';
                 }}
                 onMouseLeave={(e) => {
-                    e.currentTarget.style.color = 'rgba(255, 255, 255, 0.6)';
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
+                    e.currentTarget.style.color = '#9ca3af';
+                    e.currentTarget.style.backgroundColor = '#2a2a2a';
+                    e.currentTarget.style.borderColor = '#3a3a3a';
                 }}
             >
                 <svg style={{ width: '16px', height: '16px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -55,21 +55,25 @@ export default function DashboardPage() {
                 
                 <div style={{
                     display: 'flex',
-                    gap: '1rem',
-                    borderBottom: '1px solid #3a3a3a',
+                    gap: '0.5rem',
+                    padding: '0.25rem',
+                    backgroundColor: '#1a1a1a',
+                    borderRadius: '8px',
+                    border: '1px solid #2a2a2a',
+                    width: 'fit-content',
                 }}>
                     <button
                         onClick={() => setActiveTab('overview')}
                         style={{
-                            padding: '0.75rem 1.5rem',
+                            padding: '0.625rem 1.25rem',
                             fontSize: '0.875rem',
                             fontWeight: 500,
-                            color: activeTab === 'overview' ? '#3b82f6' : '#9ca3af',
-                            backgroundColor: 'transparent',
-                            border: 'none',
-                            borderBottom: activeTab === 'overview' ? '2px solid #3b82f6' : '2px solid transparent',
+                            color: activeTab === 'overview' ? '#ffffff' : '#9ca3af',
+                            backgroundColor: activeTab === 'overview' ? '#2a2a2a' : 'transparent',
+                            border: activeTab === 'overview' ? '1px solid #3a3a3a' : '1px solid transparent',
+                            borderRadius: '6px',
                             cursor: 'pointer',
-                            transition: 'all 0.2s',
+                            transition: 'all 0.15s',
                         }}
                     >
                         Overview
@@ -77,15 +81,15 @@ export default function DashboardPage() {
                     <button
                         onClick={() => setActiveTab('analytics')}
                         style={{
-                            padding: '0.75rem 1.5rem',
+                            padding: '0.625rem 1.25rem',
                             fontSize: '0.875rem',
                             fontWeight: 500,
-                            color: activeTab === 'analytics' ? '#3b82f6' : '#9ca3af',
-                            backgroundColor: 'transparent',
-                            border: 'none',
-                            borderBottom: activeTab === 'analytics' ? '2px solid #3b82f6' : '2px solid transparent',
+                            color: activeTab === 'analytics' ? '#ffffff' : '#9ca3af',
+                            backgroundColor: activeTab === 'analytics' ? '#2a2a2a' : 'transparent',
+                            border: activeTab === 'analytics' ? '1px solid #3a3a3a' : '1px solid transparent',
+                            borderRadius: '6px',
                             cursor: 'pointer',
-                            transition: 'all 0.2s',
+                            transition: 'all 0.15s',
                         }}
                     >
                         Analytics
