@@ -21,9 +21,9 @@ import { validateAuth, validateRequiredFields } from '@/lib/utils/validation';
 export async function POST(request: NextRequest) {
     let user: any;
     try {
-        // Rate limiting: 10 uploads per 5 minutes per IP
+        // Rate limiting: 100 uploads per 10 minutes per IP (allows folder uploads)
         const identifier = getClientIdentifier(request);
-        const { success } = rateLimit(identifier, 10, 5 * 60 * 1000);
+        const { success } = rateLimit(identifier, 100, 10 * 60 * 1000);
 
         if (!success) {
             logWarning('/api/files/presign', 'rate-limit', 'Upload rate limit exceeded', {

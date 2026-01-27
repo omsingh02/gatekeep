@@ -335,29 +335,77 @@ export default function FileUploader({ onUploadComplete, currentFolderId }: File
         setUploadProgress(prev => ({ ...prev, [displayName]: 100 }));
     };
 
+    /**
+     * Delay utility for retry logic
+     */
+    const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+    /**
+     * Upload with retry logic for transient errors
+     */
+    const uploadWithRetry = async (file: FileWithPath, maxRetries = 3): Promise<{ success: boolean; error?: string }> => {
+        const displayName = file.relativePath || file.name;
+        
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                await uploadFileWithPresignedUrl(file);
+                return { success: true };
+            } catch (err: any) {
+                const isLastAttempt = attempt === maxRetries;
+                const isRetryable = err.message?.includes('401') || 
+                                   err.message?.includes('Unauthorized') ||
+                                   err.message?.includes('network');
+                
+                if (!isRetryable || isLastAttempt) {
+                    return { success: false, error: `${displayName}: ${err.message}` };
+                }
+                
+                // Wait before retry (exponential backoff)
+                await delay(1000 * attempt);
+                setUploadProgress(prev => ({ ...prev, [displayName]: 0 }));
+            }
+        }
+        
+        return { success: false, error: `${displayName}: Upload failed after retries` };
+    };
+
     const handleFiles = async (files: FileWithPath[]) => {
         setError('');
         setIsUploading(true);
+        const errors: string[] = [];
+        let successCount = 0;
 
         try {
             for (const file of files) {
                 // Client-side validation
                 const validation = validateFile(file);
                 if (!validation.valid) {
-                    throw new Error(`${file.relativePath || file.name}: ${validation.error}`);
+                    errors.push(`${file.relativePath || file.name}: ${validation.error}`);
+                    continue;
                 }
 
                 const displayName = file.relativePath || file.name;
                 setUploadProgress(prev => ({ ...prev, [displayName]: 0 }));
 
-                // Use presigned URL upload for all files
-                await uploadFileWithPresignedUrl(file);
+                // Use presigned URL upload with retry
+                const result = await uploadWithRetry(file);
+                if (result.success) {
+                    successCount++;
+                } else if (result.error) {
+                    errors.push(result.error);
+                }
             }
 
             setTimeout(() => {
                 setUploadProgress({});
-                onUploadComplete?.();
+                if (successCount > 0) {
+                    onUploadComplete?.();
+                }
             }, 1000);
+            
+            if (errors.length > 0) {
+                setError(`${errors.length} file(s) failed: ${errors[0]}${errors.length > 1 ? ` (+${errors.length - 1} more)` : ''}`);
+            }
         } catch (err: any) {
             setError(err.message || 'Failed to upload files');
         } finally {
