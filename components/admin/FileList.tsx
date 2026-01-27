@@ -84,9 +84,11 @@ export default function FileList({
 
     useEffect(() => {
         fetchFiles();
-        fetchFolders();
+        if (showFolderNavigation) {
+            fetchFolders();
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [limit, currentPage, debouncedSearch, fileTypeFilter, currentFolder.id]);
+    }, [limit, currentPage, debouncedSearch, fileTypeFilter, currentFolder.id, showFolderNavigation]);
 
     const fetchFolders = async () => {
         try {
@@ -292,12 +294,15 @@ export default function FileList({
     };
 
     const selectAll = () => {
-        if (selectedFileIds.size === files.length && selectedFolderIds.size === folders.length) {
+        const targetFolderCount = showFolderNavigation ? folders.length : 0;
+        if (selectedFileIds.size === files.length && selectedFolderIds.size === targetFolderCount) {
             setSelectedFileIds(new Set());
             setSelectedFolderIds(new Set());
         } else {
             setSelectedFileIds(new Set(files.map((f) => f.id)));
-            setSelectedFolderIds(new Set(folders.map((f) => f.id)));
+            if (showFolderNavigation) {
+                setSelectedFolderIds(new Set(folders.map((f) => f.id)));
+            }
         }
     };
 
@@ -307,7 +312,8 @@ export default function FileList({
     };
 
     const hasSelection = selectedFileIds.size > 0 || selectedFolderIds.size > 0;
-    const allSelected = files.length > 0 && folders.length >= 0 && selectedFileIds.size === files.length && selectedFolderIds.size === folders.length;
+    const targetFolderCountForAll = showFolderNavigation ? folders.length : 0;
+    const allSelected = files.length > 0 && selectedFileIds.size === files.length && selectedFolderIds.size === targetFolderCountForAll;
 
     // Fetch all folders for move dialog
     const fetchAllFolders = useCallback(async () => {
@@ -1034,8 +1040,8 @@ export default function FileList({
                             </table>
                         </div>
                     ) : (
-                        /* Grid View */
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        /* Card Grid View */
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
                             {files.map((file) => {
                                 const typeInfo = getFileTypeInfo(file.mimeType);
                                 const isSelected = selectedFileIds.has(file.id);
@@ -1044,29 +1050,33 @@ export default function FileList({
                                         key={file.id}
                                         style={{
                                             display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '0.75rem',
+                                            flexDirection: 'column',
                                             padding: '1rem',
-                                            borderRadius: '6px',
+                                            borderRadius: '8px',
                                             border: `1px solid ${isSelected ? '#3b82f6' : '#3a3a3a'}`,
                                             backgroundColor: isSelected ? '#1e3a5f' : '#252525',
                                             transition: 'all 0.15s',
+                                            position: 'relative',
                                         }}
                                     >
+                                        {/* Checkbox */}
                                         <div
                                             onClick={() => toggleFileSelection(file.id)}
                                             style={{
+                                                position: 'absolute',
+                                                top: '0.75rem',
+                                                left: '0.75rem',
                                                 width: '18px',
                                                 height: '18px',
                                                 borderRadius: '4px',
                                                 border: `2px solid ${isSelected ? '#3b82f6' : '#4a4a4a'}`,
-                                                backgroundColor: isSelected ? '#3b82f6' : 'transparent',
+                                                backgroundColor: isSelected ? '#3b82f6' : 'rgba(26, 26, 26, 0.8)',
                                                 cursor: 'pointer',
                                                 display: 'flex',
                                                 alignItems: 'center',
                                                 justifyContent: 'center',
                                                 transition: 'all 0.15s',
-                                                flexShrink: 0,
+                                                zIndex: 1,
                                             }}
                                         >
                                             {isSelected && (
@@ -1075,24 +1085,64 @@ export default function FileList({
                                                 </svg>
                                             )}
                                         </div>
-                                        <div style={{ fontSize: '1.5rem', opacity: 0.7 }}>{typeInfo.icon}</div>
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                            <h3 style={{ fontWeight: 500, color: '#e0e0e0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0, fontSize: '0.95rem' }}>
-                                                {file.originalFilename}
-                                            </h3>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.25rem', flexWrap: 'wrap' }}>
-                                                <span style={{ fontSize: '0.8rem', color: '#9ca3af' }}>{formatFileSize(file.fileSize)}</span>
-                                                <span style={{ fontSize: '0.75rem', color: '#6b7280', padding: '0.125rem 0.5rem', borderRadius: '3px', backgroundColor: '#1a1a1a' }}>{typeInfo.category}</span>
-                                                {file.folderName && (
-                                                    <span style={{ fontSize: '0.75rem', color: '#60a5fa', padding: '0.125rem 0.5rem', borderRadius: '3px', backgroundColor: 'rgba(59, 130, 246, 0.1)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="#60a5fa" stroke="none"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
-                                                        {file.folderName}
-                                                    </span>
-                                                )}
-                                                <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>{formatDateTime(file.createdAt)}</span>
-                                            </div>
+
+                                        {/* File Icon/Thumbnail */}
+                                        <div style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            height: '80px',
+                                            marginBottom: '0.75rem',
+                                            backgroundColor: '#1a1a1a',
+                                            borderRadius: '6px',
+                                        }}>
+                                            <span style={{ fontSize: '2.5rem', opacity: 0.7 }}>{typeInfo.icon}</span>
                                         </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+
+                                        {/* File Name */}
+                                        <h3 style={{
+                                            fontWeight: 500,
+                                            color: '#e0e0e0',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            whiteSpace: 'nowrap',
+                                            margin: 0,
+                                            fontSize: '0.9rem',
+                                            marginBottom: '0.5rem',
+                                        }}>
+                                            {file.originalFilename}
+                                        </h3>
+
+                                        {/* Meta info */}
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                                            <span style={{ fontSize: '0.75rem', color: '#9ca3af' }}>{formatFileSize(file.fileSize)}</span>
+                                            <span style={{ fontSize: '0.7rem', color: '#6b7280', padding: '0.1rem 0.4rem', borderRadius: '3px', backgroundColor: '#1a1a1a' }}>{typeInfo.category}</span>
+                                        </div>
+
+                                        {/* Folder badge */}
+                                        {file.folderName && (
+                                            <div style={{ marginBottom: '0.5rem' }}>
+                                                <span style={{
+                                                    fontSize: '0.7rem',
+                                                    color: '#60a5fa',
+                                                    padding: '0.15rem 0.4rem',
+                                                    borderRadius: '3px',
+                                                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '0.25rem',
+                                                }}>
+                                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="#60a5fa" stroke="none"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
+                                                    {file.folderName}
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        {/* Date */}
+                                        <span style={{ fontSize: '0.7rem', color: '#6b7280', marginBottom: '0.75rem' }}>{formatDateTime(file.createdAt)}</span>
+
+                                        {/* Actions */}
+                                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.25rem', borderTop: '1px solid #3a3a3a', paddingTop: '0.75rem', marginTop: 'auto' }}>
                                             <button onClick={() => copyShortLink(file.shortCode)} title="Copy link" style={{ padding: '0.4rem', backgroundColor: 'transparent', border: 'none', borderRadius: '3px', cursor: 'pointer', color: '#6b7280' }}>
                                                 <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
                                             </button>
