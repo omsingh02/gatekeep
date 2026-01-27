@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Modal } from '@/components/ui';
+import { Modal, ConfirmDialog, PromptDialog, useToast } from '@/components/ui';
 import { FileMetadata, FileAccess, Group } from '@/lib/types';
 import { generateRandomPassword } from '@/lib/utils/crypto';
 import { formatDateTime } from '@/lib/utils/date';
@@ -39,6 +39,18 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
     const [isGroupsLoading, setIsGroupsLoading] = useState(false);
     const [selectedGroupId, setSelectedGroupId] = useState<string>('');
     const [newGroupMember, setNewGroupMember] = useState('');
+
+    // Dialog state
+    const [revokeConfirm, setRevokeConfirm] = useState<{ isOpen: boolean; accessId: string | null; name: string }>({
+        isOpen: false,
+        accessId: null,
+        name: '',
+    });
+    const [groupPrompt, setGroupPrompt] = useState<{ isOpen: boolean; isLoading: boolean }>({
+        isOpen: false,
+        isLoading: false,
+    });
+    const toast = useToast();
 
     useEffect(() => {
         if (isOpen) {
@@ -144,8 +156,6 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
     };
 
     const handleRevokeAccess = async (accessId: string) => {
-        if (!confirm('Are you sure you want to revoke this access?')) return;
-
         try {
             const response = await fetch(`/api/access?id=${accessId}`, {
                 method: 'DELETE',
@@ -153,20 +163,30 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
 
             if (response.ok) {
                 setAccessList(accessList.filter(a => a.id !== accessId));
+                toast.success('Access revoked successfully');
+            } else {
+                toast.error('Failed to revoke access');
             }
         } catch (error) {
-            // Error handled silently
+            toast.error('Failed to revoke access');
+        } finally {
+            setRevokeConfirm({ isOpen: false, accessId: null, name: '' });
         }
+    };
+
+    const confirmRevoke = (access: FileAccess) => {
+        const name = access.type === 'group'
+            ? access.groupName || 'Group access'
+            : access.userIdentifier || 'User access';
+        setRevokeConfirm({ isOpen: true, accessId: access.id, name });
     };
 
     const handleGeneratePassword = () => {
         setPassword(generateRandomPassword(12));
     };
 
-    const handleCreateGroup = async () => {
-        const name = window.prompt('Group name');
-        if (!name) return;
-
+    const handleCreateGroup = async (name: string) => {
+        setGroupPrompt((prev) => ({ ...prev, isLoading: true }));
         try {
             const response = await fetch('/api/groups', {
                 method: 'POST',
@@ -176,19 +196,23 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
 
             if (!response.ok) {
                 const data = await response.json();
-                alert(data.error || 'Failed to create group');
+                toast.error(data.error || 'Failed to create group');
                 return;
             }
 
+            toast.success('Group created successfully');
+            setGroupPrompt({ isOpen: false, isLoading: false });
             await fetchGroups();
         } catch (error) {
-            alert('Failed to create group');
+            toast.error('Failed to create group');
+        } finally {
+            setGroupPrompt((prev) => ({ ...prev, isLoading: false }));
         }
     };
 
     const handleAddGroupMember = async () => {
         if (!selectedGroupId || !newGroupMember.trim()) {
-            alert('Select a group and enter a member identifier');
+            toast.warning('Select a group and enter a member identifier');
             return;
         }
 
@@ -201,14 +225,15 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
 
             if (!response.ok) {
                 const data = await response.json();
-                alert(data.error || 'Failed to add member');
+                toast.error(data.error || 'Failed to add member');
                 return;
             }
 
+            toast.success('Member added successfully');
             setNewGroupMember('');
             await fetchGroups();
         } catch (error) {
-            alert('Failed to add member');
+            toast.error('Failed to add member');
         }
     };
 
@@ -448,7 +473,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                     </button>
                                     <button
                                         type="button"
-                                        onClick={handleCreateGroup}
+                                        onClick={() => setGroupPrompt({ isOpen: true, isLoading: false })}
                                         style={{
                                             padding: '0.625rem 0.875rem',
                                             fontSize: '0.85rem',
@@ -842,7 +867,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                             Edit
                                         </button>
                                         <button
-                                            onClick={() => handleRevokeAccess(access.id)}
+                                            onClick={() => confirmRevoke(access)}
                                             style={{
                                                 padding: '0.375rem 0.75rem',
                                                 fontSize: '0.8rem',
@@ -1063,6 +1088,30 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                         </form>
                     </div>
                 )}
+
+                {/* Revoke Confirmation Dialog */}
+                <ConfirmDialog
+                    isOpen={revokeConfirm.isOpen}
+                    onClose={() => setRevokeConfirm({ isOpen: false, accessId: null, name: '' })}
+                    onConfirm={() => revokeConfirm.accessId && handleRevokeAccess(revokeConfirm.accessId)}
+                    title="Revoke Access"
+                    message={`Are you sure you want to revoke access for "${revokeConfirm.name}"?`}
+                    confirmText="Revoke"
+                    cancelText="Cancel"
+                    variant="danger"
+                />
+
+                {/* Create Group Dialog */}
+                <PromptDialog
+                    isOpen={groupPrompt.isOpen}
+                    onClose={() => setGroupPrompt({ isOpen: false, isLoading: false })}
+                    onSubmit={handleCreateGroup}
+                    title="Create New Group"
+                    message="Enter a name for the new group."
+                    placeholder="Group name"
+                    submitText="Create"
+                    isLoading={groupPrompt.isLoading}
+                />
             </div>
         </Modal>
     );

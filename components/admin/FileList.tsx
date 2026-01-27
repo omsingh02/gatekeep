@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Skeleton } from '@/components/ui';
+import { Skeleton, ConfirmDialog, PromptDialog, useToast } from '@/components/ui';
 import { FileMetadata, FileTypeFilter, Folder } from '@/lib/types';
 import { formatFileSize, getFileTypeInfo } from '@/lib/utils/fileTypes';
 import { formatDateTime } from '@/lib/utils/date';
@@ -42,6 +42,18 @@ export default function FileList({
     const [currentFolder, setCurrentFolder] = useState<{ id: string | null; name: string }>({ id: null, name: 'Home' });
     const [breadcrumbs, setBreadcrumbs] = useState<Array<{ id: string | null; name: string }>>([{ id: null, name: 'Home' }]);
     const [isFoldersLoading, setIsFoldersLoading] = useState(false);
+
+    // Dialog state
+    const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; fileId: string | null; fileName: string }>({
+        isOpen: false,
+        fileId: null,
+        fileName: '',
+    });
+    const [folderPrompt, setFolderPrompt] = useState<{ isOpen: boolean; isLoading: boolean }>({
+        isOpen: false,
+        isLoading: false,
+    });
+    const toast = useToast();
 
     useEffect(() => {
         fetchFiles();
@@ -121,8 +133,6 @@ export default function FileList({
     };
 
     const handleDelete = async (fileId: string) => {
-        if (!confirm('Are you sure you want to delete this file?')) return;
-
         try {
             const response = await fetch(`/api/files/${fileId}`, {
                 method: 'DELETE',
@@ -131,21 +141,30 @@ export default function FileList({
             if (response.ok) {
                 const newFiles = files.filter((f) => f.id !== fileId);
                 setFiles(newFiles);
+                toast.success('File deleted successfully');
                 if (newFiles.length === 0 && currentPage > 1) {
                     setCurrentPage(currentPage - 1);
                 } else {
                     fetchFiles();
                 }
+            } else {
+                toast.error('Failed to delete file');
             }
         } catch (error) {
-            // Error handled silently
+            toast.error('Failed to delete file');
+        } finally {
+            setDeleteConfirm({ isOpen: false, fileId: null, fileName: '' });
         }
+    };
+
+    const confirmDelete = (file: FileMetadata) => {
+        setDeleteConfirm({ isOpen: true, fileId: file.id, fileName: file.originalFilename });
     };
 
     const copyShortLink = (shortCode: string) => {
         const url = `${window.location.origin}/${shortCode}`;
         navigator.clipboard.writeText(url);
-        alert('Link copied to clipboard!');
+        toast.success('Link copied to clipboard');
     };
 
     const handleEnterFolder = (folder: Folder) => {
@@ -161,10 +180,8 @@ export default function FileList({
         setCurrentPage(1);
     };
 
-    const handleCreateFolder = async () => {
-        const name = window.prompt('Folder name');
-        if (!name) return;
-
+    const handleCreateFolder = async (name: string) => {
+        setFolderPrompt((prev) => ({ ...prev, isLoading: true }));
         try {
             const response = await fetch('/api/folders', {
                 method: 'POST',
@@ -177,13 +194,17 @@ export default function FileList({
 
             if (!response.ok) {
                 const data = await response.json();
-                alert(data.error || 'Failed to create folder');
+                toast.error(data.error || 'Failed to create folder');
                 return;
             }
 
+            toast.success('Folder created successfully');
+            setFolderPrompt({ isOpen: false, isLoading: false });
             await fetchFolders();
         } catch (error) {
-            alert('Failed to create folder');
+            toast.error('Failed to create folder');
+        } finally {
+            setFolderPrompt((prev) => ({ ...prev, isLoading: false }));
         }
     };
 
@@ -376,7 +397,7 @@ export default function FileList({
 
                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                     <button
-                        onClick={handleCreateFolder}
+                        onClick={() => setFolderPrompt({ isOpen: true, isLoading: false })}
                         style={{
                             padding: '0.5rem 0.85rem',
                             fontSize: '0.85rem',
@@ -639,7 +660,7 @@ export default function FileList({
                                     </button>
 
                                     <button
-                                        onClick={() => handleDelete(file.id)}
+                                        onClick={() => confirmDelete(file)}
                                         title="Delete file"
                                         style={{
                                             padding: '0.5rem 0.875rem',
@@ -849,6 +870,30 @@ export default function FileList({
                     }}
                 />
             )}
+
+            {/* Delete Confirmation Dialog */}
+            <ConfirmDialog
+                isOpen={deleteConfirm.isOpen}
+                onClose={() => setDeleteConfirm({ isOpen: false, fileId: null, fileName: '' })}
+                onConfirm={() => deleteConfirm.fileId && handleDelete(deleteConfirm.fileId)}
+                title="Delete File"
+                message={`Are you sure you want to delete "${deleteConfirm.fileName}"? This action cannot be undone.`}
+                confirmText="Delete"
+                cancelText="Cancel"
+                variant="danger"
+            />
+
+            {/* Create Folder Dialog */}
+            <PromptDialog
+                isOpen={folderPrompt.isOpen}
+                onClose={() => setFolderPrompt({ isOpen: false, isLoading: false })}
+                onSubmit={handleCreateFolder}
+                title="Create New Folder"
+                message="Enter a name for the new folder."
+                placeholder="Folder name"
+                submitText="Create"
+                isLoading={folderPrompt.isLoading}
+            />
         </>
     );
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Badge, Skeleton } from '@/components/ui';
+import { Badge, Skeleton, ConfirmDialog, useToast } from '@/components/ui';
 import { formatDateTime } from '@/lib/utils/date';
 import Link from 'next/link';
 
@@ -33,6 +33,14 @@ export default function ShareList({ limit, showViewAll = false, viewAllHref = '/
     const [totalCount, setTotalCount] = useState(0);
     const [isLoading, setIsLoading] = useState(true);
 
+    // Dialog state
+    const [revokeConfirm, setRevokeConfirm] = useState<{ isOpen: boolean; shareId: string | null; userName: string }>({
+        isOpen: false,
+        shareId: null,
+        userName: '',
+    });
+    const toast = useToast();
+
     useEffect(() => {
         fetchShares();
     }, [limit]);
@@ -54,8 +62,6 @@ export default function ShareList({ limit, showViewAll = false, viewAllHref = '/
     };
 
     const handleRevoke = async (shareId: string) => {
-        if (!confirm('Are you sure you want to revoke this access?')) return;
-
         try {
             const response = await fetch(`/api/access?id=${shareId}`, {
                 method: 'DELETE',
@@ -64,10 +70,19 @@ export default function ShareList({ limit, showViewAll = false, viewAllHref = '/
             if (response.ok) {
                 setShares(shares.filter(s => s.id !== shareId));
                 setTotalCount(prev => prev - 1);
+                toast.success('Access revoked successfully');
+            } else {
+                toast.error('Failed to revoke access');
             }
         } catch (error) {
-            // Error handled silently
+            toast.error('Failed to revoke access');
+        } finally {
+            setRevokeConfirm({ isOpen: false, shareId: null, userName: '' });
         }
+    };
+
+    const confirmRevoke = (share: ShareWithFile) => {
+        setRevokeConfirm({ isOpen: true, shareId: share.id, userName: share.userIdentifier });
     };
 
     const isExpired = (expiresAt: string | null) => {
@@ -246,7 +261,7 @@ export default function ShareList({ limit, showViewAll = false, viewAllHref = '/
 
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: '1rem' }}>
                                 <button
-                                    onClick={() => handleRevoke(share.id)}
+                                    onClick={() => confirmRevoke(share)}
                                     title="Revoke access"
                                     style={{
                                         padding: '0.5rem 0.875rem',
@@ -303,6 +318,18 @@ export default function ShareList({ limit, showViewAll = false, viewAllHref = '/
                     </Link>
                 </div>
             )}
+
+            {/* Revoke Confirmation Dialog */}
+            <ConfirmDialog
+                isOpen={revokeConfirm.isOpen}
+                onClose={() => setRevokeConfirm({ isOpen: false, shareId: null, userName: '' })}
+                onConfirm={() => revokeConfirm.shareId && handleRevoke(revokeConfirm.shareId)}
+                title="Revoke Access"
+                message={`Are you sure you want to revoke access for "${revokeConfirm.userName}"?`}
+                confirmText="Revoke"
+                cancelText="Cancel"
+                variant="danger"
+            />
         </>
     );
 }

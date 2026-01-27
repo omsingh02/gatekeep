@@ -5,3 +5,6 @@ export { Card } from './Card';
 export { Badge } from './Badge';
 export { LoadingSpinner } from './LoadingSpinner';
 export { Skeleton } from './Skeleton';
+export { ConfirmDialog } from './ConfirmDialog';
+export { PromptDialog } from './PromptDialog';
+export { ToastProvider, useToast } from './Toast';
