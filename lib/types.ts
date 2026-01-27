@@ -100,10 +100,11 @@ export interface FileMetadata {
 export interface FileAccess {
     id: string;
     fileId: string;
-    type: 'user' | 'group';
+    type: 'user' | 'group' | 'public';
     userIdentifier?: string;
     groupId?: string | null;
     groupName?: string;
+    isPublic?: boolean;
     passwordHash: string;
     expiresAt: string | null;
     accessCount: number;

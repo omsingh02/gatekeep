@@ -38,7 +38,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
     const [duplicateUserIdentifier, setDuplicateUserIdentifier] = useState<string | null>(null);
 
     // Group access state
-    const [grantMode, setGrantMode] = useState<'user' | 'group'>('user');
+    const [grantMode, setGrantMode] = useState<'user' | 'group' | 'public'>('user');
     const [groups, setGroups] = useState<GroupWithMembers[]>([]);
     const [isGroupsLoading, setIsGroupsLoading] = useState(false);
     const [selectedGroupId, setSelectedGroupId] = useState<string>('');
@@ -117,6 +117,8 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
 
             if (grantMode === 'group') {
                 payload.groupId = selectedGroupId;
+            } else if (grantMode === 'public') {
+                payload.isPublic = true;
             } else {
                 payload.userIdentifier = userIdentifier;
                 payload.identifierType = identifierType;
@@ -192,9 +194,11 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
     };
 
     const confirmRevoke = (access: FileAccess) => {
-        const name = access.type === 'group'
-            ? access.groupName || 'Group access'
-            : access.userIdentifier || 'User access';
+        const name = access.type === 'public'
+            ? 'Public Access'
+            : access.type === 'group'
+                ? access.groupName || 'Group access'
+                : access.userIdentifier || 'User access';
         setRevokeConfirm({ isOpen: true, accessId: access.id, name });
     };
 
@@ -401,7 +405,41 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                         >
                             Group Access
                         </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setGrantMode('public');
+                                setError('');
+                                setDuplicateUserIdentifier(null);
+                            }}
+                            style={{
+                                padding: '0.5rem 0.75rem',
+                                fontSize: '0.85rem',
+                                fontWeight: 500,
+                                color: grantMode === 'public' ? '#ffffff' : '#9ca3af',
+                                backgroundColor: grantMode === 'public' ? '#059669' : 'transparent',
+                                border: `1px solid ${grantMode === 'public' ? '#10b981' : '#3a3a3a'}`,
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                            }}
+                        >
+                            Public Link
+                        </button>
                     </div>
+
+                    {grantMode === 'public' && (
+                        <div style={{
+                            padding: '0.75rem',
+                            borderRadius: '4px',
+                            backgroundColor: '#064e3b',
+                            border: '1px solid #10b981',
+                        }}>
+                            <p style={{ fontSize: '0.875rem', color: '#a7f3d0', margin: 0 }}>
+                                Public link allows anyone with the password to access the file. No username or email required.
+                            </p>
+                        </div>
+                    )}
 
                     {grantMode === 'user' && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -891,19 +929,21 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                                 margin: 0,
                                                 fontSize: '0.875rem',
                                             }}>
-                                                {access.type === 'group'
-                                                    ? access.groupName || 'Group access'
-                                                    : access.userIdentifier || 'User access'}
+                                                {access.type === 'public'
+                                                    ? 'Public Access'
+                                                    : access.type === 'group'
+                                                        ? access.groupName || 'Group access'
+                                                        : access.userIdentifier || 'User access'}
                                             </p>
                                             <span style={{
                                                 fontSize: '0.7rem',
                                                 padding: '0.15rem 0.4rem',
                                                 borderRadius: '3px',
-                                                backgroundColor: access.type === 'group' ? '#1e3a8a' : '#1f2937',
-                                                color: access.type === 'group' ? '#bfdbfe' : '#d1d5db',
-                                                border: '1px solid #3a3a3a',
+                                                backgroundColor: access.type === 'public' ? '#064e3b' : access.type === 'group' ? '#1e3a8a' : '#1f2937',
+                                                color: access.type === 'public' ? '#a7f3d0' : access.type === 'group' ? '#bfdbfe' : '#d1d5db',
+                                                border: `1px solid ${access.type === 'public' ? '#10b981' : '#3a3a3a'}`,
                                             }}>
-                                                {access.type === 'group' ? 'Group' : 'User'}
+                                                {access.type === 'public' ? 'Public' : access.type === 'group' ? 'Group' : 'User'}
                                             </span>
                                         </div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem', flexWrap: 'wrap' }}>
@@ -1031,7 +1071,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                 color: '#e0e0e0',
                                 margin: 0,
                             }}>
-                                Edit Access: {editingAccess.type === 'group' ? (editingAccess.groupName || 'Group access') : (editingAccess.userIdentifier || 'User access')}
+                                Edit Access: {editingAccess.type === 'public' ? 'Public Access' : editingAccess.type === 'group' ? (editingAccess.groupName || 'Group access') : (editingAccess.userIdentifier || 'User access')}
                             </h3>
 
                             <div>

@@ -41,19 +41,34 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { shortCode, userIdentifier, password, sessionToken } = body;
+        const { shortCode, userIdentifier, password, sessionToken, isPublic } = body;
 
-        // Allow either password auth or session token auth
-        if (!shortCode || !userIdentifier || (!password && !sessionToken)) {
+        // For public access: require shortCode and (password or sessionToken)
+        // For user access: require shortCode, userIdentifier, and (password or sessionToken)
+        if (!shortCode) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+        }
+
+        if (!isPublic && !userIdentifier) {
+            return NextResponse.json({ error: 'User identifier required' }, { status: 400 });
+        }
+
+        if (!password && !sessionToken) {
+            return NextResponse.json({ error: 'Password or session token required' }, { status: 400 });
         }
 
         // Sanitize inputs to prevent injection attacks
         const sanitizedShortCode = sanitizeShortCode(shortCode);
-        const sanitizedUserIdentifier = sanitizeUserIdentifier(userIdentifier);
+        if (!sanitizedShortCode) {
+            return NextResponse.json({ error: 'Invalid short code' }, { status: 400 });
+        }
 
-        if (!sanitizedShortCode || !sanitizedUserIdentifier) {
-            return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
+        let sanitizedUserIdentifier: string | null = null;
+        if (userIdentifier) {
+            sanitizedUserIdentifier = sanitizeUserIdentifier(userIdentifier);
+            if (!sanitizedUserIdentifier) {
+                return NextResponse.json({ error: 'Invalid user identifier' }, { status: 400 });
+            }
         }
 
         const adminClient = createAdminClient();
@@ -68,43 +83,59 @@ export async function POST(request: NextRequest) {
 
         if (fileError || !file) {
             // Log failed attempt (file not found)
-            await logAccess('00000000-0000-0000-0000-000000000000', sanitizedUserIdentifier, false, request);
+            await logAccess('00000000-0000-0000-0000-000000000000', sanitizedUserIdentifier || 'public', false, request);
             return NextResponse.json({ error: 'File not found' }, { status: 404 });
         }
 
-        // Get access grant (user-specific or group-based)
+        // Get access grant based on access type
         let access: any = null;
 
-        const { data: userAccess } = await adminClient
-            .from('file_access')
-            .select('*')
-            .eq('file_id', (file as any).id)
-            .eq('user_identifier', sanitizedUserIdentifier)
-            .maybeSingle();
-
-        if (userAccess) {
-            access = userAccess;
-        } else {
-            const { data: groupAccess } = await adminClient
+        if (isPublic) {
+            // Check for public access grant
+            const { data: publicAccess } = await adminClient
                 .from('file_access')
-                .select('*, groups:group_id(name), group_members!inner(member_identifier)')
+                .select('*')
                 .eq('file_id', (file as any).id)
-                .eq('group_members.member_identifier', sanitizedUserIdentifier)
+                .eq('is_public', true)
                 .maybeSingle();
 
-            if (groupAccess) {
-                access = groupAccess;
+            if (publicAccess) {
+                access = publicAccess;
+            }
+        } else if (sanitizedUserIdentifier) {
+            // Check for user-specific access
+            const { data: userAccess } = await adminClient
+                .from('file_access')
+                .select('*')
+                .eq('file_id', (file as any).id)
+                .eq('user_identifier', sanitizedUserIdentifier)
+                .maybeSingle();
+
+            if (userAccess) {
+                access = userAccess;
+            } else {
+                // Check for group-based access
+                const { data: groupAccess } = await adminClient
+                    .from('file_access')
+                    .select('*, groups:group_id(name), group_members!inner(member_identifier)')
+                    .eq('file_id', (file as any).id)
+                    .eq('group_members.member_identifier', sanitizedUserIdentifier)
+                    .maybeSingle();
+
+                if (groupAccess) {
+                    access = groupAccess;
+                }
             }
         }
 
         if (!access) {
-            await logAccess((file as any).id, sanitizedUserIdentifier, false, request);
+            await logAccess((file as any).id, sanitizedUserIdentifier || 'public', false, request);
             return NextResponse.json({ error: 'Access denied' }, { status: 403 });
         }
 
         // Check if expired
         if ((access as any).expires_at && new Date((access as any).expires_at) < new Date()) {
-            await logAccess((file as any).id, sanitizedUserIdentifier, false, request);
+            await logAccess((file as any).id, sanitizedUserIdentifier || 'public', false, request);
             return NextResponse.json({ error: 'Access expired' }, { status: 403 });
         }
 
@@ -112,7 +143,7 @@ export async function POST(request: NextRequest) {
         const maxDownloads = (access as any).max_downloads;
         const downloadCount = (access as any).download_count || 0;
         if (maxDownloads !== null && downloadCount >= maxDownloads) {
-            await logAccess((file as any).id, sanitizedUserIdentifier, false, request);
+            await logAccess((file as any).id, sanitizedUserIdentifier || 'public', false, request);
             return NextResponse.json({ error: 'Download limit reached' }, { status: 403 });
         }
 
@@ -128,14 +159,14 @@ export async function POST(request: NextRequest) {
 
             // Check if session expired
             if ((access as any).session_expires_at && new Date((access as any).session_expires_at) < new Date()) {
-                await logAccess((file as any).id, sanitizedUserIdentifier, false, request);
+                await logAccess((file as any).id, sanitizedUserIdentifier || 'public', false, request);
                 return NextResponse.json({ error: 'Session expired' }, { status: 403 });
             }
         } else if (password) {
             // Password authentication - create new session
             const isValid = await verifyPassword(password, (access as any).password_hash);
             if (!isValid) {
-                await logAccess((file as any).id, sanitizedUserIdentifier, false, request);
+                await logAccess((file as any).id, sanitizedUserIdentifier || 'public', false, request);
                 return NextResponse.json({ error: 'Invalid password' }, { status: 403 });
             }
 
@@ -155,7 +186,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Log successful access
-        await logAccess((file as any).id, sanitizedUserIdentifier, true, request);
+        await logAccess((file as any).id, sanitizedUserIdentifier || 'public', true, request);
 
         // Update access_count (page views) and timestamp
         // download_count is now tracked separately in /api/access/download when user actually downloads

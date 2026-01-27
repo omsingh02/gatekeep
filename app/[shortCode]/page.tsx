@@ -5,12 +5,15 @@ import { useParams } from 'next/navigation';
 import { LoadingSpinner } from '@/components/ui';
 import FilePreview from '@/components/public/FilePreview';
 
+type AccessMode = 'user' | 'public';
+
 export default function ShortCodePage() {
     const params = useParams();
     const shortCode = params.shortCode as string;
 
     const [isVerifying, setIsVerifying] = useState(false);
     const [isVerified, setIsVerified] = useState(false);
+    const [accessMode, setAccessMode] = useState<AccessMode>('user');
     const [userIdentifier, setUserIdentifier] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -18,10 +21,13 @@ export default function ShortCodePage() {
     const [isRevalidating, setIsRevalidating] = useState(true);
     const [cachedUserIdentifier, setCachedUserIdentifier] = useState('');
     const [sessionToken, setSessionToken] = useState('');
+    const [isPublicSession, setIsPublicSession] = useState(false);
 
     // Real-time access monitoring via SSE
     useEffect(() => {
-        if (!isVerified || !cachedUserIdentifier) return;
+        // Skip SSE for public access (no userIdentifier to track)
+        if (!isVerified || isPublicSession) return;
+        if (!cachedUserIdentifier) return;
 
         const eventSource = new EventSource(
             `/api/access/stream?shortCode=${encodeURIComponent(shortCode)}&userIdentifier=${encodeURIComponent(cachedUserIdentifier)}`
@@ -51,7 +57,7 @@ export default function ShortCodePage() {
         return () => {
             eventSource.close();
         };
-    }, [isVerified, cachedUserIdentifier, shortCode]);
+    }, [isVerified, cachedUserIdentifier, shortCode, isPublicSession]);
 
     useEffect(() => {
         const revalidateAccess = async () => {
@@ -61,6 +67,7 @@ export default function ShortCodePage() {
             if (sessionData) {
                 try {
                     const data = JSON.parse(sessionData);
+                    const isPublic = data.isPublic || false;
                     
                     // Re-verify access using session token (no password needed)
                     const response = await fetch('/api/verify', {
@@ -68,8 +75,9 @@ export default function ShortCodePage() {
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             shortCode,
-                            userIdentifier: data.userIdentifier,
+                            userIdentifier: data.userIdentifier || undefined,
                             sessionToken: data.sessionToken,
+                            isPublic: isPublic,
                         }),
                     });
 
@@ -80,11 +88,13 @@ export default function ShortCodePage() {
                             ...freshData,
                             userIdentifier: data.userIdentifier,
                             sessionToken: data.sessionToken,
+                            isPublic: isPublic,
                         }));
                         setFileData(freshData);
                         setIsVerified(true);
-                        setCachedUserIdentifier(data.userIdentifier);
+                        setCachedUserIdentifier(data.userIdentifier || '');
                         setSessionToken(data.sessionToken);
+                        setIsPublicSession(isPublic);
                     } else {
                         // Access revoked, expired, or invalid session
                         const errorData = await response.json().catch(() => ({}));
@@ -108,13 +118,16 @@ export default function ShortCodePage() {
         setIsVerifying(true);
 
         try {
+            const isPublic = accessMode === 'public';
+            
             const response = await fetch('/api/verify', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     shortCode,
-                    userIdentifier,
+                    userIdentifier: isPublic ? undefined : userIdentifier,
                     password,
+                    isPublic,
                 }),
             });
 
@@ -127,16 +140,18 @@ export default function ShortCodePage() {
             const sessionKey = `file_access_${shortCode}`;
             // Store session token instead of password
             sessionStorage.setItem(sessionKey, JSON.stringify({
-                userIdentifier,
+                userIdentifier: isPublic ? '' : userIdentifier,
                 sessionToken: data.sessionToken,
                 fileUrl: data.fileUrl,
                 file: data.file,
+                isPublic,
             }));
 
             setFileData(data);
             setIsVerified(true);
-            setCachedUserIdentifier(userIdentifier);
+            setCachedUserIdentifier(isPublic ? '' : userIdentifier);
             setSessionToken(data.sessionToken);
+            setIsPublicSession(isPublic);
         } catch (err: any) {
             setError(err.message || 'Failed to verify access');
         } finally {
@@ -216,38 +231,103 @@ export default function ShortCodePage() {
                     }}>Enter your credentials to access this file</p>
                 </div>
 
+                {/* Access Mode Toggle */}
+                <div style={{
+                    display: 'flex',
+                    gap: '0.5rem',
+                    marginBottom: '1rem',
+                }}>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setAccessMode('user');
+                            setError('');
+                        }}
+                        style={{
+                            flex: 1,
+                            padding: '0.625rem',
+                            fontSize: '0.85rem',
+                            fontWeight: 500,
+                            color: accessMode === 'user' ? '#ffffff' : '#9ca3af',
+                            backgroundColor: accessMode === 'user' ? '#2563eb' : 'transparent',
+                            border: `1px solid ${accessMode === 'user' ? '#3b82f6' : '#3a3a3a'}`,
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                        }}
+                    >
+                        User Access
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setAccessMode('public');
+                            setError('');
+                        }}
+                        style={{
+                            flex: 1,
+                            padding: '0.625rem',
+                            fontSize: '0.85rem',
+                            fontWeight: 500,
+                            color: accessMode === 'public' ? '#ffffff' : '#9ca3af',
+                            backgroundColor: accessMode === 'public' ? '#059669' : 'transparent',
+                            border: `1px solid ${accessMode === 'public' ? '#10b981' : '#3a3a3a'}`,
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                        }}
+                    >
+                        Public Link
+                    </button>
+                </div>
+
                 <form onSubmit={handleVerify} style={{
                     display: 'flex',
                     flexDirection: 'column',
                     gap: '1rem',
                 }}>
-                    <div>
-                        <label style={{
-                            display: 'block',
-                            fontSize: '0.875rem',
-                            color: '#9ca3af',
-                            marginBottom: '0.5rem',
-                        }}>Email or Username</label>
-                        <input
-                            value={userIdentifier}
-                            onChange={(e) => setUserIdentifier(e.target.value)}
-                            placeholder="your@email.com"
-                            required
-                            autoComplete="username"
-                            style={{
-                                width: '100%',
-                                padding: '0.625rem 0.875rem',
-                                borderRadius: '4px',
-                                border: '1px solid #3a3a3a',
-                                backgroundColor: '#1a1a1a',
-                                color: '#e0e0e0',
+                    {accessMode === 'user' && (
+                        <div>
+                            <label style={{
+                                display: 'block',
                                 fontSize: '0.875rem',
-                                outline: 'none',
-                            }}
-                            onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
-                            onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
-                        />
-                    </div>
+                                color: '#9ca3af',
+                                marginBottom: '0.5rem',
+                            }}>Email or Username</label>
+                            <input
+                                value={userIdentifier}
+                                onChange={(e) => setUserIdentifier(e.target.value)}
+                                placeholder="your@email.com"
+                                required={accessMode === 'user'}
+                                autoComplete="username"
+                                style={{
+                                    width: '100%',
+                                    padding: '0.625rem 0.875rem',
+                                    borderRadius: '4px',
+                                    border: '1px solid #3a3a3a',
+                                    backgroundColor: '#1a1a1a',
+                                    color: '#e0e0e0',
+                                    fontSize: '0.875rem',
+                                    outline: 'none',
+                                }}
+                                onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+                                onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
+                            />
+                        </div>
+                    )}
+
+                    {accessMode === 'public' && (
+                        <div style={{
+                            padding: '0.75rem',
+                            borderRadius: '4px',
+                            backgroundColor: '#064e3b',
+                            border: '1px solid #10b981',
+                        }}>
+                            <p style={{ fontSize: '0.85rem', color: '#a7f3d0', margin: 0 }}>
+                                This is a public link. Just enter the password to access.
+                            </p>
+                        </div>
+                    )}
 
                     <div>
                         <label style={{
@@ -298,7 +378,7 @@ export default function ShortCodePage() {
                             fontSize: '0.875rem',
                             fontWeight: 500,
                             color: 'white',
-                            backgroundColor: '#3b82f6',
+                            backgroundColor: accessMode === 'public' ? '#059669' : '#3b82f6',
                             border: 'none',
                             borderRadius: '4px',
                             cursor: isVerifying ? 'not-allowed' : 'pointer',
@@ -306,10 +386,10 @@ export default function ShortCodePage() {
                             transition: 'all 0.2s',
                         }}
                         onMouseEnter={(e) => {
-                            if (!isVerifying) e.currentTarget.style.backgroundColor = '#2563eb';
+                            if (!isVerifying) e.currentTarget.style.backgroundColor = accessMode === 'public' ? '#047857' : '#2563eb';
                         }}
                         onMouseLeave={(e) => {
-                            if (!isVerifying) e.currentTarget.style.backgroundColor = '#3b82f6';
+                            if (!isVerifying) e.currentTarget.style.backgroundColor = accessMode === 'public' ? '#059669' : '#3b82f6';
                         }}
                     >
                         {isVerifying ? 'Verifying...' : 'Access File'}

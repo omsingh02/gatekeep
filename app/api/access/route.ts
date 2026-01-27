@@ -64,10 +64,11 @@ export async function GET(request: NextRequest) {
             const transformedAccess = (access || []).map((a: any) => ({
                 id: a.id,
                 fileId: a.file_id,
-                type: a.group_id ? 'group' : 'user',
+                type: a.is_public ? 'public' : a.group_id ? 'group' : 'user',
                 userIdentifier: a.user_identifier || undefined,
                 groupId: a.group_id,
                 groupName: (a as any).groups?.name,
+                isPublic: a.is_public,
                 passwordHash: a.password_hash,
                 expiresAt: a.expires_at,
                 accessCount: a.access_count,
@@ -116,10 +117,11 @@ export async function GET(request: NextRequest) {
             return {
                 id: a.id,
                 fileId: a.file_id,
-                type: a.group_id ? 'group' : 'user',
+                type: a.is_public ? 'public' : a.group_id ? 'group' : 'user',
                 userIdentifier: a.user_identifier || undefined,
                 groupId: a.group_id,
                 groupName: (a as any).groups?.name,
+                isPublic: a.is_public,
                 passwordHash: a.password_hash,
                 expiresAt: a.expires_at,
                 accessCount: a.access_count,
@@ -180,19 +182,30 @@ export async function POST(request: NextRequest) {
         if (user instanceof NextResponse) return user;
 
         const body = await request.json();
-        const { fileId, userIdentifier, password, expiresAt, maxDownloads, groupId, identifierType, notifyOnGrant } = body;
+        const { fileId, userIdentifier, password, expiresAt, maxDownloads, groupId, identifierType, notifyOnGrant, isPublic } = body;
 
         // Validate identifier type
         const validIdentifierType = identifierType === 'email' ? 'email' : 'username';
-        const shouldNotify = validIdentifierType === 'email' && notifyOnGrant === true;
+        const shouldNotify = validIdentifierType === 'email' && notifyOnGrant === true && !isPublic;
 
-        if (!fileId || !password || (!userIdentifier && !groupId)) {
+        // Validate required fields based on access type
+        if (!fileId || !password) {
             logWarning('/api/access', 'validation-failed', 'Missing required fields', { fileId: fileId || 'none' });
-            return NextResponse.json({ error: 'fileId, password, and a user or group are required', code: 'ERR_INVALID_INPUT' }, { status: 400 });
+            return NextResponse.json({ error: 'fileId and password are required', code: 'ERR_INVALID_INPUT' }, { status: 400 });
+        }
+
+        // For non-public shares, require either userIdentifier or groupId
+        if (!isPublic && !userIdentifier && !groupId) {
+            logWarning('/api/access', 'validation-failed', 'Missing user or group for non-public share', { fileId: fileId || 'none' });
+            return NextResponse.json({ error: 'User identifier or group is required for non-public shares', code: 'ERR_INVALID_INPUT' }, { status: 400 });
         }
 
         if (userIdentifier && groupId) {
             return NextResponse.json({ error: 'Choose either a user or a group, not both', code: 'ERR_INVALID_INPUT' }, { status: 400 });
+        }
+
+        if (isPublic && (userIdentifier || groupId)) {
+            return NextResponse.json({ error: 'Public shares cannot have a user or group', code: 'ERR_INVALID_INPUT' }, { status: 400 });
         }
 
         let sanitizedUserIdentifier: string | null = null;
@@ -271,6 +284,23 @@ export async function POST(request: NextRequest) {
             }
         }
 
+        // Check for existing public share on this file
+        if (isPublic) {
+            const { data: existingPublic } = await adminClient
+                .from('file_access')
+                .select('id')
+                .eq('file_id', fileId)
+                .eq('is_public', true)
+                .maybeSingle();
+
+            if (existingPublic) {
+                return NextResponse.json(
+                    { error: 'A public share already exists for this file. Edit the existing grant instead.', code: 'ERR_CONFLICT' },
+                    { status: 409 }
+                );
+            }
+        }
+
         // Hash password
         const passwordHash = await hashPassword(password);
 
@@ -284,8 +314,9 @@ export async function POST(request: NextRequest) {
                 password_hash: passwordHash,
                 expires_at: expiresAt || null,
                 max_downloads: maxDownloads || null,
-                identifier_type: validIdentifierType,
+                identifier_type: isPublic ? null : validIdentifierType,
                 notify_on_grant: shouldNotify,
+                is_public: isPublic || false,
             } as any)
             .select()
             .single();
@@ -466,9 +497,10 @@ export async function PATCH(request: NextRequest) {
             access: {
                 id: ua.id,
                 fileId: ua.file_id,
-                type: ua.group_id ? 'group' : 'user',
+                type: ua.is_public ? 'public' : ua.group_id ? 'group' : 'user',
                 userIdentifier: ua.user_identifier || undefined,
                 groupId: ua.group_id,
+                isPublic: ua.is_public,
                 passwordHash: ua.password_hash,
                 expiresAt: ua.expires_at,
                 accessCount: ua.access_count,
