@@ -369,32 +369,72 @@ export default function FileUploader({ onUploadComplete, currentFolderId }: File
         return { success: false, error: `${displayName}: Upload failed after retries` };
     };
 
+    /**
+     * Run tasks with limited concurrency
+     */
+    const runWithConcurrency = async <T,>(
+        items: T[],
+        fn: (item: T) => Promise<void>,
+        concurrency: number
+    ): Promise<void> => {
+        const queue = [...items];
+        const active: Promise<void>[] = [];
+
+        const runNext = async (): Promise<void> => {
+            if (queue.length === 0) return;
+            
+            const item = queue.shift()!;
+            const promise = fn(item).finally(() => {
+                const index = active.indexOf(promise);
+                if (index > -1) active.splice(index, 1);
+            });
+            active.push(promise);
+            
+            if (active.length >= concurrency) {
+                await Promise.race(active);
+            }
+            
+            await runNext();
+        };
+
+        // Start initial batch
+        const starters = Array(Math.min(concurrency, items.length))
+            .fill(null)
+            .map(() => runNext());
+        
+        await Promise.all(starters);
+        await Promise.all(active);
+    };
+
     const handleFiles = async (files: FileWithPath[]) => {
         setError('');
         setIsUploading(true);
         const errors: string[] = [];
         let successCount = 0;
 
-        try {
-            for (const file of files) {
-                // Client-side validation
-                const validation = validateFile(file);
-                if (!validation.valid) {
-                    errors.push(`${file.relativePath || file.name}: ${validation.error}`);
-                    continue;
-                }
-
+        // Validate all files first
+        const validFiles: FileWithPath[] = [];
+        for (const file of files) {
+            const validation = validateFile(file);
+            if (!validation.valid) {
+                errors.push(`${file.relativePath || file.name}: ${validation.error}`);
+            } else {
+                validFiles.push(file);
                 const displayName = file.relativePath || file.name;
                 setUploadProgress(prev => ({ ...prev, [displayName]: 0 }));
+            }
+        }
 
-                // Use presigned URL upload with retry
+        try {
+            // Upload files in parallel with concurrency limit of 4
+            await runWithConcurrency(validFiles, async (file) => {
                 const result = await uploadWithRetry(file);
                 if (result.success) {
                     successCount++;
                 } else if (result.error) {
                     errors.push(result.error);
                 }
-            }
+            }, 4);
 
             setTimeout(() => {
                 setUploadProgress({});
