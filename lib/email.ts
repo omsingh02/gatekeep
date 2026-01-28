@@ -43,9 +43,13 @@ export async function sendAccessGrantEmail(params: AccessGrantEmailParams): Prom
         return false;
     }
 
-    const fromEmail = process.env.EMAIL_FROM || 'noreply@dl.omsingh.me';
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-    const fileLink = `${appUrl}/${params.shortCode}`;
+    // Ensure FROM address uses the correct domain if someone set an older value
+    const rawFrom = process.env.EMAIL_FROM || 'noreply@dl.omsingh.me';
+    const fromEmail = rawFrom.replace('@files.omsingh.me', '@dl.omsingh.me');
+
+    // Use the validated app URL from env.ts (fall back to local dev)
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL && process.env.NEXT_PUBLIC_APP_URL.replace('files.omsingh.me', 'dl.omsingh.me')) || 'http://localhost:3000';
+    const fileLink = `${appUrl.replace(/\/$/, '')}/${params.shortCode}`;
 
     // Format expiration date if provided
     let expirationText = '';

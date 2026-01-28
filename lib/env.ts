@@ -37,7 +37,9 @@ export const env = {
         anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     },
     app: {
-        url: process.env.NEXT_PUBLIC_APP_URL!,
+        // Normalize application URL and guard against an old/wrong domain
+        // Replace any occurrence of `files.omsingh.me` with `dl.omsingh.me` and ensure no trailing slash
+        url: (process.env.NEXT_PUBLIC_APP_URL || '').replace(/https?:\/\/(?:www\.)?/i, (m) => m).replace(/\/$/, '').replace('files.omsingh.me', 'dl.omsingh.me') || process.env.NEXT_PUBLIC_APP_URL!,
     },
 } as const;
 
