@@ -37,7 +37,17 @@ export const env = {
         anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     },
     app: {
-        url: process.env.NEXT_PUBLIC_APP_URL!,
+        // Normalize application URL and guard against an old/wrong domain
+        // Steps:
+        //  1. Replace old domain `files.omsingh.me` with `dl.omsingh.me`
+        //  2. Ensure the URL has a protocol (default to https:// if missing)
+        //  3. Strip any trailing slash
+        url: (() => {
+            const raw = (process.env.NEXT_PUBLIC_APP_URL || '').replace('files.omsingh.me', 'dl.omsingh.me').trim();
+            if (!raw) return process.env.NEXT_PUBLIC_APP_URL!;
+            const withProtocol = raw.match(/^https?:\/\//i) ? raw : `https://${raw}`;
+            return withProtocol.replace(/\/$/, '');
+        })(),
     },
 } as const;
 
