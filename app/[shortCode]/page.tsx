@@ -20,7 +20,6 @@ export default function ShortCodePage() {
     const [fileData, setFileData] = useState<any>(null);
     const [isRevalidating, setIsRevalidating] = useState(true);
     const [cachedUserIdentifier, setCachedUserIdentifier] = useState('');
-    const [sessionToken, setSessionToken] = useState('');
     const [isPublicSession, setIsPublicSession] = useState(false);
 
     // Real-time access monitoring via SSE
@@ -38,8 +37,7 @@ export default function ShortCodePage() {
                 const data = JSON.parse(event.data);
                 if (data.revoked || data.expired) {
                     // Access revoked or expired - kick user out
-                    const sessionKey = `file_access_${shortCode}`;
-                    sessionStorage.removeItem(sessionKey);
+                    // Cookie will be ignored by server on next request anyway
                     setIsVerified(false);
                     setFileData(null);
                     setError(data.revoked ? 'Access has been revoked' : 'Access has expired');
@@ -61,50 +59,29 @@ export default function ShortCodePage() {
 
     useEffect(() => {
         const revalidateAccess = async () => {
-            const sessionKey = `file_access_${shortCode}`;
-            const sessionData = sessionStorage.getItem(sessionKey);
+            // Try to use existing httpOnly cookie (sent automatically with request)
+            try {
+                const response = await fetch('/api/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include', // Include cookies in request
+                    body: JSON.stringify({
+                        shortCode,
+                        // No userIdentifier or password needed if cookie exists
+                    }),
+                });
 
-            if (sessionData) {
-                try {
-                    const data = JSON.parse(sessionData);
-                    const isPublic = data.isPublic || false;
-                    
-                    // Re-verify access using session token (no password needed)
-                    const response = await fetch('/api/verify', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            shortCode,
-                            userIdentifier: data.userIdentifier || undefined,
-                            sessionToken: data.sessionToken,
-                            isPublic: isPublic,
-                        }),
-                    });
-
-                    if (response.ok) {
-                        const freshData = await response.json();
-                        // Update session storage with fresh data (keep existing token)
-                        sessionStorage.setItem(sessionKey, JSON.stringify({
-                            ...freshData,
-                            userIdentifier: data.userIdentifier,
-                            sessionToken: data.sessionToken,
-                            isPublic: isPublic,
-                        }));
-                        setFileData(freshData);
-                        setIsVerified(true);
-                        setCachedUserIdentifier(data.userIdentifier || '');
-                        setSessionToken(data.sessionToken);
-                        setIsPublicSession(isPublic);
-                    } else {
-                        // Access revoked, expired, or invalid session
-                        const errorData = await response.json().catch(() => ({}));
-                        sessionStorage.removeItem(sessionKey);
-                        setError(errorData.error || 'Access denied');
-                    }
-                } catch (e) {
-                    sessionStorage.removeItem(sessionKey);
-                    // Silently handle revalidation errors (expected when access is revoked)
+                if (response.ok) {
+                    const freshData = await response.json();
+                    setFileData(freshData);
+                    setIsVerified(true);
+                } else {
+                    // Cookie expired or invalid - user needs to authenticate again
+                    const errorData = await response.json().catch(() => ({}));
+                    setError(errorData.error || 'Access denied');
                 }
+            } catch (e) {
+                // Silently handle revalidation errors (expected when access is revoked)
             }
             setIsRevalidating(false);
         };
@@ -123,6 +100,7 @@ export default function ShortCodePage() {
             const response = await fetch('/api/verify', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include', // Cookie will be set by server
                 body: JSON.stringify({
                     shortCode,
                     userIdentifier: isPublic ? undefined : userIdentifier,
@@ -137,20 +115,11 @@ export default function ShortCodePage() {
                 throw new Error(data.error || 'Verification failed');
             }
 
-            const sessionKey = `file_access_${shortCode}`;
-            // Store session token instead of password
-            sessionStorage.setItem(sessionKey, JSON.stringify({
-                userIdentifier: isPublic ? '' : userIdentifier,
-                sessionToken: data.sessionToken,
-                fileUrl: data.fileUrl,
-                file: data.file,
-                isPublic,
-            }));
-
+            // httpOnly cookie is automatically set by server
+            // No need to store anything in sessionStorage
             setFileData(data);
             setIsVerified(true);
             setCachedUserIdentifier(isPublic ? '' : userIdentifier);
-            setSessionToken(data.sessionToken);
             setIsPublicSession(isPublic);
         } catch (err: any) {
             setError(err.message || 'Failed to verify access');
@@ -179,7 +148,6 @@ export default function ShortCodePage() {
                 fileData={fileData} 
                 shortCode={shortCode}
                 userIdentifier={cachedUserIdentifier}
-                sessionToken={sessionToken}
             />
         );
     }

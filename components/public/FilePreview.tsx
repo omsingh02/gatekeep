@@ -15,10 +15,9 @@ interface FilePreviewProps {
     };
     shortCode: string;
     userIdentifier: string;
-    sessionToken: string;
 }
 
-export default function FilePreview({ fileData, shortCode, userIdentifier, sessionToken }: FilePreviewProps) {
+export default function FilePreview({ fileData, shortCode, userIdentifier }: FilePreviewProps) {
     const { file } = fileData;
     const typeInfo = getFileTypeInfo(file.mimeType);
     const [isDownloading, setIsDownloading] = useState(false);
@@ -49,10 +48,10 @@ export default function FilePreview({ fileData, shortCode, userIdentifier, sessi
             const response = await fetch('/api/access/download', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include', // Include httpOnly cookie
                 body: JSON.stringify({
                     shortCode,
                     userIdentifier: userIdentifier || undefined, // Send undefined for public access
-                    sessionToken,
                     action,
                 }),
             });
@@ -73,7 +72,7 @@ export default function FilePreview({ fileData, shortCode, userIdentifier, sessi
             }
             return null;
         }
-    }, [shortCode, userIdentifier, sessionToken]);
+    }, [shortCode, userIdentifier]);
 
     // Load preview URL when preview is shown (tracks the view)
     useEffect(() => {

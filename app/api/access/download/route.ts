@@ -13,11 +13,17 @@ import { sanitizeUserIdentifier, sanitizeShortCode } from '@/lib/utils/sanitizat
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { shortCode, userIdentifier, sessionToken, action = 'download' } = body;
+        const { shortCode, userIdentifier, action = 'download' } = body;
 
         // Validate required fields (userIdentifier can be empty for public access)
-        if (!shortCode || !sessionToken) {
+        if (!shortCode) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+        }
+
+        // Get session token from httpOnly cookie
+        const sessionToken = request.cookies.get(`access_${shortCode}`)?.value;
+        if (!sessionToken) {
+            return NextResponse.json({ error: 'Session token required' }, { status: 401 });
         }
 
         // Sanitize inputs

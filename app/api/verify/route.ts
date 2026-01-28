@@ -62,7 +62,13 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'User identifier required' }, { status: 400 });
         }
 
-        if (!password && !sessionToken) {
+        // Try to get session token from cookie if not in body
+        let cookieSessionToken = sessionToken;
+        if (!cookieSessionToken) {
+            cookieSessionToken = request.cookies.get(`access_${sanitizedShortCode}`)?.value;
+        }
+
+        if (!password && !cookieSessionToken) {
             return NextResponse.json({ error: 'Password or session token required' }, { status: 400 });
         }
 
@@ -158,10 +164,10 @@ export async function POST(request: NextRequest) {
 
         let newSessionToken: string | null = null;
 
-        // Verify either password or session token
-        if (sessionToken) {
-            // Session token authentication
-            const tokenHash = await hashToken(sessionToken);
+        // Verify either password or session token (from cookie or body)
+        if (cookieSessionToken) {
+            // Session token authentication (from cookie or request body)
+            const tokenHash = await hashToken(cookieSessionToken);
             if ((access as any).session_token !== tokenHash) {
                 await logAccess((file as any).id, sanitizedUserIdentifier || 'public', false, request, requestId, 'invalid_session');
                 return NextResponse.json({ error: 'Invalid session' }, { status: 403 });
@@ -219,9 +225,8 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to generate file URL' }, { status: 500 });
         }
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             success: true,
-            sessionToken: newSessionToken, // Only returned on password auth
             fileUrl: signedUrlData.signedUrl,
             file: {
                 id: (file as any).id,
@@ -230,6 +235,22 @@ export async function POST(request: NextRequest) {
                 fileSize: (file as any).file_size,
             },
         });
+
+        // Set httpOnly cookie for session token (only on password auth)
+        // Cookie is automatically sent with subsequent requests and cannot be accessed by XSS
+        if (newSessionToken) {
+            response.cookies.set({
+                name: `access_${sanitizedShortCode}`,
+                value: newSessionToken,
+                httpOnly: true, // Prevents JavaScript access (XSS protection)
+                secure: process.env.NODE_ENV === 'production', // HTTPS only in production
+                sameSite: 'strict', // CSRF protection
+                maxAge: 24 * 60 * 60, // 24 hours in seconds
+                path: '/',
+            });
+        }
+
+        return response;
     } catch (error) {
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }

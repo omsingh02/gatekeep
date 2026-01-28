@@ -53,7 +53,22 @@ export async function GET(request: NextRequest) {
         
         let query = adminClient
             .from('files')
-            .select('*, folders!folder_id(id, name)', { count: 'exact' })
+            .select(`
+              id,
+              filename,
+              original_filename,
+              file_path,
+              file_size,
+              mime_type,
+              short_code,
+              uploaded_by,
+              created_at,
+              updated_at,
+              folder_id,
+              folders!folder_id(id, name),
+              file_access(count),
+              access_log(count)
+            `, { count: 'exact' })
             .eq('uploaded_by', user.id)
             .is('deleted_at', null);
 
@@ -106,7 +121,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to fetch files' }, { status: 500 });
         }
 
-        // Transform to camelCase
+        // Transform to camelCase with aggregated stats
         const transformedFiles = (files || []).map((file: any) => ({
             id: file.id,
             filename: file.filename,
@@ -121,6 +136,9 @@ export async function GET(request: NextRequest) {
             folderId: file.folder_id,
             folderName: file.folders?.name || null,
             shortUrl: `${env.app.url}/${file.short_code}`,
+            // Eager loaded aggregates (avoids N+1 queries for stats)
+            accessGrantCount: file.file_access?.[0]?.count ?? 0,
+            accessLogCount: file.access_log?.[0]?.count ?? 0,
         }));
 
         // Calculate pagination metadata
