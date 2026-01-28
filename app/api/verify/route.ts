@@ -62,6 +62,12 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'User identifier required' }, { status: 400 });
         }
 
+        // Sanitize inputs to prevent injection attacks
+        const sanitizedShortCode = sanitizeShortCode(shortCode);
+        if (!sanitizedShortCode) {
+            return NextResponse.json({ error: 'Invalid short code' }, { status: 400 });
+        }
+
         // Try to get session token from cookie if not in body
         let cookieSessionToken = sessionToken;
         if (!cookieSessionToken) {
@@ -70,12 +76,6 @@ export async function POST(request: NextRequest) {
 
         if (!password && !cookieSessionToken) {
             return NextResponse.json({ error: 'Password or session token required' }, { status: 400 });
-        }
-
-        // Sanitize inputs to prevent injection attacks
-        const sanitizedShortCode = sanitizeShortCode(shortCode);
-        if (!sanitizedShortCode) {
-            return NextResponse.json({ error: 'Invalid short code' }, { status: 400 });
         }
 
         let sanitizedUserIdentifier: string | null = null;
