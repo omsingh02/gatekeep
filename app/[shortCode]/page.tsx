@@ -76,12 +76,32 @@ export default function ShortCodePage() {
                     setFileData(freshData);
                     setIsVerified(true);
                 } else {
-                    // Cookie expired or invalid - user needs to authenticate again
-                    const errorData = await response.json().catch(() => ({}));
-                    setError(errorData.error || 'Access denied');
+                    // If the server returns a 400 validation error (e.g. "User identifier required" or
+                    // "Password or session token required") it simply means there is no valid
+                    // session cookie and the user should see the login form — do not show
+                    // the validation message as an alert on initial load.
+                    if (response.status === 400) {
+                        const errorData = await response.json().catch(() => ({}));
+                        const msg = errorData.error || '';
+
+                        // Treat these messages as expected unauthenticated cases and do nothing
+                        if (
+                            msg === 'User identifier required' ||
+                            msg === 'Password or session token required' ||
+                            msg === 'Missing required fields' ||
+                            msg === 'Invalid user identifier'
+                        ) {
+                            // Intentionally no-op: user will be shown the form
+                        } else {
+                            setError(msg || 'Access denied');
+                        }
+                    } else {
+                        const errorData = await response.json().catch(() => ({}));
+                        setError(errorData.error || 'Access denied');
+                    }
                 }
             } catch (e) {
-                // Silently handle revalidation errors (expected when access is revoked)
+                // Silently handle revalidation/network errors (expected when access is revoked)
             }
             setIsRevalidating(false);
         };

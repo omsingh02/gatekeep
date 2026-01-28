@@ -20,19 +20,20 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
-        // Get session token from httpOnly cookie
-        const sessionToken = request.cookies.get(`access_${shortCode}`)?.value;
+        // Sanitize short code early and use sanitized value for cookie lookup to avoid mismatches
+        const sanitizedShortCode = sanitizeShortCode(shortCode);
+        if (!sanitizedShortCode) {
+            return NextResponse.json({ error: 'Invalid short code' }, { status: 400 });
+        }
+
+        // Get session token from httpOnly cookie (use sanitized short code)
+        const sessionToken = request.cookies.get(`access_${sanitizedShortCode}`)?.value;
         if (!sessionToken) {
             return NextResponse.json({ error: 'Session token required' }, { status: 401 });
         }
 
-        // Sanitize inputs
-        const sanitizedShortCode = sanitizeShortCode(shortCode);
+        // Sanitize user identifier
         const sanitizedUserIdentifier = userIdentifier ? sanitizeUserIdentifier(userIdentifier) : null;
-
-        if (!sanitizedShortCode) {
-            return NextResponse.json({ error: 'Invalid short code' }, { status: 400 });
-        }
 
         const adminClient = createAdminClient();
 

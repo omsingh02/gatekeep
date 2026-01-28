@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="128" viewBox="0 0 512 128" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">gatekeep logo — light</title>
+  <desc id="desc">Mascot shield with gate/keyhole mark and the wordmark "gatekeep" — light variant</desc>
+
+  <!-- Definitions -->
+  <defs>
+    <style>
+      .wordmark { font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-weight: 700; font-size: 40px; }
+    </style>
+  </defs>
+
+  <!-- Mascot / Shield (left) -->
+  <g transform="translate(24,8)">
+    <!-- Shield shape -->
+    <path d="M80 4 C40 4 8 44 8 88 C8 120 44 152 80 176 C116 152 152 120 152 88 C152 44 120 4 80 4 Z" fill="#0066cc" stroke="#0052a3" stroke-width="4"/>
+
+    <!-- Gate lines (white, subtle) -->
+    <g stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" opacity="0.95">
+      <line x1="60" y1="62" x2="100" y2="62" />
+      <line x1="60" y1="82" x2="100" y2="82" />
+      <line x1="60" y1="102" x2="100" y2="102" />
+    </g>
+
+    <!-- Keyhole (white) -->
+    <g fill="#FFFFFF" transform="translate(80,120)">
+      <circle cx="0" cy="-40" r="10" />
+      <rect x="-6" y="-30" width="12" height="28" rx="4" />
+    </g>
+
+    <!-- Friendly eyes (slightly darker) -->
+    <g fill="#0052a3" transform="translate(80,72)">
+      <circle cx="-18" cy="-2" r="4" />
+      <circle cx="18" cy="-2" r="4" />
+    </g>
+  </g>
+
+  <!-- Wordmark (right) -->
+  <g transform="translate(192,88)">
+    <text class="wordmark" x="0" y="0" fill="#1a1a1a">gatekeep</text>
+  </g>
+</svg>
