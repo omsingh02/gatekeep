@@ -51,7 +51,7 @@ export default function FilePreview({ fileData, shortCode, userIdentifier, sessi
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     shortCode,
-                    userIdentifier,
+                    userIdentifier: userIdentifier || undefined, // Send undefined for public access
                     sessionToken,
                     action,
                 }),

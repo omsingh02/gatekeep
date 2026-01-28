@@ -15,17 +15,17 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const { shortCode, userIdentifier, sessionToken, action = 'download' } = body;
 
-        // Validate required fields
-        if (!shortCode || !userIdentifier || !sessionToken) {
+        // Validate required fields (userIdentifier can be empty for public access)
+        if (!shortCode || !sessionToken) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
         // Sanitize inputs
         const sanitizedShortCode = sanitizeShortCode(shortCode);
-        const sanitizedUserIdentifier = sanitizeUserIdentifier(userIdentifier);
+        const sanitizedUserIdentifier = userIdentifier ? sanitizeUserIdentifier(userIdentifier) : null;
 
-        if (!sanitizedShortCode || !sanitizedUserIdentifier) {
-            return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
+        if (!sanitizedShortCode) {
+            return NextResponse.json({ error: 'Invalid short code' }, { status: 400 });
         }
 
         const adminClient = createAdminClient();
@@ -46,27 +46,44 @@ export async function POST(request: NextRequest) {
         const tokenHash = await hashToken(sessionToken);
         let access: any = null;
 
-        const { data: userAccess } = await adminClient
-            .from('file_access')
-            .select('id, download_count, max_downloads, expires_at, session_expires_at, session_token, group_id')
-            .eq('file_id', (file as any).id)
-            .eq('user_identifier', sanitizedUserIdentifier)
-            .eq('session_token', tokenHash)
-            .maybeSingle();
-
-        if (userAccess) {
-            access = userAccess;
-        } else {
-            const { data: groupAccess } = await adminClient
+        // Check for public access (no userIdentifier)
+        if (!sanitizedUserIdentifier) {
+            const { data: publicAccess } = await adminClient
                 .from('file_access')
-                .select('id, download_count, max_downloads, expires_at, session_expires_at, session_token, group_id, group_members!inner(member_identifier)')
+                .select('id, download_count, max_downloads, expires_at, session_expires_at, session_token, is_public')
                 .eq('file_id', (file as any).id)
+                .eq('is_public', true)
                 .eq('session_token', tokenHash)
-                .eq('group_members.member_identifier', sanitizedUserIdentifier)
                 .maybeSingle();
 
-            if (groupAccess) {
-                access = groupAccess;
+            if (publicAccess) {
+                access = publicAccess;
+            }
+        } else {
+            // Check for user-specific access
+            const { data: userAccess } = await adminClient
+                .from('file_access')
+                .select('id, download_count, max_downloads, expires_at, session_expires_at, session_token, group_id')
+                .eq('file_id', (file as any).id)
+                .eq('user_identifier', sanitizedUserIdentifier)
+                .eq('session_token', tokenHash)
+                .maybeSingle();
+
+            if (userAccess) {
+                access = userAccess;
+            } else {
+                // Check for group access
+                const { data: groupAccess } = await adminClient
+                    .from('file_access')
+                    .select('id, download_count, max_downloads, expires_at, session_expires_at, session_token, group_id, group_members!inner(member_identifier)')
+                    .eq('file_id', (file as any).id)
+                    .eq('session_token', tokenHash)
+                    .eq('group_members.member_identifier', sanitizedUserIdentifier)
+                    .maybeSingle();
+
+                if (groupAccess) {
+                    access = groupAccess;
+                }
             }
         }
 
