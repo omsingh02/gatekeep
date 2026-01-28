@@ -155,70 +155,102 @@ export default function FilePreview({ fileData, shortCode, userIdentifier, sessi
             );
         }
 
-        // Images
+        // Images - centered with aspect ratio preserved
         if (typeInfo.category === 'image') {
             return (
-                <img
-                    src={previewUrl}
-                    alt="User uploaded image"
-                    draggable={false}
-                    onContextMenu={(e) => e.preventDefault()}
-                    style={{
-                        maxWidth: '100%',
-                        height: 'auto',
-                        display: 'block',
-                        ...protectedStyles,
-                    }}
-                />
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '100%',
+                    height: '100%',
+                    padding: '1rem',
+                    backgroundColor: '#1a1a1a',
+                }}>
+                    <img
+                        src={previewUrl}
+                        alt="User uploaded image"
+                        draggable={false}
+                        onContextMenu={(e) => e.preventDefault()}
+                        style={{
+                            maxWidth: '100%',
+                            maxHeight: '100%',
+                            width: 'auto',
+                            height: 'auto',
+                            objectFit: 'contain',
+                            display: 'block',
+                            ...protectedStyles,
+                        }}
+                    />
+                </div>
             );
         }
 
-        // Videos - allow pointer events for controls
+        // Videos - centered with aspect ratio preserved
         if (typeInfo.category === 'video') {
             return (
-                <video
-                    src={previewUrl}
-                    controls
-                    controlsList="nodownload noplaybackrate"
-                    disablePictureInPicture
-                    preload="metadata"
-                    onContextMenu={(e) => e.preventDefault()}
-                    style={{
-                        width: '100%',
-                        height: '100%',
-                        maxHeight: '75vh',
-                        objectFit: 'contain',
-                        backgroundColor: '#000',
-                    }}
-                >
-                    Your browser does not support video playback.
-                </video>
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '100%',
+                    height: '100%',
+                    backgroundColor: '#000',
+                }}>
+                    <video
+                        src={previewUrl}
+                        controls
+                        controlsList="nodownload noplaybackrate"
+                        disablePictureInPicture
+                        preload="metadata"
+                        onContextMenu={(e) => e.preventDefault()}
+                        style={{
+                            maxWidth: '100%',
+                            maxHeight: '100%',
+                            width: 'auto',
+                            height: 'auto',
+                            objectFit: 'contain',
+                            display: 'block',
+                        }}
+                    >
+                        Your browser does not support video playback.
+                    </video>
+                </div>
             );
         }
 
-        // Audio - allow pointer events for controls
+        // Audio - centered with custom layout
         if (typeInfo.category === 'audio') {
             return (
-                <div style={{ padding: '2rem', textAlign: 'center' }}>
+                <div style={{ 
+                    padding: '3rem 2rem', 
+                    textAlign: 'center',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minHeight: '300px',
+                }}>
                     <div style={{
-                        width: '64px',
-                        height: '64px',
+                        width: '80px',
+                        height: '80px',
                         backgroundColor: '#1a1a1a',
-                        borderRadius: '6px',
-                        margin: '0 auto 1rem',
+                        borderRadius: '8px',
+                        margin: '0 auto 1.5rem',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                     }}>
-                        <svg style={{ width: '32px', height: '32px', color: '#9ca3af' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg style={{ width: '40px', height: '40px', color: '#9ca3af' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
                         </svg>
                     </div>
                     <h3 style={{
-                        fontSize: '1rem',
+                        fontSize: '1.125rem',
                         fontWeight: 500,
                         color: '#e0e0e0',
-                        margin: '0 0 1.5rem 0',
+                        margin: '0 0 2rem 0',
+                        maxWidth: '90%',
                         ...protectedStyles,
                     }}>{file.originalFilename}</h3>
                     <audio
@@ -227,7 +259,7 @@ export default function FilePreview({ fileData, shortCode, userIdentifier, sessi
                         controlsList="nodownload noplaybackrate"
                         preload="metadata"
                         onContextMenu={(e) => e.preventDefault()}
-                        style={{ width: '100%', outline: 'none' }}
+                        style={{ width: '100%', maxWidth: '600px', outline: 'none' }}
                     >
                         Your browser does not support audio playback.
                     </audio>
@@ -239,14 +271,25 @@ export default function FilePreview({ fileData, shortCode, userIdentifier, sessi
         if (isTextFile) {
             if (isLoadingText) {
                 return (
-                    <div style={{ textAlign: 'center', padding: '3rem 1rem' }}>
-                        <p style={{ color: '#9ca3af' }}>Loading preview...</p>
+                    <div style={{ 
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        minHeight: '300px',
+                        textAlign: 'center',
+                        padding: '3rem 1rem',
+                    }}>
+                        <p style={{ color: '#9ca3af', margin: 0 }}>Loading preview...</p>
                     </div>
                 );
             }
 
             return (
-                <div style={{ padding: '1.5rem' }}>
+                <div style={{ 
+                    padding: '1.5rem',
+                    width: '100%',
+                    maxWidth: '100%',
+                }}>
                     <pre style={{
                         backgroundColor: '#1a1a1a',
                         color: '#e0e0e0',
@@ -255,9 +298,9 @@ export default function FilePreview({ fileData, shortCode, userIdentifier, sessi
                         overflow: 'auto',
                         fontSize: '0.875rem',
                         lineHeight: '1.6',
-                        fontFamily: 'Monaco, Menlo, "Courier New", monospace',
+                        fontFamily: 'ui-monospace, SFMono-Regular, Monaco, Menlo, "Courier New", monospace',
                         margin: 0,
-                        maxHeight: '70vh',
+                        maxHeight: '65vh',
                         whiteSpace: 'pre-wrap',
                         wordBreak: 'break-word',
                         ...protectedStyles,
@@ -313,24 +356,33 @@ export default function FilePreview({ fileData, shortCode, userIdentifier, sessi
 
         // Fallback for unsupported types
         return (
-            <div style={{ textAlign: 'center', padding: '3rem 1rem', ...protectedStyles }}>
+            <div style={{ 
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                textAlign: 'center', 
+                padding: '4rem 2rem',
+                minHeight: '400px',
+                ...protectedStyles,
+            }}>
                 <div style={{
-                    width: '64px',
-                    height: '64px',
+                    width: '96px',
+                    height: '96px',
                     backgroundColor: '#1a1a1a',
-                    borderRadius: '6px',
-                    margin: '0 auto 1rem',
+                    borderRadius: '8px',
+                    margin: '0 auto 1.5rem',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                 }}>
-                    <div style={{ fontSize: '2rem', opacity: 0.7 }}>{typeInfo.icon}</div>
+                    <div style={{ fontSize: '3rem', opacity: 0.7 }}>{typeInfo.icon}</div>
                 </div>
                 <h3 style={{
-                    fontSize: '1.125rem',
+                    fontSize: '1.25rem',
                     fontWeight: 500,
                     color: '#e0e0e0',
-                    marginBottom: '0.5rem',
+                    marginBottom: '0.75rem',
                 }}>
                     {file.originalFilename}
                 </h3>
@@ -473,7 +525,9 @@ export default function FilePreview({ fileData, shortCode, userIdentifier, sessi
                         borderRadius: '8px',
                         border: '1px solid #3a3a3a',
                         overflow: 'hidden',
-                        height: '75vh',
+                        minHeight: typeInfo.category === 'audio' ? 'auto' : '50vh',
+                        maxHeight: typeInfo.category === 'image' || typeInfo.category === 'video' ? '80vh' : '75vh',
+                        height: ['image', 'video', 'pdf'].includes(typeInfo.category) ? '75vh' : 'auto',
                         marginBottom: '1.5rem',
                     }}>
                         {renderPreview()}
