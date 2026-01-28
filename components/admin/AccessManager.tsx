@@ -25,6 +25,12 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
     const [identifierType, setIdentifierType] = useState<'email' | 'username'>('username');
     const [notifyOnGrant, setNotifyOnGrant] = useState(false);
     
+    // Bulk mode state
+    const [isBulkMode, setIsBulkMode] = useState(false);
+    const [bulkIdentifiers, setBulkIdentifiers] = useState('');
+    const [bulkResults, setBulkResults] = useState<{ success: string[]; failed: Array<{ identifier: string; error: string }> } | null>(null);
+    const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
+    
     // Edit mode state
     const [editingAccess, setEditingAccess] = useState<FileAccess | null>(null);
     const [editPassword, setEditPassword] = useState('');
@@ -50,6 +56,10 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
         if (isOpen) {
             fetchAccessList();
             setGrantMode('user');
+            setIsBulkMode(false);
+            setBulkIdentifiers('');
+            setBulkResults(null);
+            setBulkProgress(null);
         }
     }, [isOpen, file.id]);
 
@@ -132,6 +142,99 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
             setError(err.message);
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handleBulkAddAccess = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError('');
+        setBulkResults(null);
+        setIsLoading(true);
+
+        // Parse identifiers (split by newlines, commas, or semicolons)
+        const identifiers = bulkIdentifiers
+            .split(/[\n,;]+/)
+            .map(id => id.trim())
+            .filter(id => id.length > 0);
+
+        if (identifiers.length === 0) {
+            setError('Please enter at least one identifier');
+            setIsLoading(false);
+            return;
+        }
+
+        // Remove duplicates
+        const uniqueIdentifiers = [...new Set(identifiers.map(id => id.toLowerCase()))];
+        
+        const results: { success: string[]; failed: Array<{ identifier: string; error: string }> } = {
+            success: [],
+            failed: [],
+        };
+
+        setBulkProgress({ current: 0, total: uniqueIdentifiers.length });
+
+        try {
+            const expiresAtISO = expiresAt ? new Date(expiresAt).toISOString() : null;
+
+            for (let i = 0; i < uniqueIdentifiers.length; i++) {
+                const identifier = uniqueIdentifiers[i];
+                setBulkProgress({ current: i + 1, total: uniqueIdentifiers.length });
+
+                try {
+                    const payload: any = {
+                        fileId: file.id,
+                        password,
+                        expiresAt: expiresAtISO,
+                        maxDownloads: maxDownloads ? parseInt(maxDownloads) : null,
+                        userIdentifier: identifier,
+                        identifierType,
+                        notifyOnGrant,
+                    };
+
+                    const response = await fetch('/api/access', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload),
+                    });
+
+                    if (response.ok) {
+                        results.success.push(identifier);
+                    } else {
+                        const data = await response.json();
+                        results.failed.push({ identifier, error: data.error || 'Failed to grant access' });
+                    }
+                } catch (err: any) {
+                    results.failed.push({ identifier, error: err.message || 'Network error' });
+                }
+            }
+
+            setBulkResults(results);
+
+            // Show summary toast
+            if (results.failed.length === 0) {
+                toast.success(`Successfully granted access to ${results.success.length} users`);
+            } else if (results.success.length === 0) {
+                toast.error(`Failed to grant access to all ${results.failed.length} users`);
+            } else {
+                toast.warning(`Granted ${results.success.length} of ${uniqueIdentifiers.length} (${results.failed.length} failed)`);
+            }
+
+            // Reset form on complete success
+            if (results.failed.length === 0) {
+                setBulkIdentifiers('');
+                setPassword('');
+                setExpiresAt('');
+                setMaxDownloads('');
+                setNotifyOnGrant(false);
+            }
+
+            // Refresh list
+            await fetchAccessList();
+        } catch (err: any) {
+            setError(err.message);
+        } finally {
+            setIsLoading(false);
+            setBulkProgress(null);
         }
     };
 
@@ -253,7 +356,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                 </div>
 
                 {/* Add Access Form */}
-                <form onSubmit={handleAddAccess} style={{
+                <form onSubmit={isBulkMode ? handleBulkAddAccess : handleAddAccess} style={{
                     display: 'flex',
                     flexDirection: 'column',
                     gap: '1rem',
@@ -261,12 +364,38 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                     borderRadius: '6px',
                     border: '1px solid #3a3a3a',
                 }}>
-                    <h4 style={{
-                        fontWeight: 500,
-                        color: '#e0e0e0',
-                        margin: 0,
-                        fontSize: '0.95rem',
-                    }}>Grant New Access</h4>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <h4 style={{
+                            fontWeight: 500,
+                            color: '#e0e0e0',
+                            margin: 0,
+                            fontSize: '0.95rem',
+                        }}>Grant New Access</h4>
+                        
+                        {grantMode === 'user' && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setIsBulkMode(!isBulkMode);
+                                    setBulkResults(null);
+                                    setError('');
+                                }}
+                                style={{
+                                    padding: '0.35rem 0.6rem',
+                                    fontSize: '0.75rem',
+                                    fontWeight: 500,
+                                    color: isBulkMode ? '#fbbf24' : '#9ca3af',
+                                    backgroundColor: isBulkMode ? '#78350f' : 'transparent',
+                                    border: `1px solid ${isBulkMode ? '#f59e0b' : '#3a3a3a'}`,
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s',
+                                }}
+                            >
+                                {isBulkMode ? '← Single User' : 'Bulk Grant →'}
+                            </button>
+                        )}
+                    </div>
 
                     <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                         <button
@@ -294,6 +423,8 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                             type="button"
                             onClick={() => {
                                 setGrantMode('public');
+                                setIsBulkMode(false);
+                                setBulkResults(null);
                                 setError('');
                                 setDuplicateUserIdentifier(null);
                             }}
@@ -377,37 +508,94 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                 </div>
                             </div>
 
-                            <div>
-                                <label style={{
-                                    display: 'block',
-                                    fontSize: '0.875rem',
-                                    color: '#9ca3af',
-                                    marginBottom: '0.5rem',
-                                }}>{identifierType === 'email' ? 'Email Address' : 'Username'}</label>
-                                <input
-                                    type={identifierType === 'email' ? 'email' : 'text'}
-                                    value={userIdentifier}
-                                    onChange={(e) => setUserIdentifier(e.target.value)}
-                                    placeholder={identifierType === 'email' ? 'user@example.com' : 'Enter username'}
-                                    required={grantMode === 'user'}
-                                    style={{
-                                        width: '100%',
-                                        padding: '0.625rem 0.875rem',
-                                        borderRadius: '4px',
-                                        border: '1px solid #3a3a3a',
-                                        backgroundColor: '#1a1a1a',
-                                        color: '#e0e0e0',
+                            {/* Bulk mode info banner */}
+                            {isBulkMode && (
+                                <div style={{
+                                    padding: '0.75rem',
+                                    borderRadius: '4px',
+                                    backgroundColor: '#78350f',
+                                    border: '1px solid #f59e0b',
+                                }}>
+                                    <p style={{ fontSize: '0.875rem', color: '#fef3c7', margin: 0 }}>
+                                        Enter multiple {identifierType === 'email' ? 'email addresses' : 'usernames'} — one per line, or separated by commas.
+                                        All users will receive the same password and settings.
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Single user input or bulk textarea */}
+                            {isBulkMode ? (
+                                <div>
+                                    <label style={{
+                                        display: 'block',
                                         fontSize: '0.875rem',
-                                        outline: 'none',
-                                    }}
-                                    onFocus={(e) => {
-                                        e.target.style.borderColor = '#3b82f6';
-                                    }}
-                                    onBlur={(e) => {
-                                        e.target.style.borderColor = '#3a3a3a';
-                                    }}
-                                />
-                            </div>
+                                        color: '#9ca3af',
+                                        marginBottom: '0.5rem',
+                                    }}>{identifierType === 'email' ? 'Email Addresses' : 'Usernames'}</label>
+                                    <textarea
+                                        value={bulkIdentifiers}
+                                        onChange={(e) => setBulkIdentifiers(e.target.value)}
+                                        placeholder={identifierType === 'email' 
+                                            ? 'user1@example.com\nuser2@example.com\nuser3@example.com' 
+                                            : 'john_doe\njane_smith\nbob_wilson'}
+                                        required
+                                        rows={5}
+                                        style={{
+                                            width: '100%',
+                                            padding: '0.625rem 0.875rem',
+                                            borderRadius: '4px',
+                                            border: '1px solid #3a3a3a',
+                                            backgroundColor: '#1a1a1a',
+                                            color: '#e0e0e0',
+                                            fontSize: '0.875rem',
+                                            outline: 'none',
+                                            resize: 'vertical',
+                                            fontFamily: 'monospace',
+                                        }}
+                                        onFocus={(e) => {
+                                            e.target.style.borderColor = '#3b82f6';
+                                        }}
+                                        onBlur={(e) => {
+                                            e.target.style.borderColor = '#3a3a3a';
+                                        }}
+                                    />
+                                    <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                                        {bulkIdentifiers.split(/[\n,;]+/).filter(id => id.trim()).length} identifier(s) entered
+                                    </p>
+                                </div>
+                            ) : (
+                                <div>
+                                    <label style={{
+                                        display: 'block',
+                                        fontSize: '0.875rem',
+                                        color: '#9ca3af',
+                                        marginBottom: '0.5rem',
+                                    }}>{identifierType === 'email' ? 'Email Address' : 'Username'}</label>
+                                    <input
+                                        type={identifierType === 'email' ? 'email' : 'text'}
+                                        value={userIdentifier}
+                                        onChange={(e) => setUserIdentifier(e.target.value)}
+                                        placeholder={identifierType === 'email' ? 'user@example.com' : 'Enter username'}
+                                        required={grantMode === 'user'}
+                                        style={{
+                                            width: '100%',
+                                            padding: '0.625rem 0.875rem',
+                                            borderRadius: '4px',
+                                            border: '1px solid #3a3a3a',
+                                            backgroundColor: '#1a1a1a',
+                                            color: '#e0e0e0',
+                                            fontSize: '0.875rem',
+                                            outline: 'none',
+                                        }}
+                                        onFocus={(e) => {
+                                            e.target.style.borderColor = '#3b82f6';
+                                        }}
+                                        onBlur={(e) => {
+                                            e.target.style.borderColor = '#3a3a3a';
+                                        }}
+                                    />
+                                </div>
+                            )}
 
                             {/* Email notification option */}
                             {identifierType === 'email' && (
@@ -571,6 +759,90 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                         </div>
                     )}
 
+                    {/* Bulk Progress Indicator */}
+                    {bulkProgress && (
+                        <div style={{
+                            padding: '0.75rem',
+                            borderRadius: '4px',
+                            backgroundColor: '#1e3a5f',
+                            border: '1px solid #3b82f6',
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                                <span style={{ fontSize: '0.875rem', color: '#93c5fd' }}>
+                                    Processing {bulkProgress.current} of {bulkProgress.total}...
+                                </span>
+                                <span style={{ fontSize: '0.875rem', color: '#93c5fd' }}>
+                                    {Math.round((bulkProgress.current / bulkProgress.total) * 100)}%
+                                </span>
+                            </div>
+                            <div style={{
+                                width: '100%',
+                                height: '6px',
+                                backgroundColor: '#1a1a1a',
+                                borderRadius: '3px',
+                                overflow: 'hidden',
+                            }}>
+                                <div style={{
+                                    width: `${(bulkProgress.current / bulkProgress.total) * 100}%`,
+                                    height: '100%',
+                                    backgroundColor: '#3b82f6',
+                                    transition: 'width 0.2s',
+                                }} />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Bulk Results Summary */}
+                    {bulkResults && (
+                        <div style={{
+                            padding: '0.75rem',
+                            borderRadius: '4px',
+                            backgroundColor: bulkResults.failed.length === 0 ? '#064e3b' : bulkResults.success.length === 0 ? '#7f1d1d' : '#78350f',
+                            border: `1px solid ${bulkResults.failed.length === 0 ? '#10b981' : bulkResults.success.length === 0 ? '#ef4444' : '#f59e0b'}`,
+                        }}>
+                            <p style={{ 
+                                fontSize: '0.875rem', 
+                                color: bulkResults.failed.length === 0 ? '#a7f3d0' : bulkResults.success.length === 0 ? '#fecaca' : '#fef3c7', 
+                                margin: 0,
+                                fontWeight: 500,
+                            }}>
+                                {bulkResults.failed.length === 0 
+                                    ? `✓ Successfully granted access to ${bulkResults.success.length} users`
+                                    : bulkResults.success.length === 0 
+                                        ? `✗ Failed to grant access to all ${bulkResults.failed.length} users`
+                                        : `⚠ Granted ${bulkResults.success.length} of ${bulkResults.success.length + bulkResults.failed.length}`}
+                            </p>
+                            {bulkResults.failed.length > 0 && (
+                                <div style={{ marginTop: '0.5rem' }}>
+                                    <p style={{ fontSize: '0.75rem', color: '#fef3c7', margin: '0 0 0.25rem 0' }}>Failed:</p>
+                                    <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.75rem', color: '#fecaca' }}>
+                                        {bulkResults.failed.slice(0, 5).map((f, i) => (
+                                            <li key={i}>{f.identifier}: {f.error}</li>
+                                        ))}
+                                        {bulkResults.failed.length > 5 && (
+                                            <li>...and {bulkResults.failed.length - 5} more</li>
+                                        )}
+                                    </ul>
+                                </div>
+                            )}
+                            <button
+                                type="button"
+                                onClick={() => setBulkResults(null)}
+                                style={{
+                                    marginTop: '0.5rem',
+                                    padding: '0.25rem 0.5rem',
+                                    fontSize: '0.75rem',
+                                    color: '#9ca3af',
+                                    backgroundColor: 'transparent',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                }}
+                            >
+                                Dismiss
+                            </button>
+                        </div>
+                    )}
+
                     <button
                         type="submit"
                         disabled={isLoading}
@@ -580,7 +852,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                             fontSize: '0.875rem',
                             fontWeight: 500,
                             color: 'white',
-                            backgroundColor: '#3b82f6',
+                            backgroundColor: isBulkMode ? '#d97706' : '#3b82f6',
                             border: 'none',
                             borderRadius: '4px',
                             cursor: isLoading ? 'not-allowed' : 'pointer',
@@ -588,13 +860,15 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                             transition: 'all 0.2s',
                         }}
                         onMouseEnter={(e) => {
-                            if (!isLoading) e.currentTarget.style.backgroundColor = '#2563eb';
+                            if (!isLoading) e.currentTarget.style.backgroundColor = isBulkMode ? '#b45309' : '#2563eb';
                         }}
                         onMouseLeave={(e) => {
-                            if (!isLoading) e.currentTarget.style.backgroundColor = '#3b82f6';
+                            if (!isLoading) e.currentTarget.style.backgroundColor = isBulkMode ? '#d97706' : '#3b82f6';
                         }}
                     >
-                        {isLoading ? 'Granting Access...' : 'Grant Access'}
+                        {isLoading 
+                            ? (isBulkMode ? 'Granting Access...' : 'Granting Access...') 
+                            : (isBulkMode ? 'Grant Access to All' : 'Grant Access')}
                     </button>
                 </form>
 
