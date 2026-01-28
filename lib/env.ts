@@ -38,8 +38,16 @@ export const env = {
     },
     app: {
         // Normalize application URL and guard against an old/wrong domain
-        // Replace any occurrence of `files.omsingh.me` with `dl.omsingh.me` and ensure no trailing slash
-        url: (process.env.NEXT_PUBLIC_APP_URL || '').replace(/https?:\/\/(?:www\.)?/i, (m) => m).replace(/\/$/, '').replace('files.omsingh.me', 'dl.omsingh.me') || process.env.NEXT_PUBLIC_APP_URL!,
+        // Steps:
+        //  1. Replace old domain `files.omsingh.me` with `dl.omsingh.me`
+        //  2. Ensure the URL has a protocol (default to https:// if missing)
+        //  3. Strip any trailing slash
+        url: (() => {
+            const raw = (process.env.NEXT_PUBLIC_APP_URL || '').replace('files.omsingh.me', 'dl.omsingh.me').trim();
+            if (!raw) return process.env.NEXT_PUBLIC_APP_URL!;
+            const withProtocol = raw.match(/^https?:\/\//i) ? raw : `https://${raw}`;
+            return withProtocol.replace(/\/$/, '');
+        })(),
     },
 } as const;
 
