@@ -25,7 +25,6 @@ export interface Database {
                     id: string;
                     file_id: string;
                     user_identifier: string | null;
-                    group_id: string | null;
                     password_hash: string;
                     expires_at: string | null;
                     access_count: number;
@@ -52,30 +51,6 @@ export interface Database {
                 Insert: Omit<Database['public']['Tables']['folders']['Row'], 'id' | 'created_at' | 'updated_at'>;
                 Update: Partial<Database['public']['Tables']['folders']['Insert']>;
             };
-            groups: {
-                Row: {
-                    id: string;
-                    name: string;
-                    description: string | null;
-                    parent_id: string | null;
-                    created_by: string;
-                    created_at: string;
-                    updated_at: string;
-                    deleted_at: string | null;
-                };
-                Insert: Omit<Database['public']['Tables']['groups']['Row'], 'id' | 'created_at' | 'updated_at'>;
-                Update: Partial<Database['public']['Tables']['groups']['Insert']>;
-            };
-            group_members: {
-                Row: {
-                    id: string;
-                    group_id: string;
-                    member_identifier: string;
-                    created_at: string;
-                };
-                Insert: Omit<Database['public']['Tables']['group_members']['Row'], 'id' | 'created_at'>;
-                Update: Partial<Database['public']['Tables']['group_members']['Insert']>;
-            };
         };
     };
 }
@@ -100,10 +75,8 @@ export interface FileMetadata {
 export interface FileAccess {
     id: string;
     fileId: string;
-    type: 'user' | 'group' | 'public';
+    type: 'user' | 'public';
     userIdentifier?: string;
-    groupId?: string | null;
-    groupName?: string;
     isPublic?: boolean;
     passwordHash: string;
     expiresAt: string | null;
@@ -167,41 +140,5 @@ export interface FolderContents {
     path: Array<{ id: string; name: string }>;
     subfolders: Folder[];
     files: FileMetadata[];
-    totalItems: number;
-}
-
-export interface Group {
-    id: string;
-    name: string;
-    description?: string | null;
-    parentId?: string | null;
-    createdBy: string;
-    createdAt: string;
-    updatedAt: string;
-    deletedAt?: string | null;
-    // Extended fields (from GET single group or contents)
-    memberCount?: number;
-    subgroupCount?: number;
-    path?: Array<{ id: string; name: string }>;
-    members?: GroupMember[];
-}
-
-export interface GroupMember {
-    id: string;
-    groupId?: string;
-    memberIdentifier: string;
-    createdAt: string;
-}
-
-export interface GroupContents {
-    group: {
-        id: string;
-        name: string;
-        description?: string | null;
-        parentId: string | null;
-    };
-    path: Array<{ id: string; name: string }>;
-    subgroups: Group[];
-    members: GroupMember[];
     totalItems: number;
 }

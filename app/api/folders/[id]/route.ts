@@ -187,6 +187,23 @@ export async function PATCH(
                     return NextResponse.json({ error: 'Parent folder not found', code: 'ERR_NOT_FOUND' }, { status: 404 });
                 }
 
+                // Limit to 1 level of nesting: parent cannot have a parent
+                if ((parent as any).parent_id) {
+                    return NextResponse.json({ error: 'Cannot move folder inside a subfolder. Maximum folder depth is 1 level.', code: 'ERR_MAX_DEPTH' }, { status: 400 });
+                }
+
+                // If this folder has children, it cannot be moved into another folder
+                const { count: childCount } = await adminClient
+                    .from('folders')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('parent_id', id)
+                    .eq('uploaded_by', user.id)
+                    .is('deleted_at', null);
+
+                if (childCount && childCount > 0) {
+                    return NextResponse.json({ error: 'Cannot move folder with subfolders into another folder. Maximum folder depth is 1 level.', code: 'ERR_MAX_DEPTH' }, { status: 400 });
+                }
+
                 // Prevent circular reference: target parent cannot be a descendant
                 const wouldCycle = await isDescendant(adminClient, id, parentId, user.id);
                 if (wouldCycle) {

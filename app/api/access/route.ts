@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
             // Get access list for this file
             const { data: access, error: accessError } = await adminClient
                 .from('file_access')
-                .select('*, groups:group_id(name)')
+                .select('*')
                 .eq('file_id', fileId)
                 .order('created_at', { ascending: false });
 
@@ -64,10 +64,8 @@ export async function GET(request: NextRequest) {
             const transformedAccess = (access || []).map((a: any) => ({
                 id: a.id,
                 fileId: a.file_id,
-                type: a.is_public ? 'public' : a.group_id ? 'group' : 'user',
+                type: a.is_public ? 'public' : 'user',
                 userIdentifier: a.user_identifier || undefined,
-                groupId: a.group_id,
-                groupName: (a as any).groups?.name,
                 isPublic: a.is_public,
                 passwordHash: a.password_hash,
                 expiresAt: a.expires_at,
@@ -87,7 +85,7 @@ export async function GET(request: NextRequest) {
         // Get all shares for the user (across all their files) with count in single query
         let query = adminClient
             .from('file_access')
-            .select('*, files!inner(id, original_filename, short_code, uploaded_by), groups:group_id(name)', { count: 'exact' })
+            .select('*, files!inner(id, original_filename, short_code, uploaded_by)', { count: 'exact' })
             .eq('files.uploaded_by', user.id)
             .order('created_at', { ascending: false });
 
@@ -117,10 +115,8 @@ export async function GET(request: NextRequest) {
             return {
                 id: a.id,
                 fileId: a.file_id,
-                type: a.is_public ? 'public' : a.group_id ? 'group' : 'user',
+                type: a.is_public ? 'public' : 'user',
                 userIdentifier: a.user_identifier || undefined,
-                groupId: a.group_id,
-                groupName: (a as any).groups?.name,
                 isPublic: a.is_public,
                 passwordHash: a.password_hash,
                 expiresAt: a.expires_at,
@@ -182,7 +178,7 @@ export async function POST(request: NextRequest) {
         if (user instanceof NextResponse) return user;
 
         const body = await request.json();
-        const { fileId, userIdentifier, password, expiresAt, maxDownloads, groupId, identifierType, notifyOnGrant, isPublic } = body;
+        const { fileId, userIdentifier, password, expiresAt, maxDownloads, identifierType, notifyOnGrant, isPublic } = body;
 
         // Validate identifier type
         const validIdentifierType = identifierType === 'email' ? 'email' : 'username';
@@ -194,18 +190,14 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'fileId and password are required', code: 'ERR_INVALID_INPUT' }, { status: 400 });
         }
 
-        // For non-public shares, require either userIdentifier or groupId
-        if (!isPublic && !userIdentifier && !groupId) {
-            logWarning('/api/access', 'validation-failed', 'Missing user or group for non-public share', { fileId: fileId || 'none' });
-            return NextResponse.json({ error: 'User identifier or group is required for non-public shares', code: 'ERR_INVALID_INPUT' }, { status: 400 });
+        // For non-public shares, require userIdentifier
+        if (!isPublic && !userIdentifier) {
+            logWarning('/api/access', 'validation-failed', 'Missing user identifier for non-public share', { fileId: fileId || 'none' });
+            return NextResponse.json({ error: 'User identifier is required for non-public shares', code: 'ERR_INVALID_INPUT' }, { status: 400 });
         }
 
-        if (userIdentifier && groupId) {
-            return NextResponse.json({ error: 'Choose either a user or a group, not both', code: 'ERR_INVALID_INPUT' }, { status: 400 });
-        }
-
-        if (isPublic && (userIdentifier || groupId)) {
-            return NextResponse.json({ error: 'Public shares cannot have a user or group', code: 'ERR_INVALID_INPUT' }, { status: 400 });
+        if (isPublic && userIdentifier) {
+            return NextResponse.json({ error: 'Public shares cannot have a user identifier', code: 'ERR_INVALID_INPUT' }, { status: 400 });
         }
 
         let sanitizedUserIdentifier: string | null = null;
@@ -233,20 +225,6 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'File not found', code: 'ERR_NOT_FOUND' }, { status: 404 });
         }
 
-        if (groupId) {
-            const { data: group, error: groupError } = await adminClient
-                .from('groups')
-                .select('id')
-                .eq('id', groupId)
-                .eq('created_by', user.id)
-                .is('deleted_at', null)
-                .single();
-
-            if (groupError || !group) {
-                return NextResponse.json({ error: 'Group not found', code: 'ERR_GROUP_NOT_FOUND' }, { status: 404 });
-            }
-        }
-
         // Check if access grant already exists for this user/file combo
         if (sanitizedUserIdentifier) {
             const { data: existingAccess } = await adminClient
@@ -263,22 +241,6 @@ export async function POST(request: NextRequest) {
                 });
                 return NextResponse.json(
                     { error: 'User already has access to this file. Use edit to modify the existing grant.', code: 'ERR_CONFLICT' },
-                    { status: 409 }
-                );
-            }
-        }
-
-        if (groupId) {
-            const { data: existingGroupAccess } = await adminClient
-                .from('file_access')
-                .select('id')
-                .eq('file_id', fileId)
-                .eq('group_id', groupId)
-                .maybeSingle();
-
-            if (existingGroupAccess) {
-                return NextResponse.json(
-                    { error: 'Group already has access to this file. Edit the existing grant instead.', code: 'ERR_CONFLICT' },
                     { status: 409 }
                 );
             }
@@ -310,7 +272,6 @@ export async function POST(request: NextRequest) {
             .insert({
                 file_id: fileId,
                 user_identifier: sanitizedUserIdentifier,
-                group_id: groupId || null,
                 password_hash: passwordHash,
                 expires_at: expiresAt || null,
                 max_downloads: maxDownloads || null,
@@ -325,7 +286,6 @@ export async function POST(request: NextRequest) {
             logError('/api/access', user.id, 'create-access-grant', accessError, {
                 fileId: fileId.substring(0, 8),
                 userIdentifier: sanitizedUserIdentifier?.substring(0, 10),
-                groupId: groupId?.substring(0, 8),
             });
             return NextResponse.json({ error: 'Failed to create access grant', code: 'ERR_DB_ERROR' }, { status: 500 });
         }
@@ -356,9 +316,9 @@ export async function POST(request: NextRequest) {
             access: {
                 id: createdAccess.id,
                 fileId: createdAccess.file_id,
-                type: groupId ? 'group' : 'user',
+                type: createdAccess.is_public ? 'public' : 'user',
                 userIdentifier: createdAccess.user_identifier || undefined,
-                groupId: createdAccess.group_id,
+                isPublic: createdAccess.is_public,
                 passwordHash: createdAccess.password_hash,
                 expiresAt: createdAccess.expires_at,
                 accessCount: createdAccess.access_count,
@@ -497,9 +457,8 @@ export async function PATCH(request: NextRequest) {
             access: {
                 id: ua.id,
                 fileId: ua.file_id,
-                type: ua.is_public ? 'public' : ua.group_id ? 'group' : 'user',
+                type: ua.is_public ? 'public' : 'user',
                 userIdentifier: ua.user_identifier || undefined,
-                groupId: ua.group_id,
                 isPublic: ua.is_public,
                 passwordHash: ua.password_hash,
                 expiresAt: ua.expires_at,

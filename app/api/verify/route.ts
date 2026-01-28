@@ -128,18 +128,6 @@ export async function POST(request: NextRequest) {
 
             if (userAccess) {
                 access = userAccess;
-            } else {
-                // Check for group-based access
-                const { data: groupAccess } = await adminClient
-                    .from('file_access')
-                    .select('*, groups:group_id(name), group_members!inner(member_identifier)')
-                    .eq('file_id', (file as any).id)
-                    .eq('group_members.member_identifier', sanitizedUserIdentifier)
-                    .maybeSingle();
-
-                if (groupAccess) {
-                    access = groupAccess;
-                }
             }
         }
 
