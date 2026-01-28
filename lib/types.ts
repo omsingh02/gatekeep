@@ -111,6 +111,8 @@ export type FileCategory = 'image' | 'video' | 'audio' | 'pdf' | 'document' | 'o
 
 export type FileTypeFilter = 'all' | FileCategory | 'archive';
 
+export type DateFilter = 'all' | 'today' | 'week' | 'month' | '3months' | 'custom';
+
 export interface FileTypeInfo {
     category: FileCategory;
     canPreview: boolean;

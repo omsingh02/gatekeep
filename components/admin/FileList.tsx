@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { Skeleton, ConfirmDialog, PromptDialog, Modal, useToast } from '@/components/ui';
-import { FileMetadata, FileTypeFilter, Folder } from '@/lib/types';
+import { FileMetadata, FileTypeFilter, DateFilter, Folder } from '@/lib/types';
 import { formatFileSize, getFileTypeInfo } from '@/lib/utils/fileTypes';
 import { formatDateTime } from '@/lib/utils/date';
 import { useDebouncedValue } from '@/lib/utils/hooks';
@@ -46,6 +46,7 @@ export default function FileList({
     // Search and filter state
     const [searchInput, setSearchInput] = useState('');
     const [fileTypeFilter, setFileTypeFilter] = useState<FileTypeFilter>('all');
+    const [dateFilter, setDateFilter] = useState<DateFilter>('all');
     const debouncedSearch = useDebouncedValue(searchInput, 300);
 
     // Folder state
@@ -80,7 +81,7 @@ export default function FileList({
     useEffect(() => {
         setSelectedFileIds(new Set());
         setSelectedFolderIds(new Set());
-    }, [currentFolder.id, debouncedSearch, fileTypeFilter]);
+    }, [currentFolder.id, debouncedSearch, fileTypeFilter, dateFilter]);
 
     useEffect(() => {
         fetchFiles();
@@ -88,7 +89,7 @@ export default function FileList({
             fetchFolders();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [limit, currentPage, debouncedSearch, fileTypeFilter, currentFolder.id, showFolderNavigation]);
+    }, [limit, currentPage, debouncedSearch, fileTypeFilter, dateFilter, currentFolder.id, showFolderNavigation]);
 
     const fetchFolders = async () => {
         try {
@@ -137,6 +138,10 @@ export default function FileList({
 
             if (fileTypeFilter !== 'all') {
                 params.append('fileType', fileTypeFilter);
+            }
+
+            if (dateFilter !== 'all') {
+                params.append('dateFilter', dateFilter);
             }
 
             if (currentFolder.id) {
@@ -429,7 +434,7 @@ export default function FileList({
         );
     }
 
-    const hasActiveFilters = searchInput.trim() || fileTypeFilter !== 'all';
+    const hasActiveFilters = searchInput.trim() || fileTypeFilter !== 'all' || dateFilter !== 'all';
 
     return (
         <>
@@ -498,11 +503,38 @@ export default function FileList({
                         <option value="archive">Archives</option>
                     </select>
 
-                    {(searchInput || fileTypeFilter !== 'all') && (
+                    <select
+                        value={dateFilter}
+                        onChange={(e) => {
+                            setDateFilter(e.target.value as DateFilter);
+                            setCurrentPage(1);
+                        }}
+                        disabled={isLoading}
+                        style={{
+                            padding: '0.5rem 0.75rem',
+                            fontSize: '0.875rem',
+                            color: '#e0e0e0',
+                            backgroundColor: '#1a1a1a',
+                            border: '1px solid #3a3a3a',
+                            borderRadius: '4px',
+                            outline: 'none',
+                            cursor: isLoading ? 'not-allowed' : 'pointer',
+                            opacity: isLoading ? 0.5 : 1,
+                        }}
+                    >
+                        <option value="all">Any Date</option>
+                        <option value="today">Today</option>
+                        <option value="week">Last 7 Days</option>
+                        <option value="month">Last 30 Days</option>
+                        <option value="3months">Last 90 Days</option>
+                    </select>
+
+                    {(searchInput || fileTypeFilter !== 'all' || dateFilter !== 'all') && (
                         <button
                             onClick={() => {
                                 setSearchInput('');
                                 setFileTypeFilter('all');
+                                setDateFilter('all');
                                 setCurrentPage(1);
                             }}
                             disabled={isLoading}
@@ -735,6 +767,7 @@ export default function FileList({
                                 onClick={() => {
                                     setSearchInput('');
                                     setFileTypeFilter('all');
+                                    setDateFilter('all');
                                     setCurrentPage(1);
                                 }}
                                 style={{

@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
         const page = searchParams.get('page');
         const search = searchParams.get('search');
         const fileType = searchParams.get('fileType');
+        const dateFilter = searchParams.get('dateFilter');
         const folderId = searchParams.get('folderId');
         const showAll = searchParams.get('showAll') === 'true'; // For recent files view
         const limitNum = Math.min(Math.max(parseInt(limit || '', 10) || 20, 1), 100); // Bounded 1-100, default 20
@@ -99,6 +100,31 @@ export async function GET(request: NextRequest) {
                 case 'archive':
                     query = query.or('mime_type.eq.application/zip,mime_type.eq.application/x-tar,mime_type.eq.application/gzip,mime_type.eq.application/x-rar-compressed,mime_type.eq.application/x-7z-compressed');
                     break;
+            }
+        }
+
+        // Apply date filter
+        if (dateFilter && dateFilter !== 'all') {
+            const now = new Date();
+            let dateFrom: Date | null = null;
+
+            switch (dateFilter) {
+                case 'today':
+                    dateFrom = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                    break;
+                case 'week':
+                    dateFrom = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                    break;
+                case 'month':
+                    dateFrom = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                    break;
+                case '3months':
+                    dateFrom = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+                    break;
+            }
+
+            if (dateFrom) {
+                query = query.gte('created_at', dateFrom.toISOString());
             }
         }
 
