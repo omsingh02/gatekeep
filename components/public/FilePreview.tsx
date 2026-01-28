@@ -28,6 +28,8 @@ export default function FilePreview({ fileData, shortCode, userIdentifier, sessi
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [isLoadingPreview, setIsLoadingPreview] = useState(false);
     const [downloadError, setDownloadError] = useState<string | null>(null);
+    const [previewError, setPreviewError] = useState<string | null>(null);
+    const [hasAttemptedPreview, setHasAttemptedPreview] = useState(false);
 
     // Check if file is text-based
     const isTextFile = file.mimeType.startsWith('text/') || 
@@ -56,29 +58,48 @@ export default function FilePreview({ fileData, shortCode, userIdentifier, sessi
             });
 
             if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.error || 'Failed to get file URL');
+                const data = await response.json().catch(() => ({ error: 'Request failed' }));
+                throw new Error(data.error || `Request failed with status ${response.status}`);
             }
 
             const data = await response.json();
             return data.fileUrl;
         } catch (error: any) {
-            setDownloadError(error.message || 'Failed to access file');
+            const errorMessage = error.message || 'Failed to access file';
+            if (action === 'preview') {
+                setPreviewError(errorMessage);
+            } else {
+                setDownloadError(errorMessage);
+            }
             return null;
         }
     }, [shortCode, userIdentifier, sessionToken]);
 
     // Load preview URL when preview is shown (tracks the view)
     useEffect(() => {
-        if (showPreview && !previewUrl && !isLoadingPreview) {
+        if (showPreview && !previewUrl && !isLoadingPreview && !hasAttemptedPreview && !previewError) {
             setIsLoadingPreview(true);
-            setDownloadError(null);
+            setPreviewError(null);
+            setHasAttemptedPreview(true);
+            
             fetchTrackedUrl('preview').then(url => {
-                setPreviewUrl(url);
+                if (url) {
+                    setPreviewUrl(url);
+                }
+                setIsLoadingPreview(false);
+            }).catch(() => {
                 setIsLoadingPreview(false);
             });
         }
-    }, [showPreview, previewUrl, isLoadingPreview, fetchTrackedUrl]);
+    }, [showPreview, previewUrl, isLoadingPreview, hasAttemptedPreview, previewError, fetchTrackedUrl]);
+
+    // Reset preview state when hiding preview
+    useEffect(() => {
+        if (!showPreview) {
+            setHasAttemptedPreview(false);
+            setPreviewError(null);
+        }
+    }, [showPreview]);
 
     // Load text content for text-based files (only when preview URL is ready)
     useEffect(() => {
@@ -127,6 +148,72 @@ export default function FilePreview({ fileData, shortCode, userIdentifier, sessi
             WebkitUserSelect: 'none',
             pointerEvents: 'none',
         };
+
+        // Show error state if preview failed to load
+        if (previewError) {
+            return (
+                <div style={{ 
+                    display: 'flex', 
+                    flexDirection: 'column',
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    height: '100%',
+                    minHeight: '300px',
+                    padding: '2rem',
+                }}>
+                    <div style={{
+                        width: '80px',
+                        height: '80px',
+                        backgroundColor: '#7f1d1d',
+                        borderRadius: '50%',
+                        margin: '0 auto 1.5rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                    }}>
+                        <svg style={{ width: '40px', height: '40px', color: '#fecaca' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </div>
+                    <h3 style={{
+                        fontSize: '1.125rem',
+                        fontWeight: 500,
+                        color: '#fecaca',
+                        marginBottom: '0.5rem',
+                        textAlign: 'center',
+                    }}>
+                        Preview Failed
+                    </h3>
+                    <p style={{ 
+                        color: '#fca5a5', 
+                        margin: '0 0 1rem 0',
+                        textAlign: 'center',
+                        fontSize: '0.875rem',
+                    }}>
+                        {previewError}
+                    </p>
+                    <button
+                        onClick={() => {
+                            setPreviewError(null);
+                            setHasAttemptedPreview(false);
+                            setIsLoadingPreview(false);
+                        }}
+                        style={{
+                            padding: '0.5rem 1rem',
+                            fontSize: '0.875rem',
+                            fontWeight: 500,
+                            color: 'white',
+                            backgroundColor: '#3b82f6',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                        }}
+                    >
+                        Try Again
+                    </button>
+                </div>
+            );
+        }
 
         // Show loading state while fetching preview URL
         if (isLoadingPreview || !previewUrl) {

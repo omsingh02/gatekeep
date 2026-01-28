@@ -36,7 +36,7 @@ const nextConfig: NextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline'", // Next.js requires unsafe-inline/eval in dev
+              "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://static.cloudflareinsights.com", // Next.js requires unsafe-inline/eval in dev, allow Cloudflare analytics
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com", // Allow Google Fonts
               "img-src 'self' data: blob: https:", // Allow images from data URLs, blob, and HTTPS
               "font-src 'self' data: https://fonts.gstatic.com", // Allow Google Fonts
