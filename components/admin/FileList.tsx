@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { Skeleton, ConfirmDialog, PromptDialog, Modal, useToast } from '@/components/ui';
+import { Skeleton, ConfirmDialog, PromptDialog, Modal, useToast, EmptyState } from '@/components/ui';
 import { FileMetadata, FileTypeFilter, DateFilter, Folder } from '@/lib/types';
 import { formatFileSize, getFileTypeInfo } from '@/lib/utils/fileTypes';
 import { formatDateTime } from '@/lib/utils/date';
@@ -748,21 +748,12 @@ export default function FileList({
 
             {/* File and Folder List */}
             {files.length === 0 && (!showFolderNavigation || folders.length === 0) ? (
-                <div className="text-center py-12">
-                    <div className="w-16 h-16 bg-[var(--background)] rounded mx-auto mb-4 flex items-center justify-center">
-                        <svg className="w-8 h-8 text-[var(--text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d={hasActiveFilters ? 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z' : 'M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z'}
-                            />
-                        </svg>
-                    </div>
-                    {hasActiveFilters ? (
-                        <>
-                            <p className="text-base text-[var(--text-secondary)]">No files match your search</p>
-                            <p className="text-sm text-[var(--text-muted)] mt-1">Try adjusting your filters or search term</p>
+                hasActiveFilters ? (
+                    <EmptyState
+                        type="no-results"
+                        title="No files match your search"
+                        description="Try adjusting your filters or search term"
+                        action={
                             <button
                                 onClick={() => {
                                     setSearchInput('');
@@ -771,7 +762,6 @@ export default function FileList({
                                     setCurrentPage(1);
                                 }}
                                 style={{
-                                    marginTop: '1rem',
                                     padding: '0.5rem 1rem',
                                     fontSize: '0.875rem',
                                     color: '#3b82f6',
@@ -792,14 +782,15 @@ export default function FileList({
                             >
                                 Clear All Filters
                             </button>
-                        </>
-                    ) : (
-                        <>
-                            <p className="text-base text-[var(--text-secondary)]">No files in this folder</p>
-                            <p className="text-sm text-[var(--text-muted)] mt-1">Upload or move files here to get started</p>
-                        </>
-                    )}
-                </div>
+                        }
+                    />
+                ) : (
+                    <EmptyState
+                        type="empty-folder"
+                        title="No files in this folder"
+                        description="Upload or move files here to get started"
+                    />
+                )
             ) : (
                 <>
                     {viewMode === 'table' ? (

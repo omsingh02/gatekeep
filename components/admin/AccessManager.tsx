@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Modal, ConfirmDialog, useToast, ExpiryPicker } from '@/components/ui';
+import { Modal, ConfirmDialog, useToast, ExpiryPicker, EmptyState } from '@/components/ui';
 import { FileMetadata, FileAccess } from '@/lib/types';
 import { generateRandomPassword } from '@/lib/utils/crypto';
 import { formatDateTime } from '@/lib/utils/date';
@@ -882,14 +882,11 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                     }}>Current Access Grants</h4>
 
                     {accessList.length === 0 ? (
-                        <p style={{
-                            fontSize: '0.875rem',
-                            color: '#9ca3af',
-                            textAlign: 'center',
-                            padding: '1rem 0',
-                        }}>
-                            No access grants yet
-                        </p>
+                        <EmptyState
+                            type="no-access"
+                            title="No access grants yet"
+                            description="Grant access above to let users view this file"
+                        />
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                             {accessList.map((access) => (

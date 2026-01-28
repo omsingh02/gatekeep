@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, LoadingSpinner } from '@/components/ui';
+import { Card, LoadingSpinner, EmptyState } from '@/components/ui';
 
 interface ActivityLog {
     id: string;
@@ -133,9 +133,11 @@ export default function AnalyticsDashboard() {
                     Most Accessed Files
                 </h2>
                 {data.topFiles.length === 0 ? (
-                    <p style={{ fontSize: '0.8rem', color: '#6b7280', textAlign: 'center', padding: '1.5rem 0' }}>
-                        No access data yet
-                    </p>
+                    <EmptyState
+                        type="no-data"
+                        title="No access data yet"
+                        description="Activity will appear here once users access your files"
+                    />
                 ) : (
                     <div style={{ overflowX: 'auto' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>

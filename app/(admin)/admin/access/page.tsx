@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { ConfirmDialog, Skeleton, useToast } from '@/components/ui';
+import { ConfirmDialog, EmptyState, Skeleton, useToast } from '@/components/ui';
 import { formatDateTime } from '@/lib/utils/date';
 import { useDebouncedValue } from '@/lib/utils/hooks';
 
@@ -296,15 +296,11 @@ export default function AllSharesPage() {
                         ))}
                     </div>
                 ) : shares.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '3rem' }}>
-                        <svg style={{ width: '48px', height: '48px', color: '#6b7280', margin: '0 auto 1rem' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                        </svg>
-                        <p style={{ color: '#9ca3af', fontSize: '1rem' }}>No shares found</p>
-                        <p style={{ color: '#6b7280', fontSize: '0.875rem', marginTop: '0.25rem' }}>
-                            {searchInput || statusFilter !== 'all' ? 'Try adjusting your filters' : 'Grant access to your files to start sharing'}
-                        </p>
-                    </div>
+                    <EmptyState
+                        type={searchInput || statusFilter !== 'all' ? 'no-results' : 'no-access'}
+                        title="No shares found"
+                        description={searchInput || statusFilter !== 'all' ? 'Try adjusting your filters' : 'Grant access to your files to start sharing'}
+                    />
                 ) : (
                     <div style={{ overflowX: 'auto' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
