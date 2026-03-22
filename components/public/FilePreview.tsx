@@ -494,7 +494,7 @@ export default function FilePreview({ fileData, shortCode, userIdentifier }: Fil
             onContextMenu={(e) => e.preventDefault()}
             style={{
                 minHeight: '100vh',
-                padding: '2rem 1rem',
+                padding: 'clamp(1rem, 3vw, 2rem) clamp(0.75rem, 2vw, 1rem)',
                 backgroundColor: '#1a1a1a',
             }}
         >
@@ -503,18 +503,19 @@ export default function FilePreview({ fileData, shortCode, userIdentifier }: Fil
                 <div style={{
                     marginBottom: '1.5rem',
                     display: 'flex',
-                    alignItems: 'center',
+                    alignItems: 'flex-start',
                     justifyContent: 'space-between',
                     flexWrap: 'wrap',
                     gap: '1rem',
                 }}>
-                    <div>
+                    <div style={{ minWidth: 0, flex: '1 1 200px' }}>
                         <h1 style={{
-                            fontSize: '1.25rem',
+                            fontSize: 'clamp(1rem, 3vw, 1.25rem)',
                             fontWeight: 600,
                             color: '#e0e0e0',
                             marginBottom: '0.25rem',
                             margin: '0 0 0.25rem 0',
+                            wordBreak: 'break-word',
                         }}>
                             {file.originalFilename}
                         </h1>
@@ -527,11 +528,11 @@ export default function FilePreview({ fileData, shortCode, userIdentifier }: Fil
                         </p>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                    <div style={{ display: 'flex', gap: '0.75rem', flexShrink: 0, flexWrap: 'wrap' }}>
                         <button
                             onClick={() => setShowPreview(!showPreview)}
                             style={{
-                                padding: '0.625rem 1.5rem',
+                                padding: '0.625rem 1rem',
                                 fontSize: '0.875rem',
                                 fontWeight: 500,
                                 color: showPreview ? 'white' : '#e0e0e0',
@@ -541,6 +542,8 @@ export default function FilePreview({ fileData, shortCode, userIdentifier }: Fil
                                 borderRadius: '4px',
                                 cursor: 'pointer',
                                 transition: 'all 0.2s',
+                                flex: '1 1 auto',
+                                minWidth: '120px',
                             }}
                             onMouseEnter={(e) => {
                                 if (!showPreview) {
@@ -562,7 +565,7 @@ export default function FilePreview({ fileData, shortCode, userIdentifier }: Fil
                             onClick={handleDownload}
                             disabled={isDownloading}
                             style={{
-                                padding: '0.625rem 1.5rem',
+                                padding: '0.625rem 1rem',
                                 fontSize: '0.875rem',
                                 fontWeight: 500,
                                 color: 'white',
@@ -572,6 +575,8 @@ export default function FilePreview({ fileData, shortCode, userIdentifier }: Fil
                                 cursor: isDownloading ? 'not-allowed' : 'pointer',
                                 opacity: isDownloading ? 0.6 : 1,
                                 transition: 'all 0.2s',
+                                flex: '1 1 auto',
+                                minWidth: '120px',
                             }}
                             onMouseEnter={(e) => {
                                 if (!isDownloading) e.currentTarget.style.backgroundColor = '#2563eb';

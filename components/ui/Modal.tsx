@@ -26,10 +26,10 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
     if (!isOpen) return null;
 
     const sizeStyles = {
-        sm: '448px',
-        md: '512px',
-        lg: '672px',
-        xl: '896px',
+        sm: 'min(448px, calc(100vw - 2rem))',
+        md: 'min(512px, calc(100vw - 2rem))',
+        lg: 'min(672px, calc(100vw - 2rem))',
+        xl: 'min(896px, calc(100vw - 2rem))',
     };
 
     return (
@@ -78,7 +78,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
                 )}
 
                 <div style={{
-                    padding: '1.5rem',
+                    padding: 'clamp(1rem, 3vw, 1.5rem)',
                     maxHeight: 'calc(100vh - 200px)',
                     overflowY: 'auto',
                 }}>

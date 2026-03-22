@@ -25,12 +25,14 @@ export default async function AdminLayout({
                 <div style={{
                     maxWidth: '1400px',
                     margin: '0 auto',
-                    padding: '1rem 2rem',
+                    padding: '1rem clamp(1rem, 3vw, 2rem)',
                 }}>
                     <div style={{
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: '1rem',
                     }}>
                         {/* Logo & Brand */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
@@ -66,15 +68,17 @@ export default async function AdminLayout({
                         </div>
 
                         {/* User Section */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
                             <div style={{
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '0.625rem',
-                                padding: '0.5rem 1rem',
+                                padding: '0.5rem 0.75rem',
                                 backgroundColor: '#2a2a2a',
                                 borderRadius: '6px',
                                 border: '1px solid #3a3a3a',
+                                minWidth: 0,
+                                maxWidth: '200px',
                             }}>
                                 <div style={{
                                     width: '28px',
@@ -97,6 +101,9 @@ export default async function AdminLayout({
                                     fontSize: '0.8125rem',
                                     color: '#e0e0e0',
                                     fontWeight: 500,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
                                 }}>
                                     {userEmail}
                                 </span>
@@ -111,7 +118,7 @@ export default async function AdminLayout({
             <main style={{
                 maxWidth: '1400px',
                 margin: '0 auto',
-                padding: '2.5rem 2rem',
+                padding: 'clamp(1.5rem, 4vw, 2.5rem) clamp(1rem, 3vw, 2rem)',
             }}>
                 {children}
             </main>

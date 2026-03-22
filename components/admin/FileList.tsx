@@ -6,7 +6,7 @@ import { Skeleton, ConfirmDialog, PromptDialog, Modal, useToast, EmptyState } fr
 import { FileMetadata, FileTypeFilter, DateFilter, Folder } from '@/lib/types';
 import { formatFileSize, getFileTypeInfo } from '@/lib/utils/fileTypes';
 import { formatDateTime } from '@/lib/utils/date';
-import { useDebouncedValue } from '@/lib/utils/hooks';
+import { useDebouncedValue, useIsMobile } from '@/lib/utils/hooks';
 import AccessManager from './AccessManager';
 
 type ViewMode = 'table' | 'grid';
@@ -36,8 +36,20 @@ export default function FileList({
     const [selectedFile, setSelectedFile] = useState<FileMetadata | null>(null);
     const [showAccessManager, setShowAccessManager] = useState(false);
 
-    // View mode state
+    // Responsive: detect mobile to default to grid view
+    const isMobile = useIsMobile(768);
+
+    // View mode state - default to grid on mobile
     const [viewMode, setViewMode] = useState<ViewMode>('table');
+    const [hasSetInitialViewMode, setHasSetInitialViewMode] = useState(false);
+
+    // Set initial view mode based on screen size (only once on mount)
+    useEffect(() => {
+        if (!hasSetInitialViewMode) {
+            setViewMode(isMobile ? 'grid' : 'table');
+            setHasSetInitialViewMode(true);
+        }
+    }, [isMobile, hasSetInitialViewMode]);
 
     // Selection state
     const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set());
@@ -444,7 +456,7 @@ export default function FileList({
                     style={{
                         marginBottom: '1.5rem',
                         display: 'flex',
-                        gap: '1rem',
+                        gap: '0.75rem',
                         flexWrap: 'wrap',
                         alignItems: 'center',
                     }}
@@ -459,8 +471,8 @@ export default function FileList({
                         }}
                         disabled={isLoading}
                         style={{
-                            flex: '1',
-                            minWidth: '200px',
+                            flex: '1 1 180px',
+                            minWidth: '140px',
                             padding: '0.5rem 0.75rem',
                             fontSize: '0.875rem',
                             color: '#e0e0e0',
@@ -568,13 +580,13 @@ export default function FileList({
                     )}
 
                     {totalCount > 0 && (
-                        <span style={{ fontSize: '0.875rem', color: '#9ca3af', whiteSpace: 'nowrap' }}>
+                        <span style={{ fontSize: '0.875rem', color: '#9ca3af', whiteSpace: 'nowrap', order: 10 }}>
                             {totalCount} {totalCount === 1 ? 'file' : 'files'}
                         </span>
                     )}
 
                     {/* View Toggle */}
-                    <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.25rem', backgroundColor: '#1a1a1a', borderRadius: '4px', padding: '0.25rem' }}>
+                    <div style={{ display: 'flex', gap: '0.25rem', backgroundColor: '#1a1a1a', borderRadius: '4px', padding: '0.25rem', order: 11 }}>
                         <button
                             onClick={() => setViewMode('table')}
                             title="Table view"
@@ -639,7 +651,7 @@ export default function FileList({
                     <span style={{ fontSize: '0.875rem', color: '#e0e0e0' }}>
                         {selectedFileIds.size + selectedFolderIds.size} item{selectedFileIds.size + selectedFolderIds.size !== 1 ? 's' : ''} selected
                     </span>
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                         <button
                             onClick={openMoveDialog}
                             style={{
@@ -693,14 +705,14 @@ export default function FileList({
             <div
                 style={{
                     marginBottom: '1rem',
-                    padding: '1rem',
+                    padding: 'clamp(0.75rem, 2vw, 1rem)',
                     borderRadius: '6px',
                     border: '1px solid #3a3a3a',
                     backgroundColor: '#1f1f1f',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    gap: '1rem',
+                    gap: '0.75rem',
                     flexWrap: 'wrap',
                 }}
             >
@@ -1239,17 +1251,19 @@ export default function FileList({
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: '1rem',
                         padding: '1rem',
                         backgroundColor: '#252525',
                         borderRadius: '6px',
                         border: '1px solid #3a3a3a',
                     }}
                 >
-                    <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>
-                        Page {currentPage} of {totalPages} ({totalCount} total files)
+                    <div style={{ fontSize: '0.875rem', color: '#9ca3af', minWidth: 0 }}>
+                        Page {currentPage} of {totalPages}
                     </div>
 
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                         <button
                             onClick={() => setCurrentPage(1)}
                             disabled={currentPage === 1}
