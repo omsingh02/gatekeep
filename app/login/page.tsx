@@ -54,16 +54,16 @@ export default function LoginPage() {
                 backgroundColor: 'white',
                 borderRadius: '8px',
                 boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
-                padding: '3rem 2.5rem',
+                padding: 'clamp(1.5rem, 5vw, 3rem) clamp(1.25rem, 4vw, 2.5rem)',
             }}>
                 {/* Heading */}
                 <h2 style={{ 
-                    fontSize: '1.75rem',
+                    fontSize: 'clamp(1.25rem, 2.5vw + 0.5rem, 1.75rem)',
                     textAlign: 'center',
                     marginBottom: '2rem',
                     color: '#6b7c93',
                     fontWeight: 500,
-                    margin: '0 0 2rem 0',
+                    margin: '0 0 clamp(1.25rem, 3vw + 0.25rem, 2rem) 0',
                 }}>
                     Login to your Account
                 </h2>

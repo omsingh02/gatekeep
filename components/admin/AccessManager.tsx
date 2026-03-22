@@ -364,7 +364,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                     borderRadius: '6px',
                     border: '1px solid #3a3a3a',
                 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
                         <h4 style={{
                             fontWeight: 500,
                             color: '#e0e0e0',
@@ -894,15 +894,17 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                     key={access.id}
                                     style={{
                                         display: 'flex',
-                                        alignItems: 'center',
+                                        alignItems: 'flex-start',
                                         justifyContent: 'space-between',
                                         padding: '0.75rem',
                                         borderRadius: '4px',
                                         border: '1px solid #3a3a3a',
                                         backgroundColor: '#252525',
+                                        flexWrap: 'wrap',
+                                        gap: '0.75rem',
                                     }}
                                 >
-                                    <div style={{ flex: 1 }}>
+                                    <div style={{ flex: '1 1 200px', minWidth: 0 }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                                             <p style={{
                                                 fontWeight: 500,
@@ -956,7 +958,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                         </div>
                                     </div>
 
-                                    <div style={{ display: 'flex', gap: '0.5rem', marginLeft: '1rem' }}>
+                                    <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0, flexWrap: 'wrap' }}>
                                         <button
                                             onClick={() => handleEditAccess(access)}
                                             style={{
@@ -969,6 +971,8 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                                 cursor: 'pointer',
                                                 transition: 'all 0.2s',
                                                 fontWeight: 500,
+                                                flex: '1 1 auto',
+                                                minWidth: '60px',
                                             }}
                                             onMouseEnter={(e) => {
                                                 e.currentTarget.style.backgroundColor = '#1e3a8a';
@@ -995,6 +999,8 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                                 cursor: 'pointer',
                                                 transition: 'all 0.2s',
                                                 fontWeight: 500,
+                                                flex: '1 1 auto',
+                                                minWidth: '65px',
                                             }}
                                             onMouseEnter={(e) => {
                                                 e.currentTarget.style.backgroundColor = '#7f1d1d';

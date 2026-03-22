@@ -153,14 +153,16 @@ export default function ShareList({ limit, showViewAll = false, viewAllHref = '/
                             key={share.id}
                             style={{
                                 display: 'flex',
-                                alignItems: 'center',
+                                alignItems: 'flex-start',
                                 justifyContent: 'space-between',
-                                padding: '1rem',
+                                padding: 'clamp(0.75rem, 2vw, 1rem)',
                                 borderRadius: '6px',
                                 border: '1px solid #3a3a3a',
                                 backgroundColor: isInactive ? '#1f1f1f' : '#252525',
                                 opacity: isInactive ? 0.7 : 1,
                                 transition: 'all 0.2s',
+                                flexWrap: 'wrap',
+                                gap: '0.75rem',
                             }}
                             onMouseEnter={(e) => {
                                 e.currentTarget.style.backgroundColor = isInactive ? '#252525' : '#2d2d2d';
@@ -169,7 +171,7 @@ export default function ShareList({ limit, showViewAll = false, viewAllHref = '/
                                 e.currentTarget.style.backgroundColor = isInactive ? '#1f1f1f' : '#252525';
                             }}
                         >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', flex: '1 1 250px', minWidth: 0 }}>
                                 <div style={{
                                     width: '40px',
                                     height: '40px',
@@ -185,7 +187,7 @@ export default function ShareList({ limit, showViewAll = false, viewAllHref = '/
                                 </div>
 
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.25rem' }}>
                                         <h3 style={{
                                             fontWeight: 500,
                                             color: '#e0e0e0',
@@ -228,14 +230,14 @@ export default function ShareList({ limit, showViewAll = false, viewAllHref = '/
                                             </span>
                                         )}
                                     </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.25rem', flexWrap: 'wrap' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem', flexWrap: 'wrap' }}>
                                         <span style={{
                                             fontSize: '0.8rem',
                                             color: '#9ca3af',
                                             overflow: 'hidden',
                                             textOverflow: 'ellipsis',
                                             whiteSpace: 'nowrap',
-                                            maxWidth: '200px',
+                                            maxWidth: 'min(200px, 40vw)',
                                         }}>
                                             📄 {share.file.originalFilename}
                                         </span>
@@ -259,7 +261,7 @@ export default function ShareList({ limit, showViewAll = false, viewAllHref = '/
                                 </div>
                             </div>
 
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: '1rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
                                 <button
                                     onClick={() => confirmRevoke(share)}
                                     title="Revoke access"

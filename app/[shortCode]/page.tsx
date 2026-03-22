@@ -178,22 +178,22 @@ export default function ShortCodePage() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: '1rem',
+            padding: 'clamp(0.75rem, 3vw, 1rem)',
             backgroundColor: '#1a1a1a',
         }}>
             <div style={{
                 width: '100%',
                 maxWidth: '448px',
-                padding: '2rem',
+                padding: 'clamp(1.25rem, 4vw, 2rem)',
                 backgroundColor: '#2a2a2a',
                 borderRadius: '8px',
                 border: '1px solid #3a3a3a',
                 boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
             }}>
-                <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                <div style={{ textAlign: 'center', marginBottom: 'clamp(1.25rem, 4vw, 2rem)' }}>
                     <div style={{
-                        width: '64px',
-                        height: '64px',
+                        width: 'clamp(48px, 12vw, 64px)',
+                        height: 'clamp(48px, 12vw, 64px)',
                         backgroundColor: '#3b82f6',
                         borderRadius: '6px',
                         margin: '0 auto 1rem',
@@ -201,12 +201,12 @@ export default function ShortCodePage() {
                         alignItems: 'center',
                         justifyContent: 'center',
                     }}>
-                        <svg style={{ width: '32px', height: '32px', color: 'white' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg style={{ width: 'clamp(24px, 6vw, 32px)', height: 'clamp(24px, 6vw, 32px)', color: 'white' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                         </svg>
                     </div>
                     <h1 style={{
-                        fontSize: '1.5rem',
+                        fontSize: 'clamp(1.25rem, 2.5vw + 0.5rem, 1.5rem)',
                         fontWeight: 600,
                         color: '#e0e0e0',
                         marginBottom: '0.25rem',
