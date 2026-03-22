@@ -962,11 +962,14 @@ export default function FileList({
                                                         )}
                                                     </div>
                                                 </td>
-                                                <td style={{ padding: '0.75rem 0.5rem' }}>
+                                                <td style={{ padding: '0.75rem 0.5rem', maxWidth: '200px' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                                         <span style={{ fontSize: '1.1rem', opacity: 0.7 }}>{typeInfo.icon}</span>
-                                                        <div style={{ minWidth: 0 }}>
-                                                            <div style={{ color: '#e0e0e0', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                        <div style={{ minWidth: 0, width: '100%' }}>
+                                                            <div 
+                                                                title={file.originalFilename}
+                                                                style={{ color: '#e0e0e0', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                                            >
                                                                 {file.originalFilename}
                                                             </div>
                                                             {file.folderName && (
