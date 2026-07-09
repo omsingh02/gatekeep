@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import SignOutButton from '@/components/admin/SignOutButton';
 
@@ -6,10 +7,13 @@ export default async function AdminLayout({
 }: {
     children: React.ReactNode;
 }) {
-    // Middleware ensures user is authenticated
-    // We can safely get user data here for display purposes
+    // Check authentication and redirect if not logged in
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        redirect('/login');
+    }
 
     // Fallback for user email (defensive programming)
     const userEmail = user?.email || 'User';
