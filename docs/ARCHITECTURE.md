@@ -31,6 +31,7 @@
 | `app/api/access` | Grant / revoke access; `stream` (SSE: live access-status updates via Supabase Realtime) and `download` (signed URL) |
 | `app/api/verify` | Verifies a recipient and sets an httpOnly access cookie |
 | `app/api/analytics` | Aggregated access-log data for the dashboard |
+| `app/api/health` | Public health check for uptime monitors (DB reachable → 200, else 503) |
 | `app/api/cron/keep-alive` | Daily Vercel Cron (`vercel.json`) that pings the database so Supabase never pauses it |
 | `components/admin` | Dashboard components (FileUploader, FileList, AccessManager, AnalyticsDashboard, ShareList) |
 | `components/public` | Recipient components (FilePreview) |
@@ -72,7 +73,7 @@ All tables have RLS enabled. Admin-only operations use the service-role client o
 - **AuthN**: Supabase Auth for the owner; `proxy.ts` redirects unauthenticated `/admin` requests, and the admin layout re-checks server-side.
 - **AuthZ**: RLS policies + server-side grant checks on every recipient request.
 - **Credentials**: grant passwords are bcrypt-hashed; session tokens are random, hashed at rest and delivered as httpOnly cookies. Hashes are never returned by the API.
-- **Abuse**: rate limiting on verification, access-grant and upload-presign endpoints (`lib/utils/ratelimit.ts`).
+- **Abuse**: password attempts on share links are throttled from the audit log — 20 failed guesses per IP and 100 per file per 15 minutes — so the limit holds across serverless instances. An in-memory limiter (`lib/utils/ratelimit.ts`) adds a per-instance first line on verification, access-grant and upload-presign endpoints.
 - **Headers**: CSP, HSTS, X-Frame-Options, nosniff, Referrer- and Permissions-Policy (see `next.config.ts`).
 - **Input**: short codes, identifiers and names are validated and sanitised before use.
 - **Types**: `lib/types.ts` mirrors the migrations so every Supabase query is fully typed; update it with each new migration.
