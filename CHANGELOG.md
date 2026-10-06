@@ -18,6 +18,7 @@ First open-source release.
 - Docs: deployment, Docker, architecture, contributing, security policy.
 
 ### Fixed
+- `supabase db push` failed on a fresh project (realtime migration re-added a table to the publication); CI now applies all migrations to a fresh Supabase Postgres.
 - Named-recipient previews/downloads failed with 403 (queried columns dropped with the groups feature).
 - ~17% of share links could never resolve (generated codes contained `-`/`_` that lookups stripped).
 - Unknown links now return 404; database outages show a retryable error instead of a false 404.
