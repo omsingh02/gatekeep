@@ -35,10 +35,21 @@ export function PromptDialog({
     const [error, setError] = useState<string | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
-    useEffect(() => {
+    // Reset the field whenever the dialog opens (or its default changes while open).
+    // Adjusting state during render avoids an extra effect-driven render pass.
+    const [prevOpen, setPrevOpen] = useState(isOpen);
+    const [prevDefaultValue, setPrevDefaultValue] = useState(defaultValue);
+    if (isOpen !== prevOpen || defaultValue !== prevDefaultValue) {
+        setPrevOpen(isOpen);
+        setPrevDefaultValue(defaultValue);
         if (isOpen) {
             setValue(defaultValue);
             setError(null);
+        }
+    }
+
+    useEffect(() => {
+        if (isOpen) {
             // Focus input after a short delay to ensure the dialog is rendered
             setTimeout(() => {
                 inputRef.current?.focus();

@@ -1,10 +1,23 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Modal, ConfirmDialog, useToast, ExpiryPicker, EmptyState } from '@/components/ui';
 import { FileMetadata, FileAccess } from '@/lib/types';
 import { generateRandomPassword } from '@/lib/utils/crypto';
 import { formatDateTime } from '@/lib/utils/date';
+
+interface GrantAccessPayload {
+    fileId: string;
+    password: string;
+    expiresAt: string | null;
+    maxDownloads: number | null;
+    isPublic?: boolean;
+    userIdentifier?: string;
+    identifierType?: 'email' | 'username';
+    notifyOnGrant?: boolean;
+}
+
+const getErrorMessage = (err: unknown) => (err instanceof Error ? err.message : '');
 
 interface AccessManagerProps {
     file: FileMetadata;
@@ -52,6 +65,18 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
     });
     const toast = useToast();
 
+    const fetchAccessList = useCallback(async () => {
+        try {
+            const response = await fetch(`/api/access?fileId=${file.id}`);
+            if (response.ok) {
+                const data = await response.json();
+                setAccessList(data.access || []);
+            }
+        } catch {
+            // Error handled silently
+        }
+    }, [file.id]);
+
     useEffect(() => {
         if (isOpen) {
             fetchAccessList();
@@ -61,19 +86,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
             setBulkResults(null);
             setBulkProgress(null);
         }
-    }, [isOpen, file.id]);
-
-    const fetchAccessList = async () => {
-        try {
-            const response = await fetch(`/api/access?fileId=${file.id}`);
-            if (response.ok) {
-                const data = await response.json();
-                setAccessList(data.access || []);
-            }
-        } catch (error) {
-            // Error handled silently
-        }
-    };
+    }, [isOpen, fetchAccessList]);
 
     const handleAddAccess = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -84,7 +97,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
             // Convert datetime-local to ISO string with timezone
             const expiresAtISO = expiresAt ? new Date(expiresAt).toISOString() : null;
 
-            const payload: any = {
+            const payload: GrantAccessPayload = {
                 fileId: file.id,
                 password,
                 expiresAt: expiresAtISO,
@@ -138,8 +151,8 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
 
             // Refresh list
             await fetchAccessList();
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err) {
+            setError(getErrorMessage(err));
         } finally {
             setIsLoading(false);
         }
@@ -181,7 +194,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                 setBulkProgress({ current: i + 1, total: uniqueIdentifiers.length });
 
                 try {
-                    const payload: any = {
+                    const payload: GrantAccessPayload = {
                         fileId: file.id,
                         password,
                         expiresAt: expiresAtISO,
@@ -203,8 +216,8 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                         const data = await response.json();
                         results.failed.push({ identifier, error: data.error || 'Failed to grant access' });
                     }
-                } catch (err: any) {
-                    results.failed.push({ identifier, error: err.message || 'Network error' });
+                } catch (err) {
+                    results.failed.push({ identifier, error: getErrorMessage(err) || 'Network error' });
                 }
             }
 
@@ -230,8 +243,8 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
 
             // Refresh list
             await fetchAccessList();
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err) {
+            setError(getErrorMessage(err));
         } finally {
             setIsLoading(false);
             setBulkProgress(null);
@@ -250,7 +263,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
             } else {
                 toast.error('Failed to revoke access');
             }
-        } catch (error) {
+        } catch {
             toast.error('Failed to revoke access');
         } finally {
             setRevokeConfirm({ isOpen: false, accessId: null, name: '' });
@@ -310,8 +323,8 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
             toast.success('Access updated successfully');
             setEditingAccess(null);
             await fetchAccessList();
-        } catch (err: any) {
-            setEditError(err.message);
+        } catch (err) {
+            setEditError(getErrorMessage(err));
         } finally {
             setIsEditing(false);
         }

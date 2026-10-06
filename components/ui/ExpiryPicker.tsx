@@ -59,6 +59,23 @@ function getFirstDayOfMonth(year: number, month: number): number {
     return new Date(year, month, 1).getDay();
 }
 
+/** Match a value to the preset it was most likely created from (±2 min), else 'custom'. */
+function detectPreset(value: string): PresetKey {
+    if (!value) return 'never';
+    const diff = new Date(value).getTime() - Date.now();
+    const tolerance = 2 * 60 * 1000;
+    const hour = 60 * 60 * 1000;
+    const candidates: Array<[PresetKey, number]> = [
+        ['1h', hour],
+        ['24h', 24 * hour],
+        ['7d', 7 * 24 * hour],
+        ['30d', 30 * 24 * hour],
+        ['90d', 90 * 24 * hour],
+    ];
+    const match = candidates.find(([, duration]) => Math.abs(diff - duration) < tolerance);
+    return match ? match[0] : 'custom';
+}
+
 function formatPreviewDate(value: string, activePreset: PresetKey | null): string {
     if (!value) return 'No expiry (permanent)';
     const d = new Date(value);
@@ -103,6 +120,8 @@ function DateTimePickerModal({
     onConfirm: (date: Date) => void;
     initialDate: Date;
 }) {
+    // The parent mounts this modal only while it is open, so state is
+    // initialised from initialDate each time the picker is shown.
     const [viewYear, setViewYear] = useState(initialDate.getFullYear());
     const [viewMonth, setViewMonth] = useState(initialDate.getMonth());
     const [selectedDay, setSelectedDay] = useState(initialDate.getDate());
@@ -115,18 +134,6 @@ function DateTimePickerModal({
     const minuteRef = useRef<HTMLDivElement>(null);
     const periodRef = useRef<HTMLDivElement>(null);
     const yearDropdownRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        if (isOpen) {
-            setViewYear(initialDate.getFullYear());
-            setViewMonth(initialDate.getMonth());
-            setSelectedDay(initialDate.getDate());
-            setSelectedHour(initialDate.getHours() % 12 || 12);
-            setSelectedMinute(initialDate.getMinutes());
-            setSelectedPeriod(initialDate.getHours() >= 12 ? 'PM' : 'AM');
-            setShowYearDropdown(false);
-        }
-    }, [isOpen, initialDate]);
 
     // Scroll to selected values on open
     useEffect(() => {
@@ -659,64 +666,35 @@ export default function ExpiryPicker({
     showLabel = true,
     helperText = 'Leave empty for permanent access',
 }: ExpiryPickerProps) {
-    const [selectedPreset, setSelectedPreset] = useState<PresetKey>('never');
-    const [showCustom, setShowCustom] = useState(false);
+    const [selectedPreset, setSelectedPreset] = useState<PresetKey>(() => detectPreset(value));
+    const [showCustom, setShowCustom] = useState(() => detectPreset(value) === 'custom');
     const [showPicker, setShowPicker] = useState(false);
-    const userClickedCustom = useRef(false);
-    const lastSetPreset = useRef<PresetKey | null>(null);
+    // Value this picker last emitted itself; those changes keep the preset the user clicked
+    const [ownValue, setOwnValue] = useState<string | null>(null);
+    const [prevValue, setPrevValue] = useState(value);
 
-    // Initialize preset based on value
-    useEffect(() => {
-        if (userClickedCustom.current) {
-            userClickedCustom.current = false;
-            return;
-        }
-        
-        if (lastSetPreset.current) {
-            lastSetPreset.current = null;
-            return;
-        }
-
-        if (!value) {
-            setSelectedPreset('never');
-            setShowCustom(false);
+    // Re-detect the preset when the value is changed from outside (form reset, editing a grant)
+    if (value !== prevValue) {
+        setPrevValue(value);
+        if (value === ownValue) {
+            setOwnValue(null);
         } else {
-            const targetDate = new Date(value).getTime();
-            const now = Date.now();
-            const diff = targetDate - now;
-            const tolerance = 2 * 60 * 1000;
-            
-            if (Math.abs(diff - 60 * 60 * 1000) < tolerance) {
-                setSelectedPreset('1h');
-                setShowCustom(false);
-            } else if (Math.abs(diff - 24 * 60 * 60 * 1000) < tolerance) {
-                setSelectedPreset('24h');
-                setShowCustom(false);
-            } else if (Math.abs(diff - 7 * 24 * 60 * 60 * 1000) < tolerance) {
-                setSelectedPreset('7d');
-                setShowCustom(false);
-            } else if (Math.abs(diff - 30 * 24 * 60 * 60 * 1000) < tolerance) {
-                setSelectedPreset('30d');
-                setShowCustom(false);
-            } else if (Math.abs(diff - 90 * 24 * 60 * 60 * 1000) < tolerance) {
-                setSelectedPreset('90d');
-                setShowCustom(false);
-            } else {
-                setSelectedPreset('custom');
-                setShowCustom(true);
-            }
+            const preset = detectPreset(value);
+            setSelectedPreset(preset);
+            setShowCustom(preset === 'custom');
         }
-    }, [value]);
+    }
+
+    const emitChange = (next: string) => {
+        setOwnValue(next);
+        onChange(next);
+    };
 
     const handlePresetClick = (preset: PresetKey) => {
-        if (preset === 'custom') {
-            userClickedCustom.current = true;
-        }
-        lastSetPreset.current = preset;
         setSelectedPreset(preset);
         
         if (preset === 'never') {
-            onChange('');
+            emitChange('');
             setShowCustom(false);
         } else if (preset === 'custom') {
             setShowCustom(true);
@@ -724,28 +702,28 @@ export default function ExpiryPicker({
                 const tomorrow = new Date();
                 tomorrow.setDate(tomorrow.getDate() + 1);
                 tomorrow.setHours(12, 0, 0, 0);
-                onChange(toLocalDateTimeValue(tomorrow));
+                emitChange(toLocalDateTimeValue(tomorrow));
             }
             setShowPicker(true);
         } else {
             const duration = presets[preset].duration;
             if (duration) {
-                const date = new Date(Date.now() + duration);
-                lastSetPreset.current = preset;
-                onChange(toLocalDateTimeValue(date));
+                const date = new Date();
+                date.setTime(date.getTime() + duration);
+                emitChange(toLocalDateTimeValue(date));
             }
             setShowCustom(false);
         }
     };
 
     const handleClear = () => {
-        onChange('');
+        emitChange('');
         setSelectedPreset('never');
         setShowCustom(false);
     };
 
     const handleDateTimeConfirm = (date: Date) => {
-        onChange(toLocalDateTimeValue(date));
+        emitChange(toLocalDateTimeValue(date));
         setShowPicker(false);
     };
 
@@ -891,12 +869,14 @@ export default function ExpiryPicker({
             )}
 
             {/* DateTime Picker Modal */}
-            <DateTimePickerModal
-                isOpen={showPicker}
-                onClose={() => setShowPicker(false)}
-                onConfirm={handleDateTimeConfirm}
-                initialDate={value ? new Date(value) : new Date()}
-            />
+            {showPicker && (
+                <DateTimePickerModal
+                    isOpen={showPicker}
+                    onClose={() => setShowPicker(false)}
+                    onConfirm={handleDateTimeConfirm}
+                    initialDate={value ? new Date(value) : new Date()}
+                />
+            )}
         </div>
     );
 }

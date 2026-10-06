@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Button } from '@/components/ui';
 import { validateFile, formatFileSize, getMaxFileSize } from '@/lib/utils/fileTypes';
+
+const getErrorMessage = (err: unknown) => (err instanceof Error ? err.message : '');
 
 interface FileUploaderProps {
     onUploadComplete?: () => void;
@@ -171,7 +172,8 @@ export default function FileUploader({ onUploadComplete, currentFolderId }: File
         setIsDragging(false);
     }, []);
 
-    const handleDrop = useCallback(async (e: React.DragEvent) => {
+    // Plain handlers (not useCallback) so they always call the latest handleFiles/onUploadComplete
+    const handleDrop = async (e: React.DragEvent) => {
         e.preventDefault();
         setIsDragging(false);
 
@@ -184,8 +186,8 @@ export default function FileUploader({ onUploadComplete, currentFolderId }: File
                 if (rootFolderName) {
                     try {
                         targetFolderId = await createFolder(rootFolderName, currentFolderId || null);
-                    } catch (err: any) {
-                        setError(`Failed to create folder "${rootFolderName}": ${err.message}`);
+                    } catch (err) {
+                        setError(`Failed to create folder "${rootFolderName}": ${getErrorMessage(err)}`);
                         return;
                     }
                 }
@@ -194,22 +196,22 @@ export default function FileUploader({ onUploadComplete, currentFolderId }: File
                 files.forEach(f => f.targetFolderId = targetFolderId);
                 handleFiles(files);
             }
-        } catch (err) {
+        } catch {
             setError('Failed to process dropped items');
         }
-    }, [currentFolderId]);
+    };
 
-    const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files) {
             const files = Array.from(e.target.files) as FileWithPath[];
             
             // For folder selection, webkitRelativePath contains "folderName/path/to/file"
             // Detect if this is a folder upload by checking if paths have a common root
             let rootFolderName: string | null = null;
-            const firstPath = (files[0] as any)?.webkitRelativePath;
+            const firstPath = files[0]?.webkitRelativePath;
             if (firstPath && firstPath.includes('/')) {
                 const potentialRoot = firstPath.split('/')[0];
-                const allSameRoot = files.every((f: any) => 
+                const allSameRoot = files.every(f =>
                     f.webkitRelativePath?.startsWith(potentialRoot + '/')
                 );
                 if (allSameRoot) {
@@ -219,7 +221,7 @@ export default function FileUploader({ onUploadComplete, currentFolderId }: File
             
             // Set relative paths (strip root folder name since we're creating the folder)
             files.forEach(f => {
-                const webkitPath = (f as any).webkitRelativePath;
+                const webkitPath = f.webkitRelativePath;
                 if (webkitPath && rootFolderName) {
                     // Remove the root folder prefix from display path
                     f.relativePath = webkitPath.substring(rootFolderName.length + 1);
@@ -235,8 +237,8 @@ export default function FileUploader({ onUploadComplete, currentFolderId }: File
                 if (rootFolderName) {
                     try {
                         targetFolderId = await createFolder(rootFolderName, currentFolderId || null);
-                    } catch (err: any) {
-                        setError(`Failed to create folder "${rootFolderName}": ${err.message}`);
+                    } catch (err) {
+                        setError(`Failed to create folder "${rootFolderName}": ${getErrorMessage(err)}`);
                         return;
                     }
                 }
@@ -248,7 +250,7 @@ export default function FileUploader({ onUploadComplete, currentFolderId }: File
             // Reset input value to allow selecting the same folder again
             e.target.value = '';
         }
-    }, [currentFolderId]);
+    };
 
     /**
      * Upload a single file using presigned URL (direct to Supabase)
@@ -350,14 +352,15 @@ export default function FileUploader({ onUploadComplete, currentFolderId }: File
             try {
                 await uploadFileWithPresignedUrl(file);
                 return { success: true };
-            } catch (err: any) {
+            } catch (err) {
+                const message = getErrorMessage(err);
                 const isLastAttempt = attempt === maxRetries;
-                const isRetryable = err.message?.includes('401') || 
-                                   err.message?.includes('Unauthorized') ||
-                                   err.message?.includes('network');
+                const isRetryable = message.includes('401') ||
+                                   message.includes('Unauthorized') ||
+                                   message.includes('network');
                 
                 if (!isRetryable || isLastAttempt) {
-                    return { success: false, error: `${displayName}: ${err.message}` };
+                    return { success: false, error: `${displayName}: ${message}` };
                 }
                 
                 // Wait before retry (exponential backoff)
@@ -446,8 +449,8 @@ export default function FileUploader({ onUploadComplete, currentFolderId }: File
             if (errors.length > 0) {
                 setError(`${errors.length} file(s) failed: ${errors[0]}${errors.length > 1 ? ` (+${errors.length - 1} more)` : ''}`);
             }
-        } catch (err: any) {
-            setError(err.message || 'Failed to upload files');
+        } catch (err) {
+            setError(getErrorMessage(err) || 'Failed to upload files');
         } finally {
             setIsUploading(false);
             abortControllerRef.current = null;
