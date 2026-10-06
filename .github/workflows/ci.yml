@@ -24,3 +24,37 @@ jobs:
       - run: npm test
       - run: npm run lint
       - run: npm run build
+
+  migrations:
+    # Applies every migration, in order, to a fresh Supabase Postgres (same image as hosted projects)
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: supabase/postgres:17.6.1.063
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -h localhost"
+          --health-interval 5s --health-timeout 5s --health-retries 30
+    env:
+      PGHOST: localhost
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stub storage.buckets (created by the storage service on hosted Supabase)
+        run: |
+          psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -c "
+            CREATE TABLE IF NOT EXISTS storage.buckets (
+              id text PRIMARY KEY, name text NOT NULL, public boolean DEFAULT false, owner uuid,
+              created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now(),
+              file_size_limit bigint, allowed_mime_types text[]);
+            GRANT ALL ON storage.buckets TO postgres;"
+      - name: Apply migrations
+        run: |
+          for f in supabase/migrations/*.sql; do
+            echo "::group::$f"
+            psql -U postgres -d postgres -v ON_ERROR_STOP=1 -1 -f "$f"
+            echo "::endgroup::"
+          done
