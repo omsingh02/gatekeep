@@ -63,8 +63,8 @@ export default function FilePreview({ fileData, shortCode, userIdentifier }: Fil
 
             const data = await response.json();
             return data.fileUrl;
-        } catch (error: any) {
-            const errorMessage = error.message || 'Failed to access file';
+        } catch (error) {
+            const errorMessage = (error instanceof Error && error.message) || 'Failed to access file';
             if (action === 'preview') {
                 setPreviewError(errorMessage);
             } else {
@@ -133,8 +133,8 @@ export default function FilePreview({ fileData, shortCode, userIdentifier }: Fil
             a.click();
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
-        } catch (error: any) {
-            setDownloadError(error.message || 'Failed to download file');
+        } catch (error) {
+            setDownloadError((error instanceof Error && error.message) || 'Failed to download file');
         } finally {
             setIsDownloading(false);
         }
@@ -666,7 +666,7 @@ export default function FilePreview({ fileData, shortCode, userIdentifier }: Fil
                             fontSize: '0.875rem',
                             color: '#6b7280',
                         }}>
-                            Click "Show Preview" to view the file
+                            Click &ldquo;Show Preview&rdquo; to view the file
                         </p>
                     </div>
                 )}

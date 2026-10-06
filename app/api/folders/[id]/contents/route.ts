@@ -8,13 +8,14 @@ export async function GET(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
-    let user: any;
+    let userId: string | undefined;
     try {
         const { id } = await params;
         const supabase = await createClient();
         const userData = await supabase.auth.getUser();
-        user = validateAuth(userData, '/api/folders/[id]/contents', 'GET');
+        const user = validateAuth(userData, '/api/folders/[id]/contents', 'GET');
         if (user instanceof NextResponse) return user;
+        userId = user.id;
 
         const adminClient = createAdminClient();
 
@@ -48,9 +49,8 @@ export async function GET(
                 .single();
 
             if (!pathFolder) break;
-            const pf = pathFolder as any;
-            path.unshift({ id: pf.id, name: pf.name });
-            currentId = pf.parent_id;
+            path.unshift({ id: pathFolder.id, name: pathFolder.name });
+            currentId = pathFolder.parent_id;
         }
 
         // Get subfolders and files in parallel
@@ -82,7 +82,7 @@ export async function GET(
         }
 
         // Get subfolder stats (file count for each)
-        const subfolderIds = (subfoldersResult.data || []).map((f: any) => f.id);
+        const subfolderIds = (subfoldersResult.data || []).map((f) => f.id);
         const subfolderStats: Record<string, { fileCount: number; subfolderCount: number }> = {};
 
         if (subfolderIds.length > 0) {
@@ -109,7 +109,7 @@ export async function GET(
             }
         }
 
-        const subfolders = (subfoldersResult.data || []).map((f: any) => ({
+        const subfolders = (subfoldersResult.data || []).map((f) => ({
             id: f.id,
             name: f.name,
             parentId: f.parent_id,
@@ -120,7 +120,7 @@ export async function GET(
             subfolderCount: subfolderStats[f.id]?.subfolderCount || 0,
         }));
 
-        const files = (filesResult.data || []).map((file: any) => ({
+        const files = (filesResult.data || []).map((file) => ({
             id: file.id,
             filename: file.filename,
             originalFilename: file.original_filename,
@@ -134,12 +134,11 @@ export async function GET(
             folderId: file.folder_id,
         }));
 
-        const f = folder as any;
         return NextResponse.json({
             folder: {
-                id: f.id,
-                name: f.name,
-                parentId: f.parent_id,
+                id: folder.id,
+                name: folder.name,
+                parentId: folder.parent_id,
             },
             path,
             subfolders,
@@ -147,7 +146,7 @@ export async function GET(
             totalItems: subfolders.length + files.length,
         });
     } catch (error) {
-        logError('/api/folders/[id]/contents', user?.id, 'GET-contents', error);
+        logError('/api/folders/[id]/contents', userId, 'GET-contents', error);
         return NextResponse.json({ error: 'Internal server error', code: 'ERR_FOLDER_CONTENTS' }, { status: 500 });
     }
 }

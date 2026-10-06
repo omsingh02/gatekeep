@@ -6,12 +6,13 @@ import { sanitizeFolderName } from '@/lib/utils/sanitization';
 import { logError, logWarning } from '@/lib/utils/logger';
 
 export async function GET(request: NextRequest) {
-    let user: any;
+    let userId: string | undefined;
     try {
         const supabase = await createClient();
         const userData = await supabase.auth.getUser();
-        user = validateAuth(userData, '/api/folders', 'GET');
+        const user = validateAuth(userData, '/api/folders', 'GET');
         if (user instanceof NextResponse) return user;
+        userId = user.id;
 
         const { searchParams } = new URL(request.url);
         const parentId = searchParams.get('parentId');
@@ -56,7 +57,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to fetch folders', code: 'ERR_DB_ERROR' }, { status: 500 });
         }
 
-        const transformed = (folders || []).map((folder: any) => ({
+        const transformed = (folders || []).map((folder) => ({
             id: folder.id,
             name: folder.name,
             parentId: folder.parent_id,
@@ -67,18 +68,19 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({ folders: transformed });
     } catch (error) {
-        logError('/api/folders', user?.id, 'GET-folders', error);
+        logError('/api/folders', userId, 'GET-folders', error);
         return NextResponse.json({ error: 'Internal server error', code: 'ERR_FOLDERS_GET' }, { status: 500 });
     }
 }
 
 export async function POST(request: NextRequest) {
-    let user: any;
+    let userId: string | undefined;
     try {
         const supabase = await createClient();
         const userData = await supabase.auth.getUser();
-        user = validateAuth(userData, '/api/folders', 'POST');
+        const user = validateAuth(userData, '/api/folders', 'POST');
         if (user instanceof NextResponse) return user;
+        userId = user.id;
 
         const body = await request.json();
         const { name, parentId } = body || {};
@@ -109,14 +111,17 @@ export async function POST(request: NextRequest) {
         }
 
         // Prevent duplicate names within the same parent for this user
-        const { data: existing } = await adminClient
+        // .eq('parent_id', null) would compare against the string "null"; root needs IS NULL
+        const siblings = adminClient
             .from('folders')
             .select('id')
             .eq('uploaded_by', user.id)
             .eq('name', sanitizedName)
-            .eq('parent_id', parentId || null)
-            .is('deleted_at', null)
-            .maybeSingle();
+            .is('deleted_at', null);
+        const { data: existing } = await (parentId
+            ? siblings.eq('parent_id', parentId)
+            : siblings.is('parent_id', null)
+        ).maybeSingle();
 
         if (existing) {
             return NextResponse.json({ error: 'A folder with that name already exists here', code: 'ERR_CONFLICT' }, { status: 409 });
@@ -128,7 +133,7 @@ export async function POST(request: NextRequest) {
                 name: sanitizedName,
                 parent_id: parentId || null,
                 uploaded_by: user.id,
-            } as any)
+            })
             .select()
             .single();
 
@@ -137,19 +142,18 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to create folder', code: 'ERR_DB_ERROR' }, { status: 500 });
         }
 
-        const f = folder as any;
         return NextResponse.json({
             folder: {
-                id: f.id,
-                name: f.name,
-                parentId: f.parent_id,
-                uploadedBy: f.uploaded_by,
-                createdAt: f.created_at,
-                updatedAt: f.updated_at,
+                id: folder.id,
+                name: folder.name,
+                parentId: folder.parent_id,
+                uploadedBy: folder.uploaded_by,
+                createdAt: folder.created_at,
+                updatedAt: folder.updated_at,
             },
         });
     } catch (error) {
-        logError('/api/folders', user?.id, 'POST-folders', error);
+        logError('/api/folders', userId, 'POST-folders', error);
         return NextResponse.json({ error: 'Internal server error', code: 'ERR_FOLDERS_POST' }, { status: 500 });
     }
 }

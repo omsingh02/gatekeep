@@ -19,7 +19,7 @@ import {
 export const metadata: Metadata = {
     title: 'Gatekeep — Access-controlled file sharing',
     description:
-        'Self-hosted file sharing with short links, per-email access, expiring grants, in-browser previews and full audit logs.',
+        'Self-hosted file sharing with short links, password-protected per-recipient access, expiring grants, in-browser previews and full audit logs.',
 };
 
 const GITHUB_URL = 'https://github.com/omsingh02/file-share';
@@ -33,17 +33,17 @@ const features = [
     {
         icon: Link2,
         title: 'Short share links',
-        body: 'Every file gets a compact short code like /aB3xY9 that is easy to send and impossible to guess.',
+        body: 'Every file gets a compact short code like /aB3xY9 that is easy to send and hard to guess.',
     },
     {
         icon: UserCheck,
-        title: 'Per-email access',
-        body: 'Grant access to specific people — one at a time or in bulk — and revoke it whenever you like.',
+        title: 'Per-recipient access',
+        body: 'Give each person — by email or username — their own password, one at a time or in bulk. Revoke it whenever you like.',
     },
     {
         icon: Timer,
-        title: 'Expiring grants',
-        body: 'Set access to lapse after an hour, a week or a custom date. Expired links stop working on their own.',
+        title: 'Expiry & download limits',
+        body: 'Let access lapse after an hour, a week or a custom date, and cap how many times a file can be downloaded.',
     },
     {
         icon: Eye,
@@ -66,19 +66,19 @@ const steps = [
     {
         icon: KeyRound,
         title: 'Grant access',
-        body: 'Add the email addresses that may open the file and choose when their access expires.',
+        body: 'Add recipients with a password — or create a public, password-only link — and set an optional expiry.',
     },
     {
         icon: MailCheck,
-        title: 'Share & verify',
-        body: 'Send the short link. Recipients confirm their email, then preview or download securely.',
+        title: 'Share & unlock',
+        body: 'Send the short link. Recipients sign in with their password, then preview or download. Email recipients can be notified automatically.',
     },
 ];
 
 const security = [
     'Row-level security on every table',
-    'httpOnly, signed access tokens',
-    'Rate limiting on verification & downloads',
+    'Bcrypt-hashed passwords, hashed httpOnly session tokens',
+    'Rate limiting on password attempts & uploads',
     'Strict Content Security Policy & HSTS',
     'Service-role key never leaves the server',
     'Input sanitisation on every route',
@@ -137,7 +137,7 @@ export default function Home() {
                         </h1>
                         <p className="mx-auto mt-6 max-w-2xl text-lg text-[var(--text-secondary)]">
                             Gatekeep turns your Supabase project into a private file-sharing service — short links,
-                            per-email access, expiring grants, in-browser previews and a full audit trail.
+                            password-protected access per recipient, expiring grants, in-browser previews and a full audit trail.
                         </p>
                         <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
                             <Link

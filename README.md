@@ -12,13 +12,14 @@ Upload once, share with a short link, and decide exactly who can open it — and
 Gatekeep is a private file-sharing service for a single owner (or small team) that needs more control than a public link:
 
 - **Short share links** — every file/folder gets a code like `/aB3xY9`.
-- **Per-recipient access** — grant access to specific emails, individually or in bulk, with optional expiry.
-- **Email verification** — recipients prove ownership of their email before they can view or download.
+- **Per-recipient access** — grant access to an email or username with its own password, individually or in bulk.
+- **Public links** — optionally share a file with anyone who has the link and its password.
+- **Expiry & download limits** — grants can lapse at a set time and cap the number of downloads.
+- **Email notifications** — email recipients can be notified when access is granted (via Resend).
 - **In-browser preview** — images, video, audio, PDF, text/code and Office documents.
 - **Folders** — nested (depth-limited) folders, shared as a unit.
-- **Expiring files & public links** — files can auto-expire; public links can be toggled per file.
 - **Analytics & audit log** — every view, download and denial is logged with reason and request ID.
-- **Hardened by default** — RLS on every table, httpOnly access cookies, rate limiting, CSP/HSTS headers, input sanitisation.
+- **Hardened by default** — RLS on every table, bcrypt-hashed passwords, hashed httpOnly session cookies, rate limiting, CSP/HSTS headers, input sanitisation.
 
 ## Stack
 

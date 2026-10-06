@@ -148,7 +148,7 @@ export async function GET(request: NextRequest) {
         }
 
         // Transform to camelCase with aggregated stats
-        const transformedFiles = (files || []).map((file: any) => ({
+        const transformedFiles = (files || []).map((file) => ({
             id: file.id,
             filename: file.filename,
             originalFilename: file.original_filename,
@@ -177,7 +177,7 @@ export async function GET(request: NextRequest) {
             limit: limitNum,
             totalPages
         });
-    } catch (error) {
+    } catch {
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }

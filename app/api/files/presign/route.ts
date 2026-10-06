@@ -19,7 +19,7 @@ import { validateAuth, validateRequiredFields } from '@/lib/utils/validation';
  * Response: { uploadUrl: string, token: string, path: string, fileKey: string }
  */
 export async function POST(request: NextRequest) {
-    let user: any;
+    let userId: string | undefined;
     try {
         // Rate limiting: 100 uploads per 10 minutes per IP (allows folder uploads)
         const identifier = getClientIdentifier(request);
@@ -38,8 +38,9 @@ export async function POST(request: NextRequest) {
         // Verify admin authentication
         const supabase = await createClient();
         const userData = await supabase.auth.getUser();
-        user = validateAuth(userData, '/api/files/presign', 'POST');
+        const user = validateAuth(userData, '/api/files/presign', 'POST');
         if (user instanceof NextResponse) return user;
+        userId = user.id;
 
         // Parse request body
         const body = await request.json();
@@ -114,7 +115,6 @@ export async function POST(request: NextRequest) {
             },
         });
     } catch (error) {
-        const userId = user?.id;
         logError('/api/files/presign', userId, 'presign-request', error);
         return NextResponse.json({ error: 'Internal server error', code: 'ERR_PRESIGN' }, { status: 500 });
     }

@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { validateAuth } from '@/lib/utils/validation';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
     try {
         const supabase = await createClient();
         const userData = await supabase.auth.getUser();
@@ -24,8 +24,8 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to fetch stats' }, { status: 500 });
         }
 
-        const totalSize = (files || []).reduce((sum: number, file: any) => sum + (file.file_size || 0), 0);
-        const fileIds = (files || []).map((f: any) => f.id);
+        const totalSize = (files || []).reduce((sum, file) => sum + (file.file_size || 0), 0);
+        const fileIds = (files || []).map((f) => f.id);
 
         // Get total access grants (only if user has files)
         let totalAccess = 0;
@@ -37,14 +37,12 @@ export async function GET(request: NextRequest) {
             if (!accessError) totalAccess = count || 0;
         }
 
-
-
         return NextResponse.json({
             totalFiles: totalFiles || 0,
             totalSize,
             totalAccess,
         });
-    } catch (error) {
+    } catch {
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }

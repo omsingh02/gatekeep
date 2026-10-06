@@ -148,8 +148,8 @@ export function sanitizeShortCode(code: string): string {
         return '';
     }
 
-    // Short codes should only contain alphanumeric characters
-    return code.replace(/[^a-zA-Z0-9]/g, '').substring(0, 10);
+    // New codes are base62; older ones came from nanoid's URL-safe alphabet and may contain - or _
+    return code.replace(/[^a-zA-Z0-9_-]/g, '').substring(0, 10);
 }
 
 /**
@@ -198,7 +198,7 @@ export function sanitizeUrl(url: string): string {
 /**
  * Sanitize numeric input
  */
-export function sanitizeNumber(value: any, min?: number, max?: number): number | null {
+export function sanitizeNumber(value: unknown, min?: number, max?: number): number | null {
     const num = Number(value);
     
     if (isNaN(num) || !isFinite(num)) {
@@ -219,7 +219,7 @@ export function sanitizeNumber(value: any, min?: number, max?: number): number |
 /**
  * Sanitize boolean input
  */
-export function sanitizeBoolean(value: any): boolean {
+export function sanitizeBoolean(value: unknown): boolean {
     if (typeof value === 'boolean') {
         return value;
     }
