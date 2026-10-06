@@ -31,6 +31,7 @@
 | `app/api/access` | Grant / revoke access; `stream` (SSE: live access-status updates via Supabase Realtime) and `download` (signed URL) |
 | `app/api/verify` | Verifies a recipient and sets an httpOnly access cookie |
 | `app/api/analytics` | Aggregated access-log data for the dashboard |
+| `app/api/cron/keep-alive` | Daily Vercel Cron (`vercel.json`) that pings the database so Supabase never pauses it |
 | `components/admin` | Dashboard components (FileUploader, FileList, AccessManager, AnalyticsDashboard, ShareList) |
 | `components/public` | Recipient components (FilePreview) |
 | `components/ui` | Design-system primitives (Button, Card, Modal, Toast, Skeleton, …) |
