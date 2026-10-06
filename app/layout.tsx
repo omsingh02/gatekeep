@@ -10,8 +10,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "File Share - Secure File Sharing",
-  description: "Secure file sharing platform with access control",
+  title: "Gatekeep — Secure File Sharing",
+  description: "Self-hosted, access-controlled file sharing with short links, expiring grants and audit logs",
 };
 
 export default function RootLayout({
