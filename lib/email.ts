@@ -6,6 +6,7 @@
  */
 
 import { Resend } from 'resend';
+import { env } from './env';
 
 // Initialize Resend client (lazy - only when needed)
 let resendClient: Resend | null = null;
@@ -43,13 +44,14 @@ export async function sendAccessGrantEmail(params: AccessGrantEmailParams): Prom
         return false;
     }
 
-    // Ensure FROM address uses the correct domain if someone set an older value
-    const rawFrom = process.env.EMAIL_FROM || 'noreply@dl.omsingh.me';
-    const fromEmail = rawFrom.replace('@files.omsingh.me', '@dl.omsingh.me');
+    // The sender must be on a domain verified in Resend
+    const fromEmail = process.env.EMAIL_FROM;
+    if (!fromEmail) {
+        console.warn('[Email] EMAIL_FROM not configured, skipping email');
+        return false;
+    }
 
-    // Use the validated app URL from env.ts (fall back to local dev)
-    const appUrl = (process.env.NEXT_PUBLIC_APP_URL && process.env.NEXT_PUBLIC_APP_URL.replace('files.omsingh.me', 'dl.omsingh.me')) || 'http://localhost:3000';
-    const fileLink = `${appUrl.replace(/\/$/, '')}/${params.shortCode}`;
+    const fileLink = `${env.app.url}/${params.shortCode}`;
 
     // Format expiration date if provided
     let expirationText = '';

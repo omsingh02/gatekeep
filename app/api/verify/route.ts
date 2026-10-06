@@ -9,6 +9,37 @@ import type { Tables } from '@/lib/types';
 
 type DenialReason = 'no_access_grant' | 'expired' | 'wrong_password' | 'download_limit' | 'invalid_session' | 'session_expired';
 
+// Failed password/identifier guesses allowed per 15 minutes, counted from access_log so the
+// limit holds across serverless instances (the in-memory limiter below is per instance)
+const FAILURE_WINDOW_MS = 15 * 60 * 1000;
+const MAX_FAILURES_PER_IP = 20;
+const MAX_FAILURES_PER_FILE = 100;
+const GUESS_FAILURES: DenialReason[] = ['wrong_password', 'no_access_grant'];
+
+function getClientIp(request: NextRequest): string {
+    return request.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
+           request.headers.get('x-real-ip') ||
+           'unknown';
+}
+
+async function isPasswordGuessingThrottled(fileId: string, ip: string): Promise<boolean> {
+    const adminClient = createAdminClient();
+    const since = new Date(Date.now() - FAILURE_WINDOW_MS).toISOString();
+    const recentFailures = () => adminClient
+        .from('access_log')
+        .select('id', { count: 'exact', head: true })
+        .eq('access_granted', false)
+        .in('denial_reason', GUESS_FAILURES)
+        .gte('accessed_at', since);
+
+    const [byIp, byFile] = await Promise.all([
+        recentFailures().eq('ip_address', ip),
+        recentFailures().eq('file_id', fileId),
+    ]);
+    // On query errors the counts are null; fall back to the in-memory limiter rather than locking everyone out
+    return (byIp.count ?? 0) >= MAX_FAILURES_PER_IP || (byFile.count ?? 0) >= MAX_FAILURES_PER_FILE;
+}
+
 // Helper to log access attempts
 async function logAccess(
     fileId: string,
@@ -19,9 +50,7 @@ async function logAccess(
     denialReason?: DenialReason
 ) {
     const adminClient = createAdminClient();
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim() || 
-               request.headers.get('x-real-ip') || 
-               'unknown';
+    const ip = getClientIp(request);
     const userAgent = request.headers.get('user-agent') || 'unknown';
     
     await adminClient.from('access_log').insert({
@@ -104,6 +133,18 @@ export async function POST(request: NextRequest) {
                 shortCode: sanitizedShortCode,
             });
             return NextResponse.json({ error: 'File not found' }, { status: 404 });
+        }
+
+        // Only password attempts are throttled; visitors with a valid session cookie are never locked out
+        if (!cookieSessionToken && await isPasswordGuessingThrottled(file.id, getClientIp(request))) {
+            logWarning('/api/verify', 'password-throttled', 'Too many failed password attempts', {
+                requestId,
+                fileId: file.id,
+            });
+            return NextResponse.json(
+                { error: 'Too many failed attempts. Please try again in 15 minutes.' },
+                { status: 429 }
+            );
         }
 
         // Get access grant based on access type

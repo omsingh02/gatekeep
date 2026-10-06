@@ -1,0 +1,31 @@
+services:
+  app:
+    build:
+      context: .
+      args:
+        # Public values, inlined into the client bundle at build time
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+    # Runtime secrets (service-role key, Resend, CRON_SECRET) come only from .env
+    env_file: .env
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+  # Pings the database once a day so a free-tier Supabase project is never paused
+  cron:
+    image: curlimages/curl:8.10.1
+    depends_on:
+      - app
+    environment:
+      CRON_SECRET: ${CRON_SECRET}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        sleep 60  # let the app start before the first ping
+        while true; do
+          curl -fsS -H "Authorization: Bearer $$CRON_SECRET" http://app:3000/api/cron/keep-alive || echo "keep-alive failed"
+          sleep 86400
+        done
+    restart: unless-stopped
