@@ -43,3 +43,5 @@ next-env.d.ts
 /Palmr/
 /croc/
 /cloudreve/
+# supabase cli
+supabase/.temp
