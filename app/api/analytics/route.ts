@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { validateAuth } from '@/lib/utils/validation';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
     try {
         const supabase = await createClient();
         const userData = await supabase.auth.getUser();
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
             });
         }
 
-        const fileIds = (files as any[]).map((f: any) => f.id);
+        const fileIds = files.map((f) => f.id);
 
         // Get recent access logs (last 50 accesses)
         const { data: recentLogs } = await adminClient
@@ -44,8 +44,18 @@ export async function GET(request: NextRequest) {
             .in('file_id', fileIds);
 
         // Build file statistics map
-        const fileStatsMap = new Map();
-        (files as any[]).forEach((file: any) => {
+        type FileStats = {
+            id: string;
+            filename: string;
+            shortCode: string;
+            createdAt: string;
+            totalAccesses: number;
+            successfulAccesses: number;
+            failedAccesses: number;
+            uniqueUsers: Set<string>;
+        };
+        const fileStatsMap = new Map<string, FileStats>();
+        files.forEach((file) => {
             fileStatsMap.set(file.id, {
                 id: file.id,
                 filename: file.original_filename,
@@ -54,12 +64,12 @@ export async function GET(request: NextRequest) {
                 totalAccesses: 0,
                 successfulAccesses: 0,
                 failedAccesses: 0,
-                uniqueUsers: new Set(),
+                uniqueUsers: new Set<string>(),
             });
         });
 
         // Calculate statistics
-        (accessStats || []).forEach((log: any) => {
+        (accessStats || []).forEach((log) => {
             const stats = fileStatsMap.get(log.file_id);
             if (stats) {
                 stats.totalAccesses++;
@@ -77,16 +87,17 @@ export async function GET(request: NextRequest) {
             .select('file_id, user_identifier')
             .in('file_id', fileIds);
 
-        (accessGrants || []).forEach((grant: any) => {
+        (accessGrants || []).forEach((grant) => {
             const stats = fileStatsMap.get(grant.file_id);
-            if (stats) {
+            // Public grants have no identifier and aren't a user
+            if (stats && grant.user_identifier) {
                 stats.uniqueUsers.add(grant.user_identifier);
             }
         });
 
         // Transform recent logs for response
-        const recentActivity = (recentLogs || []).map((log: any) => {
-            const file = (files as any[]).find((f: any) => f.id === log.file_id);
+        const recentActivity = (recentLogs || []).map((log) => {
+            const file = files.find((f) => f.id === log.file_id);
             return {
                 id: log.id,
                 fileId: log.file_id,

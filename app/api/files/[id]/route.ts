@@ -8,13 +8,14 @@ export async function GET(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
-    let user: any;
+    let userId: string | undefined;
     try {
         const { id } = await params;
         const supabase = await createClient();
         const userData = await supabase.auth.getUser();
-        user = validateAuth(userData, '/api/files/[id]', 'GET');
+        const user = validateAuth(userData, '/api/files/[id]', 'GET');
         if (user instanceof NextResponse) return user;
+        userId = user.id;
 
         const adminClient = createAdminClient();
         const { data: file, error } = await adminClient
@@ -35,7 +36,7 @@ export async function GET(
 
         return NextResponse.json({ file });
     } catch (error) {
-        logError('/api/files/[id]', user?.id, 'GET-file-request', error);
+        logError('/api/files/[id]', userId, 'GET-file-request', error);
         return NextResponse.json({ error: 'Internal server error', code: 'ERR_FILE_GET' }, { status: 500 });
     }
 }
@@ -44,21 +45,21 @@ export async function DELETE(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
-    let user: any;
+    let userId: string | undefined;
     try {
         const { id } = await params;
         const supabase = await createClient();
         const userData = await supabase.auth.getUser();
-        user = validateAuth(userData, '/api/files/[id]', 'DELETE');
+        const user = validateAuth(userData, '/api/files/[id]', 'DELETE');
         if (user instanceof NextResponse) return user;
+        userId = user.id;
 
         const adminClient = createAdminClient();
 
         // Step 1: Use database transaction to soft-delete and get filename
         // This is atomic - either fully succeeds or fully rolls back
-        // Type assertion needed because Supabase types don't know about custom RPC functions
-        const { data: deleteResult, error: rpcError } = await (adminClient
-            .rpc as any)('soft_delete_file', {
+        const { data: deleteResult, error: rpcError } = await adminClient
+            .rpc('soft_delete_file', {
                 p_file_id: id,
                 p_user_id: user.id,
             });
@@ -72,7 +73,8 @@ export async function DELETE(
         }
 
         const result = deleteResult?.[0];
-        if (!result?.success) {
+        // On success the function always returns the stored filename
+        if (!result?.success || !result.filename) {
             logWarning('/api/files/[id]', 'delete-validation', result?.error_message || 'Delete validation failed', {
                 fileId: id.substring(0, 8),
             });
@@ -92,18 +94,17 @@ export async function DELETE(
             // It will be cleaned up later or can be retried
             logWarning('/api/files/[id]', 'storage-deletion', 'Failed to delete from storage', {
                 fileId: id.substring(0, 8),
-                filename: result.filename?.substring(0, 20),
+                filename: result.filename.substring(0, 20),
             });
             // Still return success - the file is effectively deleted from user's view
         }
 
         // Step 3: Complete the deletion (hard delete from DB)
-        // Type assertion needed because Supabase types don't know about custom RPC functions
-        await (adminClient.rpc as any)('complete_file_deletion', { p_file_id: id });
+        await adminClient.rpc('complete_file_deletion', { p_file_id: id });
 
         return NextResponse.json({ success: true });
     } catch (error) {
-        logError('/api/files/[id]', user?.id, 'DELETE-file-request', error);
+        logError('/api/files/[id]', userId, 'DELETE-file-request', error);
         return NextResponse.json({ error: 'Internal server error', code: 'ERR_FILE_DELETE' }, { status: 500 });
     }
 }
@@ -133,7 +134,7 @@ async function fallbackDelete(
     }
 
     // Delete from storage first
-    await adminClient.storage.from('files').remove([(file as any).filename]);
+    await adminClient.storage.from('files').remove([file.filename]);
 
     // Delete from database (cascades to file_access and access_log)
     const { error: deleteError } = await adminClient

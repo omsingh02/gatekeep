@@ -14,13 +14,14 @@ import { validateAuth, validateRequiredFields } from '@/lib/utils/validation';
  * Request body: { metadata: { uniqueFilename, sanitizedFilename, shortCode, fileSize, mimeType, userId } }
  */
 export async function POST(request: NextRequest) {
-    let user: any;
+    let authUserId: string | undefined;
     try {
         // Verify admin authentication
         const supabase = await createClient();
         const userData = await supabase.auth.getUser();
-        user = validateAuth(userData, '/api/files/confirm', 'POST');
+        const user = validateAuth(userData, '/api/files/confirm', 'POST');
         if (user instanceof NextResponse) return user;
+        authUserId = user.id;
 
         // Parse request body
         const body = await request.json();
@@ -80,7 +81,7 @@ export async function POST(request: NextRequest) {
                 short_code: shortCode,
                 uploaded_by: user.id,
                 folder_id: folderId || null,
-            } as any)
+            })
             .select()
             .single();
 
@@ -100,15 +101,15 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
             success: true,
             file: {
-                id: (fileData as any).id,
-                filename: (fileData as any).filename,
-                originalFilename: (fileData as any).original_filename,
-                shortCode: (fileData as any).short_code,
-                shortUrl: `${env.app.url}/${(fileData as any).short_code}`,
+                id: fileData.id,
+                filename: fileData.filename,
+                originalFilename: fileData.original_filename,
+                shortCode: fileData.short_code,
+                shortUrl: `${env.app.url}/${fileData.short_code}`,
             },
         });
     } catch (error) {
-        logError('/api/files/confirm', user?.id, 'confirm-upload', error);
+        logError('/api/files/confirm', authUserId, 'confirm-upload', error);
         return NextResponse.json({ error: 'Internal server error', code: 'ERR_CONFIRM' }, { status: 500 });
     }
 }
