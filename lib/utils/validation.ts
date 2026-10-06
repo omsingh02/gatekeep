@@ -4,6 +4,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import type { User } from '@supabase/supabase-js';
 import { logWarning } from './logger';
 
 /**
@@ -16,10 +17,10 @@ import { logWarning } from './logger';
  *   const user = authCheck;
  */
 export function validateAuth(
-    userData: any,
+    userData: { data: { user: User | null } },
     route: string,
     method: string
-): any {
+): User | NextResponse {
     if (!userData?.data?.user) {
         logWarning(route, 'auth-required', `${method} request without authentication`);
         return NextResponse.json({ error: 'Unauthorized', code: 'ERR_UNAUTHORIZED' }, { status: 401 });
@@ -36,7 +37,7 @@ export function validateAuth(
  *   if (error) return error;
  */
 export function validateRequiredFields(
-    body: Record<string, any>,
+    body: Record<string, unknown>,
     requiredFields: string[],
     route: string
 ): NextResponse | null {
