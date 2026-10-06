@@ -7,14 +7,35 @@ import { sanitizeUserIdentifier } from '@/lib/utils/sanitization';
 import { logError, logWarning } from '@/lib/utils/logger';
 import { validateAuth, validateAndSanitize } from '@/lib/utils/validation';
 import { sendAccessGrantEmail } from '@/lib/email';
+import type { Database, Tables } from '@/lib/types';
+
+type FileAccessUpdate = Database['public']['Tables']['file_access']['Update'];
+
+// API shape for a grant. Never expose password_hash or session_token.
+function serializeAccess(a: Tables<'file_access'>) {
+    return {
+        id: a.id,
+        fileId: a.file_id,
+        type: a.is_public ? 'public' : 'user',
+        userIdentifier: a.user_identifier || undefined,
+        isPublic: a.is_public,
+        expiresAt: a.expires_at,
+        accessCount: a.access_count,
+        downloadCount: a.download_count,
+        maxDownloads: a.max_downloads,
+        lastAccessed: a.last_accessed,
+        createdAt: a.created_at,
+    };
+}
 
 export async function GET(request: NextRequest) {
-    let user: any;
+    let userId: string | undefined;
     try {
         const supabase = await createClient();
         const userData = await supabase.auth.getUser();
-        user = validateAuth(userData, '/api/access', 'GET');
+        const user = validateAuth(userData, '/api/access', 'GET');
         if (user instanceof NextResponse) return user;
+        userId = user.id;
 
         const { searchParams } = new URL(request.url);
         const fileId = searchParams.get('fileId');
@@ -61,20 +82,7 @@ export async function GET(request: NextRequest) {
             }
 
             // Transform to camelCase
-            const transformedAccess = (access || []).map((a: any) => ({
-                id: a.id,
-                fileId: a.file_id,
-                type: a.is_public ? 'public' : 'user',
-                userIdentifier: a.user_identifier || undefined,
-                isPublic: a.is_public,
-                passwordHash: a.password_hash,
-                expiresAt: a.expires_at,
-                accessCount: a.access_count,
-                downloadCount: a.download_count,
-                maxDownloads: a.max_downloads,
-                lastAccessed: a.last_accessed,
-                createdAt: a.created_at,
-            }));
+            const transformedAccess = (access || []).map(serializeAccess);
 
             return NextResponse.json({ access: transformedAccess });
         }
@@ -107,24 +115,13 @@ export async function GET(request: NextRequest) {
 
         // Transform to camelCase with file info
         const now = new Date();
-        let transformedAccess = (access || []).map((a: any) => {
+        let transformedAccess = (access || []).map((a) => {
             const expiresAt = a.expires_at ? new Date(a.expires_at) : null;
             const isExpired = expiresAt ? expiresAt < now : false;
             const isLimitReached = a.max_downloads ? (a.download_count || 0) >= a.max_downloads : false;
 
             return {
-                id: a.id,
-                fileId: a.file_id,
-                type: a.is_public ? 'public' : 'user',
-                userIdentifier: a.user_identifier || undefined,
-                isPublic: a.is_public,
-                passwordHash: a.password_hash,
-                expiresAt: a.expires_at,
-                accessCount: a.access_count,
-                downloadCount: a.download_count,
-                maxDownloads: a.max_downloads,
-                lastAccessed: a.last_accessed,
-                createdAt: a.created_at,
+                ...serializeAccess(a),
                 file: {
                     id: a.files.id,
                     originalFilename: a.files.original_filename,
@@ -150,13 +147,13 @@ export async function GET(request: NextRequest) {
             totalPages,
         });
     } catch (error) {
-        logError('/api/access', user?.id, 'GET-access-request', error);
+        logError('/api/access', userId, 'GET-access-request', error);
         return NextResponse.json({ error: 'Internal server error', code: 'ERR_ACCESS_GET' }, { status: 500 });
     }
 }
 
 export async function POST(request: NextRequest) {
-    let user: any;
+    let userId: string | undefined;
     try {
         // Rate limiting: 20 access grants per minute per IP
         const identifier = getClientIdentifier(request);
@@ -174,8 +171,9 @@ export async function POST(request: NextRequest) {
 
         const supabase = await createClient();
         const userData = await supabase.auth.getUser();
-        user = validateAuth(userData, '/api/access', 'POST');
+        const user = validateAuth(userData, '/api/access', 'POST');
         if (user instanceof NextResponse) return user;
+        userId = user.id;
 
         const body = await request.json();
         const { fileId, userIdentifier, password, expiresAt, maxDownloads, identifierType, notifyOnGrant, isPublic } = body;
@@ -278,7 +276,7 @@ export async function POST(request: NextRequest) {
                 identifier_type: isPublic ? null : validIdentifierType,
                 notify_on_grant: shouldNotify,
                 is_public: isPublic || false,
-            } as any)
+            })
             .select()
             .single();
 
@@ -290,16 +288,14 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to create access grant', code: 'ERR_DB_ERROR' }, { status: 500 });
         }
 
-        const createdAccess = access as any;
-
         // Send email notification if requested (fire and forget - don't block on email)
         let emailSent = false;
         if (shouldNotify && sanitizedUserIdentifier) {
             try {
                 emailSent = await sendAccessGrantEmail({
                     to: sanitizedUserIdentifier,
-                    fileName: (file as any).original_filename,
-                    shortCode: (file as any).short_code,
+                    fileName: file.original_filename,
+                    shortCode: file.short_code,
                     password: password, // Original password before hashing
                     expiresAt: expiresAt || null,
                     maxDownloads: maxDownloads || null,
@@ -313,34 +309,22 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
             success: true,
             emailSent,
-            access: {
-                id: createdAccess.id,
-                fileId: createdAccess.file_id,
-                type: createdAccess.is_public ? 'public' : 'user',
-                userIdentifier: createdAccess.user_identifier || undefined,
-                isPublic: createdAccess.is_public,
-                passwordHash: createdAccess.password_hash,
-                expiresAt: createdAccess.expires_at,
-                accessCount: createdAccess.access_count,
-                downloadCount: createdAccess.download_count,
-                maxDownloads: createdAccess.max_downloads,
-                lastAccessed: createdAccess.last_accessed,
-                createdAt: createdAccess.created_at,
-            },
+            access: serializeAccess(access),
         });
     } catch (error) {
-        logError('/api/access', user?.id, 'POST-access-request', error);
+        logError('/api/access', userId, 'POST-access-request', error);
         return NextResponse.json({ error: 'Internal server error', code: 'ERR_ACCESS_POST' }, { status: 500 });
     }
 }
 
 export async function DELETE(request: NextRequest) {
-    let user: any;
+    let userId: string | undefined;
     try {
         const supabase = await createClient();
         const userData = await supabase.auth.getUser();
-        user = validateAuth(userData, '/api/access', 'DELETE');
+        const user = validateAuth(userData, '/api/access', 'DELETE');
         if (user instanceof NextResponse) return user;
+        userId = user.id;
 
         const { searchParams } = new URL(request.url);
         const accessId = searchParams.get('id');
@@ -359,7 +343,7 @@ export async function DELETE(request: NextRequest) {
             .eq('id', accessId)
             .single();
 
-        if (fetchError || !access || (access as any).files?.uploaded_by !== user.id) {
+        if (fetchError || !access || access.files.uploaded_by !== user.id) {
             logWarning('/api/access', 'access-verification', 'Access grant not found or unauthorized', {
                 accessId: accessId.substring(0, 8),
                 userId: user.id.substring(0, 8),
@@ -382,7 +366,7 @@ export async function DELETE(request: NextRequest) {
 
         return NextResponse.json({ success: true });
     } catch (error) {
-        logError('/api/access', user?.id, 'DELETE-access-request', error);
+        logError('/api/access', userId, 'DELETE-access-request', error);
         return NextResponse.json({ error: 'Internal server error', code: 'ERR_ACCESS_DELETE' }, { status: 500 });
     }
 }
@@ -410,12 +394,12 @@ export async function PATCH(request: NextRequest) {
             .eq('id', accessId)
             .single();
 
-        if (fetchError || !access || (access as any).files?.uploaded_by !== user.id) {
+        if (fetchError || !access || access.files.uploaded_by !== user.id) {
             return NextResponse.json({ error: 'Access grant not found' }, { status: 404 });
         }
 
         // Build update object with only provided fields
-        const updateData: any = {
+        const updateData: FileAccessUpdate = {
             session_token: null,  // Always invalidate session on edit
             session_expires_at: null,
         };
@@ -442,7 +426,7 @@ export async function PATCH(request: NextRequest) {
 
         const { data: updatedAccess, error: updateError } = await adminClient
             .from('file_access')
-            .update(updateData as never)
+            .update(updateData)
             .eq('id', accessId)
             .select()
             .single();
@@ -451,25 +435,11 @@ export async function PATCH(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to update access grant' }, { status: 500 });
         }
 
-        const ua = updatedAccess as any;
         return NextResponse.json({
             success: true,
-            access: {
-                id: ua.id,
-                fileId: ua.file_id,
-                type: ua.is_public ? 'public' : 'user',
-                userIdentifier: ua.user_identifier || undefined,
-                isPublic: ua.is_public,
-                passwordHash: ua.password_hash,
-                expiresAt: ua.expires_at,
-                accessCount: ua.access_count,
-                downloadCount: ua.download_count,
-                maxDownloads: ua.max_downloads,
-                lastAccessed: ua.last_accessed,
-                createdAt: ua.created_at,
-            },
+            access: serializeAccess(updatedAccess),
         });
-    } catch (error) {
+    } catch {
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }

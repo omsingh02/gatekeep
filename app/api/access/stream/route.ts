@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sanitizeShortCode, sanitizeUserIdentifier } from '@/lib/utils/sanitization';
 
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest) {
             const adminClient = createAdminClient();
             let heartbeat: NodeJS.Timeout | null = null;
             let checkInterval: NodeJS.Timeout | null = null;
-            let channel: any = null;
+            let channel: RealtimeChannel | null = null;
 
             try {
                 // Get file and access info (exclude soft-deleted files)
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest) {
                 const { data: accessRecord } = await adminClient
                     .from('file_access')
                     .select('id')
-                    .eq('file_id', (file as any).id)
+                    .eq('file_id', file.id)
                     .eq('user_identifier', sanitizedUserIdentifier)
                     .single();
 
@@ -70,9 +71,9 @@ export async function GET(request: NextRequest) {
                             event: 'DELETE',
                             schema: 'public',
                             table: 'file_access',
-                            filter: `id=eq.${(accessRecord as any).id}`,
+                            filter: `id=eq.${accessRecord.id}`,
                         },
-                        async (payload) => {
+                        () => {
                             // Access was deleted - revoke immediately
                             controller.enqueue(
                                 encoder.encode(`data: ${JSON.stringify({ revoked: true })}\n\n`)
@@ -81,13 +82,15 @@ export async function GET(request: NextRequest) {
                             controller.close();
                         }
                 )
-                .subscribe();                // Periodically check if access was deleted (fallback in case realtime fails)
+                .subscribe();
+
+                // Periodically check if access was deleted (fallback in case realtime fails)
                 checkInterval = setInterval(async () => {
                     try {
                         const { data: currentAccess, error } = await adminClient
                             .from('file_access')
                             .select('id')
-                            .eq('id', (accessRecord as any).id)
+                            .eq('id', accessRecord.id)
                             .maybeSingle();
 
                         if (error || !currentAccess) {
@@ -98,7 +101,7 @@ export async function GET(request: NextRequest) {
                             cleanup();
                             controller.close();
                         }
-                    } catch (err) {
+                    } catch {
                         // Silently handle polling errors
                     }
                 }, 30000); // Check every 30 seconds (less frequent since it's just a fallback)
@@ -113,7 +116,7 @@ export async function GET(request: NextRequest) {
                     cleanup();
                     controller.close();
                 });
-            } catch (error) {
+            } catch {
                 controller.close();
             }
         },
