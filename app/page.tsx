@@ -96,7 +96,6 @@ export default function Home() {
                                 srcSet="/assets/logo-gatekeep-mascot-wordmark-dark.svg"
                                 media="(prefers-color-scheme: dark)"
                             />
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                                 src="/assets/logo-gatekeep-mascot-wordmark-light.svg"
                                 alt="Gatekeep"
