@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { Check, Copy, X } from 'lucide-react';
 import { Modal, ConfirmDialog, useToast, ExpiryPicker, EmptyState } from '@/components/ui';
 import { FileMetadata, FileAccess } from '@/lib/types';
 import { generateRandomPassword } from '@/lib/utils/crypto';
@@ -37,6 +38,9 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
     // Identifier type state (email or username)
     const [identifierType, setIdentifierType] = useState<'email' | 'username'>('username');
     const [notifyOnGrant, setNotifyOnGrant] = useState(false);
+    // Ready-to-send message for the grant just created (the password is only known at this moment)
+    const [lastInvite, setLastInvite] = useState<string | null>(null);
+    const [copied, setCopied] = useState<'invite' | 'link' | null>(null);
     
     // Bulk mode state
     const [isBulkMode, setIsBulkMode] = useState(false);
@@ -64,6 +68,17 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
         name: '',
     });
     const toast = useToast();
+    const shareLink = typeof window !== 'undefined' ? `${window.location.origin}/${file.shortCode}` : `/${file.shortCode}`;
+
+    const copyText = async (text: string, what: 'invite' | 'link') => {
+        try {
+            await navigator.clipboard.writeText(text);
+            setCopied(what);
+            setTimeout(() => setCopied(null), 1800);
+        } catch {
+            toast.error('Could not copy — select the text and copy it manually');
+        }
+    };
 
     const fetchAccessList = useCallback(async () => {
         try {
@@ -132,6 +147,16 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
 
             const responseData = await response.json();
             setDuplicateUserIdentifier(null);
+
+            const inviteLines = [`I've shared "${file.originalFilename}" with you.`, '', `Link: ${shareLink}`];
+            if (grantMode !== 'public') {
+                inviteLines.push(`${identifierType === 'email' ? 'Email' : 'Username'}: ${userIdentifier}`);
+            }
+            inviteLines.push(`Password: ${password}`);
+            if (expiresAtISO) inviteLines.push(`Access expires: ${new Date(expiresAtISO).toLocaleString()}`);
+            if (maxDownloads) inviteLines.push(`Download limit: ${maxDownloads}`);
+            setLastInvite(inviteLines.join('\n'));
+            setCopied(null);
 
             // Show success toast with email status
             if (responseData.emailSent) {
@@ -346,8 +371,8 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                 <div style={{
                     padding: '1rem',
                     borderRadius: '6px',
-                    backgroundColor: '#1a1a1a',
-                    border: '1px solid #3a3a3a',
+                    backgroundColor: '#0b0c11',
+                    border: '1px solid #23263a',
                 }}>
                     <h3 style={{
                         fontWeight: 500,
@@ -359,14 +384,94 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                         Short link: <code style={{
                             padding: '0.125rem 0.5rem',
                             borderRadius: '3px',
-                            backgroundColor: '#252525',
-                            color: '#6366f1',
+                            backgroundColor: '#151823',
+                            color: '#a5b4fc',
                             fontSize: '0.8rem',
                         }}>
-                            {window.location.origin}/{file.shortCode}
+                            {shareLink}
                         </code>
+                        <button
+                            type="button"
+                            onClick={() => copyText(shareLink, 'link')}
+                            aria-label="Copy link"
+                            title="Copy link"
+                            style={{
+                                marginLeft: '0.375rem',
+                                verticalAlign: 'middle',
+                                display: 'inline-flex',
+                                padding: '0.25rem',
+                                borderRadius: '4px',
+                                border: '1px solid #23263a',
+                                background: 'transparent',
+                                color: copied === 'link' ? '#34d399' : '#9ca3af',
+                                cursor: 'pointer',
+                            }}
+                        >
+                            {copied === 'link' ? <Check size={13} /> : <Copy size={13} />}
+                        </button>
                     </p>
                 </div>
+
+                {/* Invite for the grant just created */}
+                {lastInvite && (
+                    <div style={{
+                        padding: '1rem',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(52, 211, 153, 0.25)',
+                        backgroundColor: 'rgba(16, 185, 129, 0.06)',
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.625rem' }}>
+                            <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 600, color: '#a7f3d0' }}>
+                                Access granted — send them this invite
+                            </p>
+                            <button
+                                type="button"
+                                onClick={() => setLastInvite(null)}
+                                aria-label="Dismiss invite"
+                                style={{ display: 'inline-flex', padding: '0.25rem', border: 'none', background: 'transparent', color: '#6b7280', cursor: 'pointer' }}
+                            >
+                                <X size={16} />
+                            </button>
+                        </div>
+                        <pre style={{
+                            margin: 0,
+                            padding: '0.75rem',
+                            borderRadius: '6px',
+                            backgroundColor: '#0b0c11',
+                            border: '1px solid #23263a',
+                            color: '#e0e0e0',
+                            fontSize: '0.8rem',
+                            lineHeight: 1.55,
+                            whiteSpace: 'pre-wrap',
+                            wordBreak: 'break-word',
+                        }}>{lastInvite}</pre>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
+                            <button
+                                type="button"
+                                onClick={() => copyText(lastInvite, 'invite')}
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '0.375rem',
+                                    padding: '0.5rem 0.875rem',
+                                    borderRadius: '6px',
+                                    border: 'none',
+                                    backgroundColor: copied === 'invite' ? '#059669' : '#6366f1',
+                                    color: 'white',
+                                    fontSize: '0.8rem',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                }}
+                            >
+                                {copied === 'invite' ? <Check size={14} /> : <Copy size={14} />}
+                                {copied === 'invite' ? 'Copied' : 'Copy invite'}
+                            </button>
+                            <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+                                The password isn&apos;t stored in readable form — copy it now.
+                            </span>
+                        </div>
+                    </div>
+                )}
 
                 {/* Add Access Form */}
                 <form onSubmit={isBulkMode ? handleBulkAddAccess : handleAddAccess} style={{
@@ -375,7 +480,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                     gap: '1rem',
                     padding: '1rem',
                     borderRadius: '6px',
-                    border: '1px solid #3a3a3a',
+                    border: '1px solid #23263a',
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
                         <h4 style={{
@@ -399,7 +504,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                     fontWeight: 500,
                                     color: isBulkMode ? '#fbbf24' : '#9ca3af',
                                     backgroundColor: isBulkMode ? '#78350f' : 'transparent',
-                                    border: `1px solid ${isBulkMode ? '#f59e0b' : '#3a3a3a'}`,
+                                    border: `1px solid ${isBulkMode ? '#f59e0b' : '#23263a'}`,
                                     borderRadius: '4px',
                                     cursor: 'pointer',
                                     transition: 'all 0.2s',
@@ -424,7 +529,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                 fontWeight: 500,
                                 color: grantMode === 'user' ? '#ffffff' : '#9ca3af',
                                 backgroundColor: grantMode === 'user' ? '#4f46e5' : 'transparent',
-                                border: `1px solid ${grantMode === 'user' ? '#6366f1' : '#3a3a3a'}`,
+                                border: `1px solid ${grantMode === 'user' ? '#6366f1' : '#23263a'}`,
                                 borderRadius: '4px',
                                 cursor: 'pointer',
                                 transition: 'all 0.2s',
@@ -447,7 +552,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                 fontWeight: 500,
                                 color: grantMode === 'public' ? '#ffffff' : '#9ca3af',
                                 backgroundColor: grantMode === 'public' ? '#059669' : 'transparent',
-                                border: `1px solid ${grantMode === 'public' ? '#10b981' : '#3a3a3a'}`,
+                                border: `1px solid ${grantMode === 'public' ? '#10b981' : '#23263a'}`,
                                 borderRadius: '4px',
                                 cursor: 'pointer',
                                 transition: 'all 0.2s',
@@ -493,7 +598,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                             fontWeight: 500,
                                             color: identifierType === 'username' ? '#ffffff' : '#9ca3af',
                                             backgroundColor: identifierType === 'username' ? '#374151' : 'transparent',
-                                            border: `1px solid ${identifierType === 'username' ? '#4b5563' : '#3a3a3a'}`,
+                                            border: `1px solid ${identifierType === 'username' ? '#4b5563' : '#23263a'}`,
                                             borderRadius: '4px',
                                             cursor: 'pointer',
                                             transition: 'all 0.2s',
@@ -510,7 +615,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                             fontWeight: 500,
                                             color: identifierType === 'email' ? '#ffffff' : '#9ca3af',
                                             backgroundColor: identifierType === 'email' ? '#374151' : 'transparent',
-                                            border: `1px solid ${identifierType === 'email' ? '#4b5563' : '#3a3a3a'}`,
+                                            border: `1px solid ${identifierType === 'email' ? '#4b5563' : '#23263a'}`,
                                             borderRadius: '4px',
                                             cursor: 'pointer',
                                             transition: 'all 0.2s',
@@ -557,8 +662,8 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                             width: '100%',
                                             padding: '0.625rem 0.875rem',
                                             borderRadius: '4px',
-                                            border: '1px solid #3a3a3a',
-                                            backgroundColor: '#1a1a1a',
+                                            border: '1px solid #23263a',
+                                            backgroundColor: '#0b0c11',
                                             color: '#e0e0e0',
                                             fontSize: '0.875rem',
                                             outline: 'none',
@@ -569,7 +674,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                             e.target.style.borderColor = '#6366f1';
                                         }}
                                         onBlur={(e) => {
-                                            e.target.style.borderColor = '#3a3a3a';
+                                            e.target.style.borderColor = '#23263a';
                                         }}
                                     />
                                     <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
@@ -594,8 +699,8 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                             width: '100%',
                                             padding: '0.625rem 0.875rem',
                                             borderRadius: '4px',
-                                            border: '1px solid #3a3a3a',
-                                            backgroundColor: '#1a1a1a',
+                                            border: '1px solid #23263a',
+                                            backgroundColor: '#0b0c11',
                                             color: '#e0e0e0',
                                             fontSize: '0.875rem',
                                             outline: 'none',
@@ -604,7 +709,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                             e.target.style.borderColor = '#6366f1';
                                         }}
                                         onBlur={(e) => {
-                                            e.target.style.borderColor = '#3a3a3a';
+                                            e.target.style.borderColor = '#23263a';
                                         }}
                                     />
                                 </div>
@@ -621,8 +726,8 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                     cursor: 'pointer',
                                     padding: '0.5rem',
                                     borderRadius: '4px',
-                                    backgroundColor: notifyOnGrant ? '#1e3a5f' : 'transparent',
-                                    border: `1px solid ${notifyOnGrant ? '#6366f1' : '#3a3a3a'}`,
+                                    backgroundColor: notifyOnGrant ? '#1e1b4b' : 'transparent',
+                                    border: `1px solid ${notifyOnGrant ? '#6366f1' : '#23263a'}`,
                                     transition: 'all 0.2s',
                                 }}>
                                     <input
@@ -658,8 +763,8 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                 width: '100%',
                                 padding: '0.625rem 0.875rem',
                                 borderRadius: '4px',
-                                border: '1px solid #3a3a3a',
-                                backgroundColor: '#1a1a1a',
+                                border: '1px solid #23263a',
+                                backgroundColor: '#0b0c11',
                                 color: '#e0e0e0',
                                 fontSize: '0.875rem',
                                 outline: 'none',
@@ -668,7 +773,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                 e.target.style.borderColor = '#6366f1';
                             }}
                             onBlur={(e) => {
-                                e.target.style.borderColor = '#3a3a3a';
+                                e.target.style.borderColor = '#23263a';
                             }}
                         />
                         <button
@@ -708,8 +813,8 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                 width: '100%',
                                 padding: '0.625rem 0.875rem',
                                 borderRadius: '4px',
-                                border: '1px solid #3a3a3a',
-                                backgroundColor: '#1a1a1a',
+                                border: '1px solid #23263a',
+                                backgroundColor: '#0b0c11',
                                 color: '#e0e0e0',
                                 fontSize: '0.875rem',
                                 outline: 'none',
@@ -718,7 +823,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                 e.target.style.borderColor = '#6366f1';
                             }}
                             onBlur={(e) => {
-                                e.target.style.borderColor = '#3a3a3a';
+                                e.target.style.borderColor = '#23263a';
                             }}
                         />
                     </div>
@@ -733,7 +838,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                         <div style={{
                             padding: '0.75rem',
                             borderRadius: '4px',
-                            backgroundColor: duplicateUserIdentifier ? '#1e3a5f' : '#7f1d1d',
+                            backgroundColor: duplicateUserIdentifier ? '#1e1b4b' : '#7f1d1d',
                             border: `1px solid ${duplicateUserIdentifier ? '#6366f1' : '#ef4444'}`,
                         }}>
                             <p style={{ fontSize: '0.875rem', color: duplicateUserIdentifier ? '#a5b4fc' : '#fecaca', margin: 0 }}>
@@ -777,7 +882,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                         <div style={{
                             padding: '0.75rem',
                             borderRadius: '4px',
-                            backgroundColor: '#1e3a5f',
+                            backgroundColor: '#1e1b4b',
                             border: '1px solid #6366f1',
                         }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
@@ -791,7 +896,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                             <div style={{
                                 width: '100%',
                                 height: '6px',
-                                backgroundColor: '#1a1a1a',
+                                backgroundColor: '#0b0c11',
                                 borderRadius: '3px',
                                 overflow: 'hidden',
                             }}>
@@ -911,8 +1016,8 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                         justifyContent: 'space-between',
                                         padding: '0.75rem',
                                         borderRadius: '4px',
-                                        border: '1px solid #3a3a3a',
-                                        backgroundColor: '#252525',
+                                        border: '1px solid #23263a',
+                                        backgroundColor: '#151823',
                                         flexWrap: 'wrap',
                                         gap: '0.75rem',
                                     }}
@@ -935,7 +1040,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                                 borderRadius: '3px',
                                                 backgroundColor: access.type === 'public' ? '#064e3b' : '#1f2937',
                                                 color: access.type === 'public' ? '#a7f3d0' : '#d1d5db',
-                                                border: `1px solid ${access.type === 'public' ? '#10b981' : '#3a3a3a'}`,
+                                                border: `1px solid ${access.type === 'public' ? '#10b981' : '#23263a'}`,
                                             }}>
                                                 {access.type === 'public' ? 'Public' : 'User'}
                                             </span>
@@ -979,7 +1084,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                                 fontSize: '0.8rem',
                                                 color: '#6366f1',
                                                 backgroundColor: 'transparent',
-                                                border: '1px solid #3a3a3a',
+                                                border: '1px solid #23263a',
                                                 borderRadius: '4px',
                                                 cursor: 'pointer',
                                                 transition: 'all 0.2s',
@@ -994,7 +1099,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                             }}
                                             onMouseLeave={(e) => {
                                                 e.currentTarget.style.backgroundColor = 'transparent';
-                                                e.currentTarget.style.borderColor = '#3a3a3a';
+                                                e.currentTarget.style.borderColor = '#23263a';
                                                 e.currentTarget.style.color = '#6366f1';
                                             }}
                                         >
@@ -1007,7 +1112,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                                 fontSize: '0.8rem',
                                                 color: '#ef4444',
                                                 backgroundColor: 'transparent',
-                                                border: '1px solid #3a3a3a',
+                                                border: '1px solid #23263a',
                                                 borderRadius: '4px',
                                                 cursor: 'pointer',
                                                 transition: 'all 0.2s',
@@ -1022,7 +1127,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                             }}
                                             onMouseLeave={(e) => {
                                                 e.currentTarget.style.backgroundColor = 'transparent';
-                                                e.currentTarget.style.borderColor = '#3a3a3a';
+                                                e.currentTarget.style.borderColor = '#23263a';
                                                 e.currentTarget.style.color = '#ef4444';
                                             }}
                                         >
@@ -1052,9 +1157,9 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                         <form 
                             onSubmit={handleSaveEdit}
                             style={{
-                                backgroundColor: '#2a2a2a',
+                                backgroundColor: '#12141c',
                                 borderRadius: '8px',
-                                border: '1px solid #3a3a3a',
+                                border: '1px solid #23263a',
                                 padding: '1.5rem',
                                 width: '100%',
                                 maxWidth: '400px',
@@ -1088,8 +1193,8 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                         width: '100%',
                                         padding: '0.625rem 0.875rem',
                                         borderRadius: '4px',
-                                        border: '1px solid #3a3a3a',
-                                        backgroundColor: '#1a1a1a',
+                                        border: '1px solid #23263a',
+                                        backgroundColor: '#0b0c11',
                                         color: '#e0e0e0',
                                         fontSize: '0.875rem',
                                         outline: 'none',
@@ -1114,8 +1219,8 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                         width: '100%',
                                         padding: '0.625rem 0.875rem',
                                         borderRadius: '4px',
-                                        border: '1px solid #3a3a3a',
-                                        backgroundColor: '#1a1a1a',
+                                        border: '1px solid #23263a',
+                                        backgroundColor: '#0b0c11',
                                         color: '#e0e0e0',
                                         fontSize: '0.875rem',
                                         outline: 'none',
@@ -1174,7 +1279,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                         fontWeight: 500,
                                         color: '#e0e0e0',
                                         backgroundColor: 'transparent',
-                                        border: '1px solid #3a3a3a',
+                                        border: '1px solid #23263a',
                                         borderRadius: '4px',
                                         cursor: 'pointer',
                                     }}
