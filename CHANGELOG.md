@@ -15,6 +15,7 @@ All notable changes to this project are documented here. The format follows
 ### Changed
 - Dashboard uses the brand's ink palette and line icons for file types (no more emoji).
 - Renamed the repository to `omsingh02/gatekeep`; the product is called Gatekeep everywhere.
+- The hosted instance moved to **https://gatekeep.omsingh.me**; notification emails come from `noreply@gatekeep.omsingh.me`.
 
 ### Fixed
 - Returning recipients had to re-enter their password every time — the 24-hour session cookie was never used.
