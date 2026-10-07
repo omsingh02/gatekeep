@@ -3,6 +3,20 @@
 All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- New Gatekeep logo, favicon/app icons, Open Graph and GitHub social-preview images.
+- Redesigned landing and sign-in pages; branded access-grant emails.
+- Local demo environment (`npm run seed:demo`) and reproducible product screenshots (`npm run screenshots`).
+- Issue forms, pull-request template, Dependabot, Code of Conduct.
+
+### Changed
+- Renamed the repository to `omsingh02/gatekeep`; the product is called Gatekeep everywhere.
+
+### Fixed
+- Landing page layout: an unlayered CSS reset overrode Tailwind's spacing utilities.
+
 ## [1.0.0] — 2026-10-07
 
 First open-source release.
@@ -31,4 +45,5 @@ First open-source release.
 - Migrations moved to `supabase/migrations` with timestamps (`supabase db push` compatible).
 - `EMAIL_FROM` is now required for email notifications (no hard-coded sender domain).
 
-[1.0.0]: https://github.com/omsingh02/file-share/releases/tag/v1.0.0
+[Unreleased]: https://github.com/omsingh02/gatekeep/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/omsingh02/gatekeep/releases/tag/v1.0.0

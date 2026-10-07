@@ -5,7 +5,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/omsingh02/file-share.git"
+    "url": "https://github.com/omsingh02/gatekeep.git"
   },
   "engines": {
     "node": ">=20.9"
@@ -17,7 +17,9 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "create-admin": "node scripts/create-admin.mjs"
+    "create-admin": "node scripts/create-admin.mjs",
+    "seed:demo": "node scripts/seed-demo.mjs",
+    "screenshots": "node scripts/screenshots.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",
@@ -38,6 +40,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
+    "playwright-core": "^1.63.0",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^5.0.3"

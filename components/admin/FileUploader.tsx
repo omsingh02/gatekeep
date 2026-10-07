@@ -464,7 +464,7 @@ export default function FileUploader({ onUploadComplete, currentFolderId }: File
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
                 style={{
-                    border: isDragging ? '2px dashed #3b82f6' : '2px dashed #3a3a3a',
+                    border: isDragging ? '2px dashed #6366f1' : '2px dashed #3a3a3a',
                     borderRadius: '6px',
                     padding: '2rem',
                     textAlign: 'center',
@@ -529,7 +529,7 @@ export default function FileUploader({ onUploadComplete, currentFolderId }: File
                                 fontSize: '0.875rem',
                                 fontWeight: 500,
                                 color: 'white',
-                                backgroundColor: '#3b82f6',
+                                backgroundColor: '#6366f1',
                                 border: 'none',
                                 borderRadius: '4px',
                                 cursor: isUploading ? 'not-allowed' : 'pointer',
@@ -537,10 +537,10 @@ export default function FileUploader({ onUploadComplete, currentFolderId }: File
                                 transition: 'all 0.2s',
                             }}
                             onMouseEnter={(e) => {
-                                if (!isUploading) e.currentTarget.style.backgroundColor = '#2563eb';
+                                if (!isUploading) e.currentTarget.style.backgroundColor = '#4f46e5';
                             }}
                             onMouseLeave={(e) => {
-                                if (!isUploading) e.currentTarget.style.backgroundColor = '#3b82f6';
+                                if (!isUploading) e.currentTarget.style.backgroundColor = '#6366f1';
                             }}
                         >
                             {isUploading ? 'Uploading...' : 'Select Files'}
@@ -597,7 +597,7 @@ export default function FileUploader({ onUploadComplete, currentFolderId }: File
                                 <div
                                     style={{
                                         height: '100%',
-                                        backgroundColor: '#3b82f6',
+                                        backgroundColor: '#6366f1',
                                         width: `${progress}%`,
                                         transition: 'width 0.3s',
                                     }}

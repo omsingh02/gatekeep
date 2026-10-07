@@ -3,7 +3,7 @@
 ## Reporting a vulnerability
 
 Please **do not open a public issue**. Report privately via
-[GitHub Security Advisories](https://github.com/omsingh02/file-share/security/advisories/new).
+[GitHub Security Advisories](https://github.com/omsingh02/gatekeep/security/advisories/new).
 Include steps to reproduce and the impact. You'll get an acknowledgement within a few days.
 
 ## Supported versions

@@ -30,7 +30,7 @@ const illustrations: Record<IllustrationType, React.ReactNode> = {
             <line x1="42" y1="55" x2="70" y2="55" stroke="#3a3a3a" strokeWidth="2" strokeLinecap="round"/>
             <line x1="42" y1="62" x2="65" y2="62" stroke="#3a3a3a" strokeWidth="2" strokeLinecap="round"/>
             {/* Decorative dots */}
-            <circle cx="95" cy="25" r="3" fill="#3b82f6" opacity="0.5"/>
+            <circle cx="95" cy="25" r="3" fill="#6366f1" opacity="0.5"/>
             <circle cx="15" cy="60" r="2" fill="#10b981" opacity="0.5"/>
             <circle cx="105" cy="70" r="4" fill="#8b5cf6" opacity="0.3"/>
         </svg>
@@ -47,7 +47,7 @@ const illustrations: Record<IllustrationType, React.ReactNode> = {
             <circle cx="57" cy="42" r="2" fill="#4a4a4a"/>
             {/* Decorative elements */}
             <path d="M90 25 L95 30 L100 25" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.6"/>
-            <circle cx="20" cy="70" r="3" fill="#3b82f6" opacity="0.4"/>
+            <circle cx="20" cy="70" r="3" fill="#6366f1" opacity="0.4"/>
         </svg>
     ),
     'no-access': (
@@ -60,7 +60,7 @@ const illustrations: Record<IllustrationType, React.ReactNode> = {
             <circle cx="60" cy="55" r="5" fill="#3a3a3a"/>
             <rect x="58" y="55" width="4" height="10" fill="#3a3a3a"/>
             {/* Sparkles */}
-            <path d="M25 35 L28 38 L25 41 L22 38 Z" fill="#3b82f6" opacity="0.5"/>
+            <path d="M25 35 L28 38 L25 41 L22 38 Z" fill="#6366f1" opacity="0.5"/>
             <circle cx="95" cy="50" r="3" fill="#10b981" opacity="0.4"/>
             <path d="M90 75 L93 78 L90 81 L87 78 Z" fill="#8b5cf6" opacity="0.4"/>
         </svg>
@@ -77,7 +77,7 @@ const illustrations: Record<IllustrationType, React.ReactNode> = {
             {/* Empty indicator - dashed line */}
             <line x1="20" y1="30" x2="100" y2="30" stroke="#4a4a4a" strokeWidth="2" strokeDasharray="4 4" opacity="0.5"/>
             {/* Decorative */}
-            <circle cx="105" cy="20" r="3" fill="#3b82f6" opacity="0.5"/>
+            <circle cx="105" cy="20" r="3" fill="#6366f1" opacity="0.5"/>
         </svg>
     ),
     'empty-folder': (
@@ -90,7 +90,7 @@ const illustrations: Record<IllustrationType, React.ReactNode> = {
             <line x1="35" y1="55" x2="55" y2="55" stroke="#3a3a3a" strokeWidth="2" strokeDasharray="4 3" strokeLinecap="round"/>
             <line x1="35" y1="65" x2="70" y2="65" stroke="#3a3a3a" strokeWidth="2" strokeDasharray="4 3" strokeLinecap="round"/>
             {/* Sparkles */}
-            <circle cx="108" cy="30" r="4" fill="#60a5fa" opacity="0.4"/>
+            <circle cx="108" cy="30" r="4" fill="#818cf8" opacity="0.4"/>
             <circle cx="12" cy="55" r="3" fill="#10b981" opacity="0.4"/>
         </svg>
     ),
@@ -99,8 +99,8 @@ const illustrations: Record<IllustrationType, React.ReactNode> = {
             {/* Cloud shape */}
             <path d="M85 55 C85 55 95 55 95 45 C95 35 85 30 75 33 C75 23 65 15 52 18 C40 20 35 30 35 38 C25 38 20 48 25 55 C20 62 25 72 35 72 L85 72 C95 72 100 62 95 55 C100 48 95 40 85 45 L85 55Z" fill="#1f1f1f" stroke="#3a3a3a" strokeWidth="2"/>
             {/* Upload arrow */}
-            <path d="M60 65 L60 42" stroke="#3b82f6" strokeWidth="3" strokeLinecap="round"/>
-            <path d="M50 52 L60 42 L70 52" stroke="#3b82f6" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M60 65 L60 42" stroke="#6366f1" strokeWidth="3" strokeLinecap="round"/>
+            <path d="M50 52 L60 42 L70 52" stroke="#6366f1" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
             {/* Plus sign particles */}
             <path d="M25 25 L25 32 M21.5 28.5 L28.5 28.5" stroke="#10b981" strokeWidth="2" strokeLinecap="round" opacity="0.6"/>
             <circle cx="95" cy="25" r="3" fill="#8b5cf6" opacity="0.4"/>

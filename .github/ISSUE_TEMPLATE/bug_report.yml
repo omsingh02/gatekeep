@@ -1,0 +1,44 @@
+name: Bug report
+description: Something in Gatekeep isn't working as documented
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! **Security issues:** please don't file them here — use
+        [private vulnerability reporting](https://github.com/omsingh02/gatekeep/security/advisories/new).
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Upload a file
+        2. Grant access to …
+        3. Open the share link …
+    validations:
+      required: true
+  - type: dropdown
+    id: hosting
+    attributes:
+      label: Where is it hosted?
+      options: [Vercel, Docker, Local (npm run dev), Other]
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Gatekeep version or commit
+      placeholder: v1.0.0
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / screenshots
+      description: Server logs (Vercel → Logs, or `docker compose logs app`) and browser console output. Redact secrets and emails.
+      render: shell

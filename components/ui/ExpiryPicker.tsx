@@ -210,7 +210,7 @@ function DateTimePickerModal({
         padding: '0.75rem 1.25rem',
         textAlign: 'center',
         cursor: 'pointer',
-        color: isSelected ? '#3b82f6' : '#9ca3af',
+        color: isSelected ? '#6366f1' : '#9ca3af',
         fontWeight: isSelected ? 600 : 400,
         fontSize: '1rem',
         transition: 'all 0.15s',
@@ -309,7 +309,7 @@ function DateTimePickerModal({
                                                 display: 'block',
                                                 width: '100%',
                                                 padding: '0.75rem 1rem',
-                                                backgroundColor: viewYear === year ? '#2563eb' : 'transparent',
+                                                backgroundColor: viewYear === year ? '#4f46e5' : 'transparent',
                                                 border: 'none',
                                                 color: viewYear === year ? '#ffffff' : '#e0e0e0',
                                                 fontWeight: viewYear === year ? 600 : 400,
@@ -444,8 +444,8 @@ function DateTimePickerModal({
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
-                                        backgroundColor: selected ? '#2563eb' : 'transparent',
-                                        border: isTodayDate && !selected ? '2px solid #555555' : selected ? '2px solid #3b82f6' : '2px solid transparent',
+                                        backgroundColor: selected ? '#4f46e5' : 'transparent',
+                                        border: isTodayDate && !selected ? '2px solid #555555' : selected ? '2px solid #6366f1' : '2px solid transparent',
                                         borderRadius: '8px',
                                         color: disabled ? '#4b5563' : selected ? '#ffffff' : '#e0e0e0',
                                         cursor: disabled ? 'not-allowed' : 'pointer',
@@ -569,8 +569,8 @@ function DateTimePickerModal({
                                         justifyContent: 'center',
                                         cursor: 'pointer',
                                         color: selectedPeriod === p ? '#ffffff' : '#9ca3af',
-                                        backgroundColor: selectedPeriod === p ? '#2563eb' : 'transparent',
-                                        border: selectedPeriod === p ? '1px solid #3b82f6' : '1px solid #3a3a3a',
+                                        backgroundColor: selectedPeriod === p ? '#4f46e5' : 'transparent',
+                                        border: selectedPeriod === p ? '1px solid #6366f1' : '1px solid #3a3a3a',
                                         fontWeight: selectedPeriod === p ? 600 : 500,
                                         fontSize: '0.9rem',
                                         transition: 'all 0.15s',
@@ -637,17 +637,17 @@ function DateTimePickerModal({
                                 fontSize: '0.9rem',
                                 fontWeight: 600,
                                 color: '#ffffff',
-                                backgroundColor: '#2563eb',
-                                border: '2px solid #3b82f6',
+                                backgroundColor: '#4f46e5',
+                                border: '2px solid #6366f1',
                                 borderRadius: '8px',
                                 cursor: 'pointer',
                                 transition: 'all 0.15s',
                             }}
                             onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = '#1d4ed8';
+                                e.currentTarget.style.backgroundColor = '#4338ca';
                             }}
                             onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = '#2563eb';
+                                e.currentTarget.style.backgroundColor = '#4f46e5';
                             }}
                         >
                             Confirm
@@ -732,8 +732,8 @@ export default function ExpiryPicker({
         fontSize: '0.75rem',
         fontWeight: 500,
         color: isActive ? '#ffffff' : '#9ca3af',
-        backgroundColor: isActive ? '#2563eb' : 'transparent',
-        border: `1px solid ${isActive ? '#3b82f6' : '#3a3a3a'}`,
+        backgroundColor: isActive ? '#4f46e5' : 'transparent',
+        border: `1px solid ${isActive ? '#6366f1' : '#3a3a3a'}`,
         borderRadius: '4px',
         cursor: 'pointer',
         transition: 'all 0.15s',

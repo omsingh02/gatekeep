@@ -177,7 +177,7 @@ export function PromptDialog({
                                 transition: 'border-color 0.2s',
                             }}
                             onFocus={(e) => {
-                                if (!error) e.currentTarget.style.borderColor = '#3b82f6';
+                                if (!error) e.currentTarget.style.borderColor = '#6366f1';
                             }}
                             onBlur={(e) => {
                                 if (!error) e.currentTarget.style.borderColor = '#3a3a3a';
@@ -243,7 +243,7 @@ export function PromptDialog({
                                 fontSize: '0.875rem',
                                 fontWeight: 500,
                                 color: 'white',
-                                backgroundColor: '#3b82f6',
+                                backgroundColor: '#6366f1',
                                 border: 'none',
                                 borderRadius: '6px',
                                 cursor: isLoading ? 'not-allowed' : 'pointer',
@@ -255,12 +255,12 @@ export function PromptDialog({
                             }}
                             onMouseEnter={(e) => {
                                 if (!isLoading) {
-                                    e.currentTarget.style.backgroundColor = '#2563eb';
+                                    e.currentTarget.style.backgroundColor = '#4f46e5';
                                 }
                             }}
                             onMouseLeave={(e) => {
                                 if (!isLoading) {
-                                    e.currentTarget.style.backgroundColor = '#3b82f6';
+                                    e.currentTarget.style.backgroundColor = '#6366f1';
                                 }
                             }}
                         >

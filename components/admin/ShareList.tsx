@@ -8,7 +8,8 @@ import Link from 'next/link';
 interface ShareWithFile {
     id: string;
     fileId: string;
-    userIdentifier: string;
+    userIdentifier?: string;
+    isPublic?: boolean;
     expiresAt: string | null;
     accessCount: number;
     downloadCount?: number;
@@ -82,7 +83,7 @@ export default function ShareList({ limit, showViewAll = false, viewAllHref = '/
     };
 
     const confirmRevoke = (share: ShareWithFile) => {
-        setRevokeConfirm({ isOpen: true, shareId: share.id, userName: share.userIdentifier });
+        setRevokeConfirm({ isOpen: true, shareId: share.id, userName: share.userIdentifier || 'the public link' });
     };
 
     const isExpired = (expiresAt: string | null) => {
@@ -176,7 +177,7 @@ export default function ShareList({ limit, showViewAll = false, viewAllHref = '/
                                     width: '40px',
                                     height: '40px',
                                     borderRadius: '50%',
-                                    backgroundColor: isInactive ? '#2a2a2a' : '#3b82f6',
+                                    backgroundColor: isInactive ? '#2a2a2a' : '#6366f1',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
@@ -194,7 +195,7 @@ export default function ShareList({ limit, showViewAll = false, viewAllHref = '/
                                             margin: 0,
                                             fontSize: '0.95rem',
                                         }}>
-                                            {share.userIdentifier}
+                                            {share.userIdentifier || 'Public link'}
                                         </h3>
                                         {expired && (
                                             <span style={{
@@ -242,7 +243,7 @@ export default function ShareList({ limit, showViewAll = false, viewAllHref = '/
                                             📄 {share.file.originalFilename}
                                         </span>
                                         <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                                            {share.accessCount} views
+                                            {share.accessCount} {share.accessCount === 1 ? 'view' : 'views'}
                                         </span>
                                         {share.maxDownloads && (
                                             <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
@@ -305,7 +306,7 @@ export default function ShareList({ limit, showViewAll = false, viewAllHref = '/
                             gap: '0.5rem',
                             padding: '0.5rem 1rem',
                             fontSize: '0.875rem',
-                            color: '#3b82f6',
+                            color: '#6366f1',
                             backgroundColor: 'transparent',
                             border: '1px solid #3a3a3a',
                             borderRadius: '6px',

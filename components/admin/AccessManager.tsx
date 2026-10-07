@@ -360,7 +360,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                             padding: '0.125rem 0.5rem',
                             borderRadius: '3px',
                             backgroundColor: '#252525',
-                            color: '#3b82f6',
+                            color: '#6366f1',
                             fontSize: '0.8rem',
                         }}>
                             {window.location.origin}/{file.shortCode}
@@ -423,8 +423,8 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                 fontSize: '0.85rem',
                                 fontWeight: 500,
                                 color: grantMode === 'user' ? '#ffffff' : '#9ca3af',
-                                backgroundColor: grantMode === 'user' ? '#2563eb' : 'transparent',
-                                border: `1px solid ${grantMode === 'user' ? '#3b82f6' : '#3a3a3a'}`,
+                                backgroundColor: grantMode === 'user' ? '#4f46e5' : 'transparent',
+                                border: `1px solid ${grantMode === 'user' ? '#6366f1' : '#3a3a3a'}`,
                                 borderRadius: '4px',
                                 cursor: 'pointer',
                                 transition: 'all 0.2s',
@@ -566,7 +566,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                             fontFamily: 'monospace',
                                         }}
                                         onFocus={(e) => {
-                                            e.target.style.borderColor = '#3b82f6';
+                                            e.target.style.borderColor = '#6366f1';
                                         }}
                                         onBlur={(e) => {
                                             e.target.style.borderColor = '#3a3a3a';
@@ -601,7 +601,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                             outline: 'none',
                                         }}
                                         onFocus={(e) => {
-                                            e.target.style.borderColor = '#3b82f6';
+                                            e.target.style.borderColor = '#6366f1';
                                         }}
                                         onBlur={(e) => {
                                             e.target.style.borderColor = '#3a3a3a';
@@ -622,7 +622,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                     padding: '0.5rem',
                                     borderRadius: '4px',
                                     backgroundColor: notifyOnGrant ? '#1e3a5f' : 'transparent',
-                                    border: `1px solid ${notifyOnGrant ? '#3b82f6' : '#3a3a3a'}`,
+                                    border: `1px solid ${notifyOnGrant ? '#6366f1' : '#3a3a3a'}`,
                                     transition: 'all 0.2s',
                                 }}>
                                     <input
@@ -632,7 +632,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                         style={{ 
                                             width: '16px', 
                                             height: '16px',
-                                            accentColor: '#3b82f6',
+                                            accentColor: '#6366f1',
                                         }}
                                     />
                                     <span>Send email notification with access details</span>
@@ -665,7 +665,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                 outline: 'none',
                             }}
                             onFocus={(e) => {
-                                e.target.style.borderColor = '#3b82f6';
+                                e.target.style.borderColor = '#6366f1';
                             }}
                             onBlur={(e) => {
                                 e.target.style.borderColor = '#3a3a3a';
@@ -715,7 +715,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                 outline: 'none',
                             }}
                             onFocus={(e) => {
-                                e.target.style.borderColor = '#3b82f6';
+                                e.target.style.borderColor = '#6366f1';
                             }}
                             onBlur={(e) => {
                                 e.target.style.borderColor = '#3a3a3a';
@@ -734,9 +734,9 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                             padding: '0.75rem',
                             borderRadius: '4px',
                             backgroundColor: duplicateUserIdentifier ? '#1e3a5f' : '#7f1d1d',
-                            border: `1px solid ${duplicateUserIdentifier ? '#3b82f6' : '#ef4444'}`,
+                            border: `1px solid ${duplicateUserIdentifier ? '#6366f1' : '#ef4444'}`,
                         }}>
-                            <p style={{ fontSize: '0.875rem', color: duplicateUserIdentifier ? '#93c5fd' : '#fecaca', margin: 0 }}>
+                            <p style={{ fontSize: '0.875rem', color: duplicateUserIdentifier ? '#a5b4fc' : '#fecaca', margin: 0 }}>
                                 {error}
                             </p>
                             {duplicateUserIdentifier && (
@@ -760,7 +760,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                         fontSize: '0.8rem',
                                         fontWeight: 500,
                                         color: 'white',
-                                        backgroundColor: '#3b82f6',
+                                        backgroundColor: '#6366f1',
                                         border: 'none',
                                         borderRadius: '4px',
                                         cursor: 'pointer',
@@ -778,13 +778,13 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                             padding: '0.75rem',
                             borderRadius: '4px',
                             backgroundColor: '#1e3a5f',
-                            border: '1px solid #3b82f6',
+                            border: '1px solid #6366f1',
                         }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                                <span style={{ fontSize: '0.875rem', color: '#93c5fd' }}>
+                                <span style={{ fontSize: '0.875rem', color: '#a5b4fc' }}>
                                     Processing {bulkProgress.current} of {bulkProgress.total}...
                                 </span>
-                                <span style={{ fontSize: '0.875rem', color: '#93c5fd' }}>
+                                <span style={{ fontSize: '0.875rem', color: '#a5b4fc' }}>
                                     {Math.round((bulkProgress.current / bulkProgress.total) * 100)}%
                                 </span>
                             </div>
@@ -798,7 +798,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                 <div style={{
                                     width: `${(bulkProgress.current / bulkProgress.total) * 100}%`,
                                     height: '100%',
-                                    backgroundColor: '#3b82f6',
+                                    backgroundColor: '#6366f1',
                                     transition: 'width 0.2s',
                                 }} />
                             </div>
@@ -865,7 +865,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                             fontSize: '0.875rem',
                             fontWeight: 500,
                             color: 'white',
-                            backgroundColor: isBulkMode ? '#d97706' : '#3b82f6',
+                            backgroundColor: isBulkMode ? '#d97706' : '#6366f1',
                             border: 'none',
                             borderRadius: '4px',
                             cursor: isLoading ? 'not-allowed' : 'pointer',
@@ -873,10 +873,10 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                             transition: 'all 0.2s',
                         }}
                         onMouseEnter={(e) => {
-                            if (!isLoading) e.currentTarget.style.backgroundColor = isBulkMode ? '#b45309' : '#2563eb';
+                            if (!isLoading) e.currentTarget.style.backgroundColor = isBulkMode ? '#b45309' : '#4f46e5';
                         }}
                         onMouseLeave={(e) => {
-                            if (!isLoading) e.currentTarget.style.backgroundColor = isBulkMode ? '#d97706' : '#3b82f6';
+                            if (!isLoading) e.currentTarget.style.backgroundColor = isBulkMode ? '#d97706' : '#6366f1';
                         }}
                     >
                         {isLoading 
@@ -949,8 +949,8 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                                     fontSize: '0.7rem',
                                                     padding: '0.125rem 0.5rem',
                                                     borderRadius: '3px',
-                                                    backgroundColor: (access.downloadCount || 0) >= access.maxDownloads ? '#7f1d1d' : '#1e3a8a',
-                                                    color: (access.downloadCount || 0) >= access.maxDownloads ? '#fecaca' : '#93c5fd',
+                                                    backgroundColor: (access.downloadCount || 0) >= access.maxDownloads ? '#7f1d1d' : '#312e81',
+                                                    color: (access.downloadCount || 0) >= access.maxDownloads ? '#fecaca' : '#a5b4fc',
                                                 }}>
                                                     {access.downloadCount || 0}/{access.maxDownloads} downloads
                                                 </span>
@@ -977,7 +977,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                             style={{
                                                 padding: '0.375rem 0.75rem',
                                                 fontSize: '0.8rem',
-                                                color: '#3b82f6',
+                                                color: '#6366f1',
                                                 backgroundColor: 'transparent',
                                                 border: '1px solid #3a3a3a',
                                                 borderRadius: '4px',
@@ -988,14 +988,14 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                                 minWidth: '60px',
                                             }}
                                             onMouseEnter={(e) => {
-                                                e.currentTarget.style.backgroundColor = '#1e3a8a';
-                                                e.currentTarget.style.borderColor = '#3b82f6';
+                                                e.currentTarget.style.backgroundColor = '#312e81';
+                                                e.currentTarget.style.borderColor = '#6366f1';
                                                 e.currentTarget.style.color = '#ffffff';
                                             }}
                                             onMouseLeave={(e) => {
                                                 e.currentTarget.style.backgroundColor = 'transparent';
                                                 e.currentTarget.style.borderColor = '#3a3a3a';
-                                                e.currentTarget.style.color = '#3b82f6';
+                                                e.currentTarget.style.color = '#6366f1';
                                             }}
                                         >
                                             Edit
@@ -1190,7 +1190,7 @@ export default function AccessManager({ file, isOpen, onClose }: AccessManagerPr
                                         fontSize: '0.875rem',
                                         fontWeight: 500,
                                         color: 'white',
-                                        backgroundColor: '#3b82f6',
+                                        backgroundColor: '#6366f1',
                                         border: 'none',
                                         borderRadius: '4px',
                                         cursor: isEditing ? 'not-allowed' : 'pointer',

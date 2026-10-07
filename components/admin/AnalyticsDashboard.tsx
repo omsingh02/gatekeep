@@ -175,7 +175,7 @@ export default function AnalyticsDashboard() {
                                         <td style={{ textAlign: 'right', padding: '0.5rem 0.75rem', fontSize: '0.8rem', color: '#ef4444', fontWeight: 500 }}>
                                             {file.failedAccesses}
                                         </td>
-                                        <td style={{ textAlign: 'right', padding: '0.5rem 0.75rem', fontSize: '0.8rem', color: '#3b82f6', fontWeight: 500 }}>
+                                        <td style={{ textAlign: 'right', padding: '0.5rem 0.75rem', fontSize: '0.8rem', color: '#6366f1', fontWeight: 500 }}>
                                             {file.uniqueUsers}
                                         </td>
                                     </tr>

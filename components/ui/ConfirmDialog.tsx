@@ -41,10 +41,10 @@ export function ConfirmDialog({
             iconColor: '#fcd34d',
         },
         default: {
-            confirmBg: '#3b82f6',
-            confirmHoverBg: '#2563eb',
-            iconBg: '#1e3a8a',
-            iconColor: '#93c5fd',
+            confirmBg: '#6366f1',
+            confirmHoverBg: '#4f46e5',
+            iconBg: '#312e81',
+            iconColor: '#a5b4fc',
         },
     };
 

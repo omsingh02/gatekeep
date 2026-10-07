@@ -82,14 +82,10 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const { shortCode, userIdentifier, password, sessionToken, isPublic } = body;
 
-        // For public access: require shortCode and (password or sessionToken)
-        // For user access: require shortCode, userIdentifier, and (password or sessionToken)
+        // Password unlock: shortCode + password (+ userIdentifier unless public).
+        // Returning visitor: shortCode + the httpOnly session cookie set on a previous unlock.
         if (!shortCode) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-        }
-
-        if (!isPublic && !userIdentifier) {
-            return NextResponse.json({ error: 'User identifier required' }, { status: 400 });
         }
 
         // Sanitize inputs to prevent injection attacks
@@ -106,6 +102,10 @@ export async function POST(request: NextRequest) {
 
         if (!password && !cookieSessionToken) {
             return NextResponse.json({ error: 'Password or session token required' }, { status: 400 });
+        }
+
+        if (!isPublic && !userIdentifier && !cookieSessionToken) {
+            return NextResponse.json({ error: 'User identifier required' }, { status: 400 });
         }
 
         let sanitizedUserIdentifier: string | null = null;
@@ -174,6 +174,18 @@ export async function POST(request: NextRequest) {
             if (userAccess) {
                 access = userAccess;
             }
+        } else if (cookieSessionToken) {
+            // Returning visitor without an identifier: the session token identifies the grant
+            const { data: sessionAccess } = await adminClient
+                .from('file_access')
+                .select('*')
+                .eq('file_id', file.id)
+                .eq('session_token', await hashToken(cookieSessionToken))
+                .maybeSingle();
+
+            if (sessionAccess) {
+                access = sessionAccess;
+            }
         }
 
         if (!access) {
@@ -181,9 +193,12 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Access denied' }, { status: 403 });
         }
 
+        // Cookie-only revisits don't send an identifier; log the grant's own
+        const logIdentifier = sanitizedUserIdentifier || access.user_identifier || 'public';
+
         // Check if expired
         if (access.expires_at && new Date(access.expires_at) < new Date()) {
-            await logAccess(file.id, sanitizedUserIdentifier || 'public', false, request, requestId, 'expired');
+            await logAccess(file.id, logIdentifier, false, request, requestId, 'expired');
             return NextResponse.json({ error: 'Access expired' }, { status: 403 });
         }
 
@@ -191,7 +206,7 @@ export async function POST(request: NextRequest) {
         const maxDownloads = access.max_downloads;
         const downloadCount = access.download_count || 0;
         if (maxDownloads !== null && downloadCount >= maxDownloads) {
-            await logAccess(file.id, sanitizedUserIdentifier || 'public', false, request, requestId, 'download_limit');
+            await logAccess(file.id, logIdentifier, false, request, requestId, 'download_limit');
             return NextResponse.json({ error: 'Download limit reached' }, { status: 403 });
         }
 
@@ -202,20 +217,20 @@ export async function POST(request: NextRequest) {
             // Session token authentication (from cookie or request body)
             const tokenHash = await hashToken(cookieSessionToken);
             if (access.session_token !== tokenHash) {
-                await logAccess(file.id, sanitizedUserIdentifier || 'public', false, request, requestId, 'invalid_session');
+                await logAccess(file.id, logIdentifier, false, request, requestId, 'invalid_session');
                 return NextResponse.json({ error: 'Invalid session' }, { status: 403 });
             }
 
             // Check if session expired
             if (access.session_expires_at && new Date(access.session_expires_at) < new Date()) {
-                await logAccess(file.id, sanitizedUserIdentifier || 'public', false, request, requestId, 'session_expired');
+                await logAccess(file.id, logIdentifier, false, request, requestId, 'session_expired');
                 return NextResponse.json({ error: 'Session expired' }, { status: 403 });
             }
         } else if (password) {
             // Password authentication - create new session
             const isValid = await verifyPassword(password, access.password_hash);
             if (!isValid) {
-                await logAccess(file.id, sanitizedUserIdentifier || 'public', false, request, requestId, 'wrong_password');
+                await logAccess(file.id, logIdentifier, false, request, requestId, 'wrong_password');
                 return NextResponse.json({ error: 'Invalid password' }, { status: 403 });
             }
 
@@ -235,7 +250,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Log successful access
-        await logAccess(file.id, sanitizedUserIdentifier || 'public', true, request, requestId);
+        await logAccess(file.id, logIdentifier, true, request, requestId);
 
         // Update access_count (page views) and timestamp
         // download_count is now tracked separately in /api/access/download when user actually downloads
@@ -260,6 +275,11 @@ export async function POST(request: NextRequest) {
 
         const response = NextResponse.json({
             success: true,
+            // Lets a returning visitor's page restore live revocation and downloads
+            access: {
+                userIdentifier: access.user_identifier,
+                isPublic: access.is_public,
+            },
             fileUrl: signedUrlData.signedUrl,
             file: {
                 id: file.id,

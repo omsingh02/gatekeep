@@ -199,7 +199,7 @@ export default function AllSharesPage() {
                         backgroundColor: statusFilter === 'all' ? '#1e3a5f' : '#2a2a2a',
                         borderRadius: '8px',
                         padding: '1.25rem',
-                        border: `1px solid ${statusFilter === 'all' ? '#3b82f6' : '#3a3a3a'}`,
+                        border: `1px solid ${statusFilter === 'all' ? '#6366f1' : '#3a3a3a'}`,
                         cursor: 'pointer',
                         transition: 'all 0.2s',
                     }}
@@ -333,7 +333,7 @@ export default function AllSharesPage() {
                                                         width: '32px',
                                                         height: '32px',
                                                         borderRadius: '50%',
-                                                        backgroundColor: share.type === 'group' ? '#7c3aed' : '#3b82f6',
+                                                        backgroundColor: share.type === 'group' ? '#7c3aed' : '#6366f1',
                                                         display: 'flex',
                                                         alignItems: 'center',
                                                         justifyContent: 'center',

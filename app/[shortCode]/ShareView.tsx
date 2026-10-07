@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect, type ComponentProps } from 'react';
-import { LoadingSpinner } from '@/components/ui';
+import Link from 'next/link';
+import { Loader2, Lock } from 'lucide-react';
+import { Logo } from '@/components/brand/Logo';
 import FilePreview from '@/components/public/FilePreview';
 
 type AccessMode = 'user' | 'public';
@@ -71,6 +73,9 @@ export default function ShareView({ shortCode }: { shortCode: string }) {
                 if (response.ok) {
                     const freshData = await response.json();
                     setFileData(freshData);
+                    // Restore who this session belongs to so live revocation and downloads work
+                    setCachedUserIdentifier(freshData.access?.userIdentifier ?? '');
+                    setIsPublicSession(Boolean(freshData.access?.isPublic));
                     setIsVerified(true);
                 } else {
                     // If the server returns a 400 validation error (e.g. "User identifier required" or
@@ -94,7 +99,11 @@ export default function ShareView({ shortCode }: { shortCode: string }) {
                         }
                     } else {
                         const errorData = await response.json().catch(() => ({}));
-                        setError(errorData.error || 'Access denied');
+                        const msg = errorData.error || '';
+                        // A stale cookie (session replaced on another device) just means "sign in again"
+                        if (msg !== 'Access denied' && msg !== 'Invalid session') {
+                            setError(msg || 'Access denied');
+                        }
                     }
                 }
             } catch {
@@ -147,14 +156,8 @@ export default function ShareView({ shortCode }: { shortCode: string }) {
 
     if (isRevalidating) {
         return (
-            <div style={{
-                minHeight: '100vh',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: '#1a1a1a',
-            }}>
-                <LoadingSpinner />
+            <div className="flex min-h-screen items-center justify-center bg-[#07080c]">
+                <Loader2 className="h-6 w-6 animate-spin text-indigo-300" aria-label="Loading" />
             </div>
         );
     }
@@ -169,227 +172,131 @@ export default function ShareView({ shortCode }: { shortCode: string }) {
         );
     }
 
+    const inputClass =
+        'mt-2 block h-11 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3.5 text-[15px] text-white placeholder:text-zinc-600 transition focus:border-indigo-400/70 focus:bg-white/[0.06] focus:ring-4 focus:ring-indigo-500/15';
+    const tabClass = (active: boolean) =>
+        `flex-1 rounded-lg px-3 py-2 text-sm font-medium transition ${
+            active ? 'bg-white/10 text-white shadow-sm ring-1 ring-white/10' : 'text-zinc-400 hover:text-zinc-200'
+        }`;
+
     return (
-        <div style={{
-            minHeight: '100vh',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 'clamp(0.75rem, 3vw, 1rem)',
-            backgroundColor: '#1a1a1a',
-        }}>
-            <div style={{
-                width: '100%',
-                maxWidth: '448px',
-                padding: 'clamp(1.25rem, 4vw, 2rem)',
-                backgroundColor: '#2a2a2a',
-                borderRadius: '8px',
-                border: '1px solid #3a3a3a',
-                boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
-            }}>
-                <div style={{ textAlign: 'center', marginBottom: 'clamp(1.25rem, 4vw, 2rem)' }}>
-                    <div style={{
-                        width: 'clamp(48px, 12vw, 64px)',
-                        height: 'clamp(48px, 12vw, 64px)',
-                        backgroundColor: '#3b82f6',
-                        borderRadius: '6px',
-                        margin: '0 auto 1rem',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                    }}>
-                        <svg style={{ width: 'clamp(24px, 6vw, 32px)', height: 'clamp(24px, 6vw, 32px)', color: 'white' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                        </svg>
+        <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#07080c] px-4 py-12 text-zinc-100">
+            <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[size:56px_56px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_40%,#000_20%,transparent_100%)]"
+            />
+            <div
+                aria-hidden
+                className="pointer-events-none absolute left-1/2 top-[18%] h-[420px] w-[720px] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,rgba(99,102,241,0.28),transparent)]"
+            />
+
+            <div className="relative w-full max-w-sm">
+                <Link href="/" className="mx-auto flex w-fit text-white" aria-label="Gatekeep home">
+                    <Logo size={34} />
+                </Link>
+
+                <div className="mt-8 rounded-2xl border border-white/10 bg-[#0d0f15]/80 p-7 shadow-2xl shadow-black/60 backdrop-blur-xl sm:p-8">
+                    <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-indigo-400/20 bg-indigo-500/10">
+                        <Lock className="h-5 w-5 text-indigo-300" />
+                    </span>
+                    <h1 className="mt-5 text-xl font-semibold tracking-tight text-white">This file is protected</h1>
+                    <p className="mt-1.5 text-sm text-zinc-400">
+                        Enter the details the owner shared with you to unlock it.
+                    </p>
+
+                    {/* Access mode */}
+                    <div className="mt-6 flex gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1" role="tablist">
+                        <button
+                            type="button"
+                            role="tab"
+                            aria-selected={accessMode === 'user'}
+                            onClick={() => {
+                                setAccessMode('user');
+                                setError('');
+                            }}
+                            className={tabClass(accessMode === 'user')}
+                        >
+                            Recipient
+                        </button>
+                        <button
+                            type="button"
+                            role="tab"
+                            aria-selected={accessMode === 'public'}
+                            onClick={() => {
+                                setAccessMode('public');
+                                setError('');
+                            }}
+                            className={tabClass(accessMode === 'public')}
+                        >
+                            Public link
+                        </button>
                     </div>
-                    <h1 style={{
-                        fontSize: 'clamp(1.25rem, 2.5vw + 0.5rem, 1.5rem)',
-                        fontWeight: 600,
-                        color: '#e0e0e0',
-                        marginBottom: '0.25rem',
-                        margin: '0 0 0.25rem 0',
-                    }}>Secure File Access</h1>
-                    <p style={{
-                        fontSize: '0.875rem',
-                        color: '#9ca3af',
-                        margin: 0,
-                    }}>Enter your credentials to access this file</p>
-                </div>
 
-                {/* Access Mode Toggle */}
-                <div style={{
-                    display: 'flex',
-                    gap: '0.5rem',
-                    marginBottom: '1rem',
-                }}>
-                    <button
-                        type="button"
-                        onClick={() => {
-                            setAccessMode('user');
-                            setError('');
-                        }}
-                        style={{
-                            flex: 1,
-                            padding: '0.625rem',
-                            fontSize: '0.85rem',
-                            fontWeight: 500,
-                            color: accessMode === 'user' ? '#ffffff' : '#9ca3af',
-                            backgroundColor: accessMode === 'user' ? '#2563eb' : 'transparent',
-                            border: `1px solid ${accessMode === 'user' ? '#3b82f6' : '#3a3a3a'}`,
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s',
-                        }}
-                    >
-                        User Access
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => {
-                            setAccessMode('public');
-                            setError('');
-                        }}
-                        style={{
-                            flex: 1,
-                            padding: '0.625rem',
-                            fontSize: '0.85rem',
-                            fontWeight: 500,
-                            color: accessMode === 'public' ? '#ffffff' : '#9ca3af',
-                            backgroundColor: accessMode === 'public' ? '#059669' : 'transparent',
-                            border: `1px solid ${accessMode === 'public' ? '#10b981' : '#3a3a3a'}`,
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s',
-                        }}
-                    >
-                        Public Link
-                    </button>
-                </div>
+                    <form onSubmit={handleVerify} className="mt-5 space-y-5">
+                        {accessMode === 'user' ? (
+                            <div>
+                                <label htmlFor="identifier" className="block text-sm font-medium text-zinc-300">
+                                    Email or username
+                                </label>
+                                <input
+                                    id="identifier"
+                                    value={userIdentifier}
+                                    onChange={(e) => setUserIdentifier(e.target.value)}
+                                    placeholder="you@example.com"
+                                    required
+                                    autoComplete="username"
+                                    className={inputClass}
+                                />
+                            </div>
+                        ) : (
+                            <p className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-3.5 py-2.5 text-sm text-emerald-200">
+                                Anyone with this link and its password can open the file.
+                            </p>
+                        )}
 
-                <form onSubmit={handleVerify} style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '1rem',
-                }}>
-                    {accessMode === 'user' && (
                         <div>
-                            <label style={{
-                                display: 'block',
-                                fontSize: '0.875rem',
-                                color: '#9ca3af',
-                                marginBottom: '0.5rem',
-                            }}>Email or Username</label>
+                            <label htmlFor="password" className="block text-sm font-medium text-zinc-300">
+                                Password
+                            </label>
                             <input
-                                value={userIdentifier}
-                                onChange={(e) => setUserIdentifier(e.target.value)}
-                                placeholder="your@email.com"
-                                required={accessMode === 'user'}
-                                autoComplete="username"
-                                style={{
-                                    width: '100%',
-                                    padding: '0.625rem 0.875rem',
-                                    borderRadius: '4px',
-                                    border: '1px solid #3a3a3a',
-                                    backgroundColor: '#1a1a1a',
-                                    color: '#e0e0e0',
-                                    fontSize: '0.875rem',
-                                    outline: 'none',
-                                }}
-                                onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
-                                onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
+                                id="password"
+                                type="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                placeholder="••••••••"
+                                required
+                                autoComplete="current-password"
+                                className={inputClass}
                             />
                         </div>
-                    )}
 
-                    {accessMode === 'public' && (
-                        <div style={{
-                            padding: '0.75rem',
-                            borderRadius: '4px',
-                            backgroundColor: '#064e3b',
-                            border: '1px solid #10b981',
-                        }}>
-                            <p style={{ fontSize: '0.85rem', color: '#a7f3d0', margin: 0 }}>
-                                This is a public link. Just enter the password to access.
-                            </p>
-                        </div>
-                    )}
+                        {error && (
+                            <div
+                                role="alert"
+                                className="rounded-xl border border-rose-400/25 bg-rose-500/10 px-3.5 py-2.5 text-sm text-rose-200"
+                            >
+                                {error}
+                            </div>
+                        )}
 
-                    <div>
-                        <label style={{
-                            display: 'block',
-                            fontSize: '0.875rem',
-                            color: '#9ca3af',
-                            marginBottom: '0.5rem',
-                        }}>Password</label>
-                        <input
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="••••••••"
-                            required
-                            autoComplete="current-password"
-                            style={{
-                                width: '100%',
-                                padding: '0.625rem 0.875rem',
-                                borderRadius: '4px',
-                                border: '1px solid #3a3a3a',
-                                backgroundColor: '#1a1a1a',
-                                color: '#e0e0e0',
-                                fontSize: '0.875rem',
-                                outline: 'none',
-                            }}
-                            onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
-                            onBlur={(e) => e.target.style.borderColor = '#3a3a3a'}
-                        />
-                    </div>
-
-                    {error && (
-                        <div style={{
-                            padding: '0.75rem',
-                            borderRadius: '4px',
-                            backgroundColor: '#7f1d1d',
-                            border: '1px solid #ef4444',
-                        }}>
-                            <p style={{ fontSize: '0.875rem', color: '#fecaca', margin: 0 }}>{error}</p>
-                        </div>
-                    )}
-
-                    <button
-                        type="submit"
-                        disabled={isVerifying}
-                        style={{
-                            width: '100%',
-                            padding: '0.75rem',
-                            fontSize: '0.875rem',
-                            fontWeight: 500,
-                            color: 'white',
-                            backgroundColor: accessMode === 'public' ? '#059669' : '#3b82f6',
-                            border: 'none',
-                            borderRadius: '4px',
-                            cursor: isVerifying ? 'not-allowed' : 'pointer',
-                            opacity: isVerifying ? 0.6 : 1,
-                            transition: 'all 0.2s',
-                        }}
-                        onMouseEnter={(e) => {
-                            if (!isVerifying) e.currentTarget.style.backgroundColor = accessMode === 'public' ? '#047857' : '#2563eb';
-                        }}
-                        onMouseLeave={(e) => {
-                            if (!isVerifying) e.currentTarget.style.backgroundColor = accessMode === 'public' ? '#059669' : '#3b82f6';
-                        }}
-                    >
-                        {isVerifying ? 'Verifying...' : 'Access File'}
-                    </button>
-                </form>
-
-                <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
-                    <p style={{
-                        fontSize: '0.75rem',
-                        color: '#6b7280',
-                        margin: 0,
-                    }}>
-                        This file is protected. Contact the file owner if you need access.
-                    </p>
+                        <button
+                            type="submit"
+                            disabled={isVerifying}
+                            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-white text-sm font-semibold text-zinc-900 shadow-[0_8px_30px_-6px_rgba(99,102,241,0.6)] transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-70"
+                        >
+                            {isVerifying && <Loader2 className="h-4 w-4 animate-spin" />}
+                            {isVerifying ? 'Unlocking…' : 'Unlock file'}
+                        </button>
+                    </form>
                 </div>
+
+                <p className="mx-auto mt-6 max-w-xs text-center text-xs leading-relaxed text-zinc-500">
+                    Need access? Ask the person who shared this link. Protected by{' '}
+                    <Link href="/" className="text-zinc-400 underline-offset-4 hover:text-zinc-200 hover:underline">
+                        Gatekeep
+                    </Link>
+                    .
+                </p>
             </div>
         </div>
     );

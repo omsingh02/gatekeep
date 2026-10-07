@@ -3,6 +3,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getFileTypeInfo, formatFileSize } from '@/lib/utils/fileTypes';
 import { sanitizeDownloadFilename } from '@/lib/utils/headers';
+import Link from 'next/link';
+import { Download, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Logo } from '@/components/brand/Logo';
 
 interface FilePreviewProps {
     fileData: {
@@ -202,7 +205,7 @@ export default function FilePreview({ fileData, shortCode, userIdentifier }: Fil
                             fontSize: '0.875rem',
                             fontWeight: 500,
                             color: 'white',
-                            backgroundColor: '#3b82f6',
+                            backgroundColor: '#6366f1',
                             border: 'none',
                             borderRadius: '4px',
                             cursor: 'pointer',
@@ -229,7 +232,7 @@ export default function FilePreview({ fileData, shortCode, userIdentifier }: Fil
                             width: '40px',
                             height: '40px',
                             border: '3px solid #3a3a3a',
-                            borderTopColor: '#3b82f6',
+                            borderTopColor: '#6366f1',
                             borderRadius: '50%',
                             animation: 'spin 1s linear infinite',
                             margin: '0 auto 1rem',
@@ -251,7 +254,7 @@ export default function FilePreview({ fileData, shortCode, userIdentifier }: Fil
                     width: '100%',
                     height: '100%',
                     padding: '1rem',
-                    backgroundColor: '#1a1a1a',
+                    backgroundColor: '#0b0c11',
                 }}>
                     <img
                         src={previewUrl}
@@ -320,7 +323,7 @@ export default function FilePreview({ fileData, shortCode, userIdentifier }: Fil
                     <div style={{
                         width: '80px',
                         height: '80px',
-                        backgroundColor: '#1a1a1a',
+                        backgroundColor: '#0b0c11',
                         borderRadius: '8px',
                         margin: '0 auto 1.5rem',
                         display: 'flex',
@@ -377,7 +380,7 @@ export default function FilePreview({ fileData, shortCode, userIdentifier }: Fil
                     maxWidth: '100%',
                 }}>
                     <pre style={{
-                        backgroundColor: '#1a1a1a',
+                        backgroundColor: '#0b0c11',
                         color: '#e0e0e0',
                         padding: '1.5rem',
                         borderRadius: '6px',
@@ -455,7 +458,7 @@ export default function FilePreview({ fileData, shortCode, userIdentifier }: Fil
                 <div style={{
                     width: '96px',
                     height: '96px',
-                    backgroundColor: '#1a1a1a',
+                    backgroundColor: '#0b0c11',
                     borderRadius: '8px',
                     margin: '0 auto 1.5rem',
                     display: 'flex',
@@ -492,195 +495,91 @@ export default function FilePreview({ fileData, shortCode, userIdentifier }: Fil
     return (
         <div
             onContextMenu={(e) => e.preventDefault()}
-            style={{
-                minHeight: '100vh',
-                padding: 'clamp(1rem, 3vw, 2rem) clamp(0.75rem, 2vw, 1rem)',
-                backgroundColor: '#1a1a1a',
-            }}
+            className="relative min-h-screen overflow-hidden bg-[#07080c] px-3 py-5 text-zinc-100 sm:px-6 sm:py-8"
         >
-            <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+            <div
+                aria-hidden
+                className="pointer-events-none absolute left-1/2 top-0 h-[360px] w-[900px] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,rgba(99,102,241,0.18),transparent)]"
+            />
+            <div className="relative mx-auto max-w-6xl">
+                <div className="mb-6 flex items-center justify-between">
+                    <Link href="/" className="text-white" aria-label="Gatekeep home">
+                        <Logo size={26} />
+                    </Link>
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-300">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                        Unlocked
+                    </span>
+                </div>
+
                 {/* Header */}
-                <div style={{
-                    marginBottom: '1.5rem',
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    justifyContent: 'space-between',
-                    flexWrap: 'wrap',
-                    gap: '1rem',
-                }}>
-                    <div style={{ minWidth: 0, flex: '1 1 200px' }}>
-                        <h1 style={{
-                            fontSize: 'clamp(1rem, 3vw, 1.25rem)',
-                            fontWeight: 600,
-                            color: '#e0e0e0',
-                            marginBottom: '0.25rem',
-                            margin: '0 0 0.25rem 0',
-                            wordBreak: 'break-word',
-                        }}>
+                <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+                    <div className="min-w-0 flex-[1_1_200px]">
+                        <h1 className="break-words text-lg font-semibold tracking-tight text-white sm:text-xl">
                             {file.originalFilename}
                         </h1>
-                        <p style={{
-                            fontSize: '0.875rem',
-                            color: '#9ca3af',
-                            margin: 0,
-                        }}>
-                            {formatFileSize(file.fileSize)} • {typeInfo.category}
+                        <p className="mt-1 text-sm capitalize text-zinc-400">
+                            {formatFileSize(file.fileSize)} · {typeInfo.category}
                         </p>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '0.75rem', flexShrink: 0, flexWrap: 'wrap' }}>
+                    <div className="flex flex-shrink-0 flex-wrap gap-2.5">
                         <button
                             onClick={() => setShowPreview(!showPreview)}
-                            style={{
-                                padding: '0.625rem 1rem',
-                                fontSize: '0.875rem',
-                                fontWeight: 500,
-                                color: showPreview ? 'white' : '#e0e0e0',
-                                backgroundColor: showPreview ? '#059669' : 'transparent',
-                                border: '1px solid',
-                                borderColor: showPreview ? '#059669' : '#3a3a3a',
-                                borderRadius: '4px',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s',
-                                flex: '1 1 auto',
-                                minWidth: '120px',
-                            }}
-                            onMouseEnter={(e) => {
-                                if (!showPreview) {
-                                    e.currentTarget.style.borderColor = '#4b5563';
-                                    e.currentTarget.style.backgroundColor = '#1f2937';
-                                }
-                            }}
-                            onMouseLeave={(e) => {
-                                if (!showPreview) {
-                                    e.currentTarget.style.borderColor = '#3a3a3a';
-                                    e.currentTarget.style.backgroundColor = 'transparent';
-                                }
-                            }}
+                            className="inline-flex h-10 min-w-[120px] flex-auto items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm font-medium text-zinc-200 transition hover:bg-white/[0.08]"
                         >
-                            {showPreview ? 'Hide Preview' : 'Show Preview'}
+                            {showPreview ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            {showPreview ? 'Hide preview' : 'Show preview'}
                         </button>
-
                         <button
                             onClick={handleDownload}
                             disabled={isDownloading}
-                            style={{
-                                padding: '0.625rem 1rem',
-                                fontSize: '0.875rem',
-                                fontWeight: 500,
-                                color: 'white',
-                                backgroundColor: '#3b82f6',
-                                border: 'none',
-                                borderRadius: '4px',
-                                cursor: isDownloading ? 'not-allowed' : 'pointer',
-                                opacity: isDownloading ? 0.6 : 1,
-                                transition: 'all 0.2s',
-                                flex: '1 1 auto',
-                                minWidth: '120px',
-                            }}
-                            onMouseEnter={(e) => {
-                                if (!isDownloading) e.currentTarget.style.backgroundColor = '#2563eb';
-                            }}
-                            onMouseLeave={(e) => {
-                                if (!isDownloading) e.currentTarget.style.backgroundColor = '#3b82f6';
-                            }}
+                            className="inline-flex h-10 min-w-[120px] flex-auto items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-semibold text-zinc-900 shadow-[0_8px_30px_-6px_rgba(99,102,241,0.6)] transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-70"
                         >
-                            {isDownloading ? 'Downloading...' : 'Download'}
+                            {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                            {isDownloading ? 'Downloading…' : 'Download'}
                         </button>
                     </div>
                 </div>
 
                 {/* Error Message */}
                 {downloadError && (
-                    <div style={{
-                        backgroundColor: '#7f1d1d',
-                        border: '1px solid #991b1b',
-                        borderRadius: '6px',
-                        padding: '0.75rem 1rem',
-                        marginBottom: '1.5rem',
-                    }}>
-                        <p style={{
-                            color: '#fecaca',
-                            fontSize: '0.875rem',
-                            margin: 0,
-                        }}>
-                            {downloadError}
-                        </p>
+                    <div role="alert" className="mb-5 rounded-xl border border-rose-400/25 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+                        {downloadError}
                     </div>
                 )}
 
                 {/* Preview */}
                 {showPreview && (
-                    <div style={{
-                        backgroundColor: '#2a2a2a',
-                        borderRadius: '8px',
-                        border: '1px solid #3a3a3a',
-                        overflow: 'hidden',
-                        minHeight: typeInfo.category === 'audio' ? 'auto' : '50vh',
-                        maxHeight: typeInfo.category === 'image' || typeInfo.category === 'video' ? '80vh' : '75vh',
-                        height: ['image', 'video', 'pdf'].includes(typeInfo.category) ? '75vh' : 'auto',
-                        marginBottom: '1.5rem',
-                    }}>
+                    <div
+                        className="mb-6 overflow-hidden rounded-2xl border border-white/10 bg-[#0d0f15] shadow-2xl shadow-black/50"
+                        style={{
+                            minHeight: typeInfo.category === 'audio' ? 'auto' : '50vh',
+                            maxHeight: typeInfo.category === 'image' || typeInfo.category === 'video' ? '80vh' : '75vh',
+                            height: ['image', 'video', 'pdf'].includes(typeInfo.category) ? '75vh' : 'auto',
+                        }}
+                    >
                         {renderPreview()}
                     </div>
                 )}
 
                 {/* File Info Card (shown when preview is hidden) */}
                 {!showPreview && (
-                    <div style={{
-                        backgroundColor: '#2a2a2a',
-                        borderRadius: '8px',
-                        border: '1px solid #3a3a3a',
-                        padding: '3rem 2rem',
-                        textAlign: 'center',
-                        marginBottom: '1.5rem',
-                    }}>
-                        <div style={{
-                            width: '80px',
-                            height: '80px',
-                            backgroundColor: '#1a1a1a',
-                            borderRadius: '8px',
-                            margin: '0 auto 1.5rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                        }}>
-                            <div style={{ fontSize: '2.5rem', opacity: 0.7 }}>{typeInfo.icon}</div>
+                    <div className="mb-6 rounded-2xl border border-white/10 bg-[#0d0f15] px-8 py-12 text-center">
+                        <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] text-4xl opacity-80">
+                            {typeInfo.icon}
                         </div>
-                        <h3 style={{
-                            fontSize: '1.125rem',
-                            fontWeight: 500,
-                            color: '#e0e0e0',
-                            marginBottom: '0.5rem',
-                        }}>
-                            {file.originalFilename}
-                        </h3>
-                        <p style={{
-                            fontSize: '0.875rem',
-                            color: '#9ca3af',
-                            marginBottom: '0.5rem',
-                        }}>
-                            {formatFileSize(file.fileSize)} • {typeInfo.category}
+                        <h3 className="mb-2 text-lg font-medium text-white">{file.originalFilename}</h3>
+                        <p className="mb-2 text-sm capitalize text-zinc-400">
+                            {formatFileSize(file.fileSize)} · {typeInfo.category}
                         </p>
-                        <p style={{
-                            fontSize: '0.875rem',
-                            color: '#6b7280',
-                        }}>
-                            Click &ldquo;Show Preview&rdquo; to view the file
-                        </p>
+                        <p className="text-sm text-zinc-500">Click &ldquo;Show preview&rdquo; to view the file</p>
                     </div>
                 )}
 
-                {/* Info */}
-                <div style={{ textAlign: 'center' }}>
-                    <p style={{
-                        fontSize: '0.75rem',
-                        color: '#6b7280',
-                        margin: 0,
-                    }}>
-                        This file was shared securely. Do not share your access credentials.
-                    </p>
-                </div>
+                <p className="text-center text-xs text-zinc-500">
+                    Shared securely with Gatekeep. Don&apos;t share your access details.
+                </p>
             </div>
         </div>
     );

@@ -12,7 +12,7 @@ Supabase (hosted or [self-hosted](https://supabase.com/docs/guides/self-hosting)
 ## Run
 
 ```bash
-git clone https://github.com/omsingh02/file-share.git gatekeep
+git clone https://github.com/omsingh02/gatekeep.git gatekeep
 cd gatekeep
 cp .env.example .env        # fill in the values
 docker compose up -d --build
