@@ -13,21 +13,21 @@ export default function SignOutButton() {
                     fontSize: '0.8125rem',
                     fontWeight: 500,
                     color: '#9ca3af',
-                    backgroundColor: '#2a2a2a',
-                    border: '1px solid #3a3a3a',
+                    backgroundColor: '#12141c',
+                    border: '1px solid #23263a',
                     borderRadius: '6px',
                     cursor: 'pointer',
                     transition: 'all 0.15s',
                 }}
                 onMouseEnter={(e) => {
                     e.currentTarget.style.color = '#e0e0e0';
-                    e.currentTarget.style.backgroundColor = '#333333';
-                    e.currentTarget.style.borderColor = '#4a4a4a';
+                    e.currentTarget.style.backgroundColor = '#23263a';
+                    e.currentTarget.style.borderColor = '#2f3349';
                 }}
                 onMouseLeave={(e) => {
                     e.currentTarget.style.color = '#9ca3af';
-                    e.currentTarget.style.backgroundColor = '#2a2a2a';
-                    e.currentTarget.style.borderColor = '#3a3a3a';
+                    e.currentTarget.style.backgroundColor = '#12141c';
+                    e.currentTarget.style.borderColor = '#23263a';
                 }}
             >
                 <svg style={{ width: '16px', height: '16px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">

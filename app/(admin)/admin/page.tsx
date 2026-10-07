@@ -57,9 +57,9 @@ export default function DashboardPage() {
                     display: 'flex',
                     gap: '0.5rem',
                     padding: '0.25rem',
-                    backgroundColor: '#1a1a1a',
+                    backgroundColor: '#0b0c11',
                     borderRadius: '8px',
-                    border: '1px solid #2a2a2a',
+                    border: '1px solid #12141c',
                     width: 'fit-content',
                 }}>
                     <button
@@ -69,8 +69,8 @@ export default function DashboardPage() {
                             fontSize: '0.875rem',
                             fontWeight: 500,
                             color: activeTab === 'overview' ? '#ffffff' : '#9ca3af',
-                            backgroundColor: activeTab === 'overview' ? '#2a2a2a' : 'transparent',
-                            border: activeTab === 'overview' ? '1px solid #3a3a3a' : '1px solid transparent',
+                            backgroundColor: activeTab === 'overview' ? '#12141c' : 'transparent',
+                            border: activeTab === 'overview' ? '1px solid #23263a' : '1px solid transparent',
                             borderRadius: '6px',
                             cursor: 'pointer',
                             transition: 'all 0.15s',
@@ -85,8 +85,8 @@ export default function DashboardPage() {
                             fontSize: '0.875rem',
                             fontWeight: 500,
                             color: activeTab === 'analytics' ? '#ffffff' : '#9ca3af',
-                            backgroundColor: activeTab === 'analytics' ? '#2a2a2a' : 'transparent',
-                            border: activeTab === 'analytics' ? '1px solid #3a3a3a' : '1px solid transparent',
+                            backgroundColor: activeTab === 'analytics' ? '#12141c' : 'transparent',
+                            border: activeTab === 'analytics' ? '1px solid #23263a' : '1px solid transparent',
                             borderRadius: '6px',
                             cursor: 'pointer',
                             transition: 'all 0.15s',
@@ -106,10 +106,10 @@ export default function DashboardPage() {
                 gap: '1rem',
             }}>
                 <div style={{
-                    backgroundColor: '#2a2a2a',
+                    backgroundColor: '#12141c',
                     borderRadius: '8px',
                     padding: '1.5rem',
-                    border: '1px solid #3a3a3a',
+                    border: '1px solid #23263a',
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <div style={{ flex: 1 }}>
@@ -145,10 +145,10 @@ export default function DashboardPage() {
                 </div>
 
                 <div style={{
-                    backgroundColor: '#2a2a2a',
+                    backgroundColor: '#12141c',
                     borderRadius: '8px',
                     padding: '1.5rem',
-                    border: '1px solid #3a3a3a',
+                    border: '1px solid #23263a',
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <div style={{ flex: 1 }}>
@@ -184,10 +184,10 @@ export default function DashboardPage() {
                 </div>
 
                 <div style={{
-                    backgroundColor: '#2a2a2a',
+                    backgroundColor: '#12141c',
                     borderRadius: '8px',
                     padding: '1.5rem',
-                    border: '1px solid #3a3a3a',
+                    border: '1px solid #23263a',
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <div style={{ flex: 1 }}>
@@ -225,10 +225,10 @@ export default function DashboardPage() {
 
             {/* Upload Section */}
             <div style={{
-                backgroundColor: '#2a2a2a',
+                backgroundColor: '#12141c',
                 borderRadius: '8px',
                 padding: '1.5rem',
-                border: '1px solid #3a3a3a',
+                border: '1px solid #23263a',
             }}>
                 <h2 style={{
                     fontSize: '1rem',
@@ -241,10 +241,10 @@ export default function DashboardPage() {
 
             {/* Files List */}
             <div style={{
-                backgroundColor: '#2a2a2a',
+                backgroundColor: '#12141c',
                 borderRadius: '8px',
                 padding: '1.5rem',
-                border: '1px solid #3a3a3a',
+                border: '1px solid #23263a',
             }}>
                 <h2 style={{
                     fontSize: '1rem',
@@ -257,10 +257,10 @@ export default function DashboardPage() {
 
             {/* Shares List */}
             <div style={{
-                backgroundColor: '#2a2a2a',
+                backgroundColor: '#12141c',
                 borderRadius: '8px',
                 padding: '1.5rem',
-                border: '1px solid #3a3a3a',
+                border: '1px solid #23263a',
             }}>
                 <h2 style={{
                     fontSize: '1rem',

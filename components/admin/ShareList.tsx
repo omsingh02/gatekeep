@@ -108,9 +108,9 @@ export default function ShareList({ limit, showViewAll = false, viewAllHref = '/
                             alignItems: 'center',
                             gap: '1rem',
                             padding: '1rem',
-                            backgroundColor: '#2a2a2a',
+                            backgroundColor: '#12141c',
                             borderRadius: '6px',
-                            border: '1px solid #3a3a3a',
+                            border: '1px solid #23263a',
                         }}
                     >
                         <Skeleton width="40px" height="40px" />
@@ -158,18 +158,18 @@ export default function ShareList({ limit, showViewAll = false, viewAllHref = '/
                                 justifyContent: 'space-between',
                                 padding: 'clamp(0.75rem, 2vw, 1rem)',
                                 borderRadius: '6px',
-                                border: '1px solid #3a3a3a',
-                                backgroundColor: isInactive ? '#1f1f1f' : '#252525',
+                                border: '1px solid #23263a',
+                                backgroundColor: isInactive ? '#0f1117' : '#151823',
                                 opacity: isInactive ? 0.7 : 1,
                                 transition: 'all 0.2s',
                                 flexWrap: 'wrap',
                                 gap: '0.75rem',
                             }}
                             onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = isInactive ? '#252525' : '#2d2d2d';
+                                e.currentTarget.style.backgroundColor = isInactive ? '#151823' : '#2d2d2d';
                             }}
                             onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = isInactive ? '#1f1f1f' : '#252525';
+                                e.currentTarget.style.backgroundColor = isInactive ? '#0f1117' : '#151823';
                             }}
                         >
                             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', flex: '1 1 250px', minWidth: 0 }}>
@@ -177,7 +177,7 @@ export default function ShareList({ limit, showViewAll = false, viewAllHref = '/
                                     width: '40px',
                                     height: '40px',
                                     borderRadius: '50%',
-                                    backgroundColor: isInactive ? '#2a2a2a' : '#6366f1',
+                                    backgroundColor: isInactive ? '#12141c' : '#6366f1',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
@@ -240,7 +240,7 @@ export default function ShareList({ limit, showViewAll = false, viewAllHref = '/
                                             whiteSpace: 'nowrap',
                                             maxWidth: 'min(200px, 40vw)',
                                         }}>
-                                            📄 {share.file.originalFilename}
+                                            {share.file.originalFilename}
                                         </span>
                                         <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
                                             {share.accessCount} {share.accessCount === 1 ? 'view' : 'views'}
@@ -271,7 +271,7 @@ export default function ShareList({ limit, showViewAll = false, viewAllHref = '/
                                         fontSize: '0.8rem',
                                         color: '#ef4444',
                                         backgroundColor: 'transparent',
-                                        border: '1px solid #3a3a3a',
+                                        border: '1px solid #23263a',
                                         borderRadius: '4px',
                                         cursor: 'pointer',
                                         transition: 'all 0.2s',
@@ -284,7 +284,7 @@ export default function ShareList({ limit, showViewAll = false, viewAllHref = '/
                                     }}
                                     onMouseLeave={(e) => {
                                         e.currentTarget.style.backgroundColor = 'transparent';
-                                        e.currentTarget.style.borderColor = '#3a3a3a';
+                                        e.currentTarget.style.borderColor = '#23263a';
                                         e.currentTarget.style.color = '#ef4444';
                                     }}
                                 >
@@ -308,7 +308,7 @@ export default function ShareList({ limit, showViewAll = false, viewAllHref = '/
                             fontSize: '0.875rem',
                             color: '#6366f1',
                             backgroundColor: 'transparent',
-                            border: '1px solid #3a3a3a',
+                            border: '1px solid #23263a',
                             borderRadius: '6px',
                             textDecoration: 'none',
                             transition: 'all 0.2s',

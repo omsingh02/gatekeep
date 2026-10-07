@@ -15,24 +15,14 @@
   --error: #dc2626;
   --warning: #d97706;
 
-  /* Light Theme */
-  --background: #fafafa;
-  --surface: #ffffff;
-  --border: #e0e0e0;
-  --text: #1a1a1a;
-  --text-secondary: #666666;
-  --text-muted: #999999;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #121212;
-    --surface: #1e1e1e;
-    --border: #333333;
-    --text: #e0e0e0;
-    --text-secondary: #b0b0b0;
-    --text-muted: #808080;
-  }
+  /* The whole UI is dark (dashboard components hard-code light text), so tokens are dark-only */
+  color-scheme: dark;
+  --background: #07080c;
+  --surface: #12141c;
+  --border: #23263a;
+  --text: #e4e4e7;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
 }
 
 /*

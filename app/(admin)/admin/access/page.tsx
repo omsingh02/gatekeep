@@ -196,10 +196,10 @@ export default function AllSharesPage() {
                 <div
                     onClick={() => setStatusFilter('all')}
                     style={{
-                        backgroundColor: statusFilter === 'all' ? '#1e3a5f' : '#2a2a2a',
+                        backgroundColor: statusFilter === 'all' ? '#1e1b4b' : '#12141c',
                         borderRadius: '8px',
                         padding: '1.25rem',
-                        border: `1px solid ${statusFilter === 'all' ? '#6366f1' : '#3a3a3a'}`,
+                        border: `1px solid ${statusFilter === 'all' ? '#6366f1' : '#23263a'}`,
                         cursor: 'pointer',
                         transition: 'all 0.2s',
                     }}
@@ -210,10 +210,10 @@ export default function AllSharesPage() {
                 <div
                     onClick={() => setStatusFilter('active')}
                     style={{
-                        backgroundColor: statusFilter === 'active' ? '#14532d' : '#2a2a2a',
+                        backgroundColor: statusFilter === 'active' ? '#14532d' : '#12141c',
                         borderRadius: '8px',
                         padding: '1.25rem',
-                        border: `1px solid ${statusFilter === 'active' ? '#22c55e' : '#3a3a3a'}`,
+                        border: `1px solid ${statusFilter === 'active' ? '#22c55e' : '#23263a'}`,
                         cursor: 'pointer',
                         transition: 'all 0.2s',
                     }}
@@ -224,10 +224,10 @@ export default function AllSharesPage() {
                 <div
                     onClick={() => setStatusFilter('expired')}
                     style={{
-                        backgroundColor: statusFilter === 'expired' ? '#7f1d1d' : '#2a2a2a',
+                        backgroundColor: statusFilter === 'expired' ? '#7f1d1d' : '#12141c',
                         borderRadius: '8px',
                         padding: '1.25rem',
-                        border: `1px solid ${statusFilter === 'expired' ? '#ef4444' : '#3a3a3a'}`,
+                        border: `1px solid ${statusFilter === 'expired' ? '#ef4444' : '#23263a'}`,
                         cursor: 'pointer',
                         transition: 'all 0.2s',
                     }}
@@ -238,10 +238,10 @@ export default function AllSharesPage() {
                 <div
                     onClick={() => setStatusFilter('limit_reached')}
                     style={{
-                        backgroundColor: statusFilter === 'limit_reached' ? '#78350f' : '#2a2a2a',
+                        backgroundColor: statusFilter === 'limit_reached' ? '#78350f' : '#12141c',
                         borderRadius: '8px',
                         padding: '1.25rem',
-                        border: `1px solid ${statusFilter === 'limit_reached' ? '#f59e0b' : '#3a3a3a'}`,
+                        border: `1px solid ${statusFilter === 'limit_reached' ? '#f59e0b' : '#23263a'}`,
                         cursor: 'pointer',
                         transition: 'all 0.2s',
                     }}
@@ -253,10 +253,10 @@ export default function AllSharesPage() {
 
             {/* Shares List */}
             <div style={{
-                backgroundColor: '#2a2a2a',
+                backgroundColor: '#12141c',
                 borderRadius: '8px',
                 padding: '1.5rem',
-                border: '1px solid #3a3a3a',
+                border: '1px solid #23263a',
             }}>
                 {/* Search and Filters */}
                 <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -271,8 +271,8 @@ export default function AllSharesPage() {
                             padding: '0.5rem 0.75rem',
                             fontSize: '0.875rem',
                             color: '#e0e0e0',
-                            backgroundColor: '#1a1a1a',
-                            border: '1px solid #3a3a3a',
+                            backgroundColor: '#0b0c11',
+                            border: '1px solid #23263a',
                             borderRadius: '4px',
                             outline: 'none',
                         }}
@@ -286,7 +286,7 @@ export default function AllSharesPage() {
                 {isLoading ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                         {Array.from({ length: 5 }).map((_, i) => (
-                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', backgroundColor: '#252525', borderRadius: '6px' }}>
+                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', backgroundColor: '#151823', borderRadius: '6px' }}>
                                 <Skeleton width="40px" height="40px" />
                                 <div style={{ flex: 1 }}>
                                     <Skeleton variant="text" width="60%" height="1rem" />
@@ -305,7 +305,7 @@ export default function AllSharesPage() {
                     <div style={{ overflowX: 'auto' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
                             <thead>
-                                <tr style={{ borderBottom: '1px solid #3a3a3a' }}>
+                                <tr style={{ borderBottom: '1px solid #23263a' }}>
                                     <th style={{ padding: '0.75rem 0.5rem', textAlign: 'left', color: '#9ca3af', fontWeight: 500 }}>USER/GROUP</th>
                                     <th style={{ padding: '0.75rem 0.5rem', textAlign: 'left', color: '#9ca3af', fontWeight: 500 }}>FILE</th>
                                     <th style={{ padding: '0.75rem 0.5rem', textAlign: 'left', color: '#9ca3af', fontWeight: 500 }}>STATUS</th>
@@ -323,7 +323,7 @@ export default function AllSharesPage() {
                                         <tr
                                             key={share.id}
                                             style={{
-                                                borderBottom: '1px solid #2a2a2a',
+                                                borderBottom: '1px solid #12141c',
                                                 opacity: share.status !== 'active' ? 0.7 : 1,
                                             }}
                                         >
@@ -394,7 +394,7 @@ export default function AllSharesPage() {
                                                         fontSize: '0.75rem',
                                                         color: '#ef4444',
                                                         backgroundColor: 'transparent',
-                                                        border: '1px solid #3a3a3a',
+                                                        border: '1px solid #23263a',
                                                         borderRadius: '4px',
                                                         cursor: 'pointer',
                                                         fontWeight: 500,
@@ -419,9 +419,9 @@ export default function AllSharesPage() {
                         alignItems: 'center',
                         justifyContent: 'space-between',
                         padding: '1rem',
-                        backgroundColor: '#252525',
+                        backgroundColor: '#151823',
                         borderRadius: '6px',
-                        border: '1px solid #3a3a3a',
+                        border: '1px solid #23263a',
                     }}>
                         <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>
                             Page {currentPage} of {totalPages}
@@ -435,7 +435,7 @@ export default function AllSharesPage() {
                                     fontSize: '0.8rem',
                                     color: currentPage === 1 ? '#555' : '#9ca3af',
                                     backgroundColor: 'transparent',
-                                    border: '1px solid #3a3a3a',
+                                    border: '1px solid #23263a',
                                     borderRadius: '4px',
                                     cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
                                 }}
@@ -450,7 +450,7 @@ export default function AllSharesPage() {
                                     fontSize: '0.8rem',
                                     color: currentPage === 1 ? '#555' : '#9ca3af',
                                     backgroundColor: 'transparent',
-                                    border: '1px solid #3a3a3a',
+                                    border: '1px solid #23263a',
                                     borderRadius: '4px',
                                     cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
                                 }}
@@ -465,7 +465,7 @@ export default function AllSharesPage() {
                                     fontSize: '0.8rem',
                                     color: currentPage === totalPages ? '#555' : '#9ca3af',
                                     backgroundColor: 'transparent',
-                                    border: '1px solid #3a3a3a',
+                                    border: '1px solid #23263a',
                                     borderRadius: '4px',
                                     cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
                                 }}
@@ -480,7 +480,7 @@ export default function AllSharesPage() {
                                     fontSize: '0.8rem',
                                     color: currentPage === totalPages ? '#555' : '#9ca3af',
                                     backgroundColor: 'transparent',
-                                    border: '1px solid #3a3a3a',
+                                    border: '1px solid #23263a',
                                     borderRadius: '4px',
                                     cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
                                 }}

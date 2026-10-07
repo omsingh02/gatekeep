@@ -464,11 +464,11 @@ export default function FileUploader({ onUploadComplete, currentFolderId }: File
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
                 style={{
-                    border: isDragging ? '2px dashed #6366f1' : '2px dashed #3a3a3a',
+                    border: isDragging ? '2px dashed #6366f1' : '2px dashed #23263a',
                     borderRadius: '6px',
                     padding: '2rem',
                     textAlign: 'center',
-                    backgroundColor: isDragging ? '#1e3a5f' : 'transparent',
+                    backgroundColor: isDragging ? '#1e1b4b' : 'transparent',
                     transition: 'all 0.2s',
                 }}
             >
@@ -477,7 +477,7 @@ export default function FileUploader({ onUploadComplete, currentFolderId }: File
                         width: '64px',
                         height: '64px',
                         borderRadius: '6px',
-                        backgroundColor: '#3a3a3a',
+                        backgroundColor: '#23263a',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -555,7 +555,7 @@ export default function FileUploader({ onUploadComplete, currentFolderId }: File
                                 fontWeight: 500,
                                 color: '#e0e0e0',
                                 backgroundColor: 'transparent',
-                                border: '1px solid #3a3a3a',
+                                border: '1px solid #23263a',
                                 borderRadius: '4px',
                                 cursor: isUploading ? 'not-allowed' : 'pointer',
                                 opacity: isUploading ? 0.6 : 1,
@@ -565,7 +565,7 @@ export default function FileUploader({ onUploadComplete, currentFolderId }: File
                                 if (!isUploading) e.currentTarget.style.borderColor = '#6b7280';
                             }}
                             onMouseLeave={(e) => {
-                                if (!isUploading) e.currentTarget.style.borderColor = '#3a3a3a';
+                                if (!isUploading) e.currentTarget.style.borderColor = '#23263a';
                             }}
                         >
                             Select Folder
@@ -590,7 +590,7 @@ export default function FileUploader({ onUploadComplete, currentFolderId }: File
                             </div>
                             <div style={{
                                 height: '0.5rem',
-                                backgroundColor: '#1a1a1a',
+                                backgroundColor: '#0b0c11',
                                 borderRadius: '4px',
                                 overflow: 'hidden',
                             }}>

@@ -20,11 +20,11 @@ export default async function AdminLayout({
     const userInitial = userEmail.charAt(0).toUpperCase();
 
     return (
-        <div style={{ minHeight: '100vh', backgroundColor: '#0a0a0a' }}>
+        <div style={{ minHeight: '100vh', backgroundColor: '#07080c' }}>
             {/* Header */}
             <header style={{
-                backgroundColor: '#1a1a1a',
-                borderBottom: '1px solid #2a2a2a',
+                backgroundColor: '#0b0c11',
+                borderBottom: '1px solid #12141c',
             }}>
                 <div style={{
                     maxWidth: '1400px',
@@ -74,9 +74,9 @@ export default async function AdminLayout({
                                 alignItems: 'center',
                                 gap: '0.625rem',
                                 padding: '0.5rem 0.75rem',
-                                backgroundColor: '#2a2a2a',
+                                backgroundColor: '#12141c',
                                 borderRadius: '6px',
-                                border: '1px solid #3a3a3a',
+                                border: '1px solid #23263a',
                                 minWidth: 0,
                                 maxWidth: '200px',
                             }}>

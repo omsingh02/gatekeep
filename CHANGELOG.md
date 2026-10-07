@@ -6,15 +6,20 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Copy invite**: after granting access, a ready-to-send message (link, recipient, password, expiry, download limit) with one-click copy; copy button next to every short link.
 - New Gatekeep logo, favicon/app icons, Open Graph and GitHub social-preview images.
 - Redesigned landing and sign-in pages; branded access-grant emails.
 - Local demo environment (`npm run seed:demo`) and reproducible product screenshots (`npm run screenshots`).
 - Issue forms, pull-request template, Dependabot, Code of Conduct.
 
 ### Changed
+- Dashboard uses the brand's ink palette and line icons for file types (no more emoji).
 - Renamed the repository to `omsingh02/gatekeep`; the product is called Gatekeep everywhere.
 
 ### Fixed
+- Returning recipients had to re-enter their password every time — the 24-hour session cookie was never used.
+- Dashboard cards were unreadable (light text on white) when the OS was in light mode; colour tokens are now dark-only.
+- Image previews on mobile no longer sit in a tall empty frame.
 - Landing page layout: an unlayered CSS reset overrode Tailwind's spacing utilities.
 
 ## [1.0.0] — 2026-10-07

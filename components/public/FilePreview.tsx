@@ -6,6 +6,7 @@ import { sanitizeDownloadFilename } from '@/lib/utils/headers';
 import Link from 'next/link';
 import { Download, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { Logo } from '@/components/brand/Logo';
+import { FileTypeIcon } from '@/components/ui/FileTypeIcon';
 
 interface FilePreviewProps {
     fileData: {
@@ -252,18 +253,18 @@ export default function FilePreview({ fileData, shortCode, userIdentifier }: Fil
                     alignItems: 'center',
                     justifyContent: 'center',
                     width: '100%',
-                    height: '100%',
                     padding: '1rem',
                     backgroundColor: '#0b0c11',
                 }}>
                     <img
                         src={previewUrl}
-                        alt="User uploaded image"
+                        alt={file.originalFilename}
                         draggable={false}
                         onContextMenu={(e) => e.preventDefault()}
                         style={{
                             maxWidth: '100%',
-                            maxHeight: '100%',
+                            // Cap the image, not the frame, so wide images don't sit in a tall empty box on mobile
+                            maxHeight: '75vh',
                             width: 'auto',
                             height: 'auto',
                             objectFit: 'contain',
@@ -465,7 +466,7 @@ export default function FilePreview({ fileData, shortCode, userIdentifier }: Fil
                     alignItems: 'center',
                     justifyContent: 'center',
                 }}>
-                    <div style={{ fontSize: '3rem', opacity: 0.7 }}>{typeInfo.icon}</div>
+                    <FileTypeIcon category={typeInfo.category} size={44} />
                 </div>
                 <h3 style={{
                     fontSize: '1.25rem',
@@ -554,9 +555,9 @@ export default function FilePreview({ fileData, shortCode, userIdentifier }: Fil
                     <div
                         className="mb-6 overflow-hidden rounded-2xl border border-white/10 bg-[#0d0f15] shadow-2xl shadow-black/50"
                         style={{
-                            minHeight: typeInfo.category === 'audio' ? 'auto' : '50vh',
-                            maxHeight: typeInfo.category === 'image' || typeInfo.category === 'video' ? '80vh' : '75vh',
-                            height: ['image', 'video', 'pdf'].includes(typeInfo.category) ? '75vh' : 'auto',
+                            minHeight: ['audio', 'image'].includes(typeInfo.category) ? 'auto' : '50vh',
+                            maxHeight: typeInfo.category === 'video' ? '80vh' : typeInfo.category === 'image' ? 'none' : '75vh',
+                            height: ['video', 'pdf'].includes(typeInfo.category) ? '75vh' : 'auto',
                         }}
                     >
                         {renderPreview()}
@@ -566,8 +567,8 @@ export default function FilePreview({ fileData, shortCode, userIdentifier }: Fil
                 {/* File Info Card (shown when preview is hidden) */}
                 {!showPreview && (
                     <div className="mb-6 rounded-2xl border border-white/10 bg-[#0d0f15] px-8 py-12 text-center">
-                        <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] text-4xl opacity-80">
-                            {typeInfo.icon}
+                        <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03]">
+                            <FileTypeIcon category={typeInfo.category} size={36} />
                         </div>
                         <h3 className="mb-2 text-lg font-medium text-white">{file.originalFilename}</h3>
                         <p className="mb-2 text-sm capitalize text-zinc-400">

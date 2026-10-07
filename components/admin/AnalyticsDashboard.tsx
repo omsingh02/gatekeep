@@ -142,7 +142,7 @@ export default function AnalyticsDashboard() {
                     <div style={{ overflowX: 'auto' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead>
-                                <tr style={{ borderBottom: '1px solid #3a3a3a' }}>
+                                <tr style={{ borderBottom: '1px solid #23263a' }}>
                                     <th style={{ textAlign: 'left', padding: '0.5rem 0.75rem', fontSize: '0.7rem', color: '#6b7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                         File
                                     </th>
@@ -162,7 +162,7 @@ export default function AnalyticsDashboard() {
                             </thead>
                             <tbody>
                                 {data.topFiles.map((file) => (
-                                    <tr key={file.id} style={{ borderBottom: '1px solid #2a2a2a' }}>
+                                    <tr key={file.id} style={{ borderBottom: '1px solid #12141c' }}>
                                         <td style={{ padding: '0.5rem 0.75rem', fontSize: '0.8rem', color: '#e0e0e0', maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                             {file.filename}
                                         </td>
@@ -199,7 +199,7 @@ export default function AnalyticsDashboard() {
                     <div style={{ overflowX: 'auto' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead>
-                                <tr style={{ borderBottom: '1px solid #3a3a3a' }}>
+                                <tr style={{ borderBottom: '1px solid #23263a' }}>
                                     <th style={{ textAlign: 'left', padding: '0.5rem 0.75rem', fontSize: '0.7rem', color: '#6b7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                         Status
                                     </th>
@@ -222,7 +222,7 @@ export default function AnalyticsDashboard() {
                             </thead>
                             <tbody>
                                 {data.recentActivity.map((log) => (
-                                    <tr key={log.id} style={{ borderBottom: '1px solid #2a2a2a' }}>
+                                    <tr key={log.id} style={{ borderBottom: '1px solid #12141c' }}>
                                         <td style={{ padding: '0.5rem 0.75rem' }}>
                                             <span style={{
                                                 display: 'inline-block',

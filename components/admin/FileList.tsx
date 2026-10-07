@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { Skeleton, ConfirmDialog, PromptDialog, Modal, useToast, EmptyState } from '@/components/ui';
+import { Skeleton, ConfirmDialog, PromptDialog, Modal, useToast, EmptyState, FileTypeIcon } from '@/components/ui';
 import { FileMetadata, FileTypeFilter, DateFilter, Folder } from '@/lib/types';
 import { formatFileSize, getFileTypeInfo } from '@/lib/utils/fileTypes';
 import { formatDateTime } from '@/lib/utils/date';
@@ -427,9 +427,9 @@ export default function FileList({
                             alignItems: 'center',
                             gap: '1rem',
                             padding: '1rem',
-                            backgroundColor: '#2a2a2a',
+                            backgroundColor: '#12141c',
                             borderRadius: '6px',
-                            border: '1px solid #3a3a3a',
+                            border: '1px solid #23263a',
                         }}
                     >
                         <Skeleton width="40px" height="40px" />
@@ -476,15 +476,15 @@ export default function FileList({
                             padding: '0.5rem 0.75rem',
                             fontSize: '0.875rem',
                             color: '#e0e0e0',
-                            backgroundColor: '#1a1a1a',
-                            border: '1px solid #3a3a3a',
+                            backgroundColor: '#0b0c11',
+                            border: '1px solid #23263a',
                             borderRadius: '4px',
                             outline: 'none',
                             opacity: isLoading ? 0.5 : 1,
                             cursor: isLoading ? 'not-allowed' : 'text',
                         }}
                         onFocus={(e) => !isLoading && (e.currentTarget.style.borderColor = '#6366f1')}
-                        onBlur={(e) => (e.currentTarget.style.borderColor = '#3a3a3a')}
+                        onBlur={(e) => (e.currentTarget.style.borderColor = '#23263a')}
                     />
 
                     <select
@@ -498,8 +498,8 @@ export default function FileList({
                             padding: '0.5rem 0.75rem',
                             fontSize: '0.875rem',
                             color: '#e0e0e0',
-                            backgroundColor: '#1a1a1a',
-                            border: '1px solid #3a3a3a',
+                            backgroundColor: '#0b0c11',
+                            border: '1px solid #23263a',
                             borderRadius: '4px',
                             outline: 'none',
                             cursor: isLoading ? 'not-allowed' : 'pointer',
@@ -526,8 +526,8 @@ export default function FileList({
                             padding: '0.5rem 0.75rem',
                             fontSize: '0.875rem',
                             color: '#e0e0e0',
-                            backgroundColor: '#1a1a1a',
-                            border: '1px solid #3a3a3a',
+                            backgroundColor: '#0b0c11',
+                            border: '1px solid #23263a',
                             borderRadius: '4px',
                             outline: 'none',
                             cursor: isLoading ? 'not-allowed' : 'pointer',
@@ -555,7 +555,7 @@ export default function FileList({
                                 fontSize: '0.875rem',
                                 color: '#9ca3af',
                                 backgroundColor: 'transparent',
-                                border: '1px solid #3a3a3a',
+                                border: '1px solid #23263a',
                                 borderRadius: '4px',
                                 cursor: isLoading ? 'not-allowed' : 'pointer',
                                 transition: 'all 0.2s',
@@ -564,7 +564,7 @@ export default function FileList({
                             }}
                             onMouseEnter={(e) => {
                                 if (!isLoading) {
-                                    e.currentTarget.style.backgroundColor = '#1a1a1a';
+                                    e.currentTarget.style.backgroundColor = '#0b0c11';
                                     e.currentTarget.style.color = '#e0e0e0';
                                 }
                             }}
@@ -586,13 +586,13 @@ export default function FileList({
                     )}
 
                     {/* View Toggle */}
-                    <div style={{ display: 'flex', gap: '0.25rem', backgroundColor: '#1a1a1a', borderRadius: '4px', padding: '0.25rem', order: 11 }}>
+                    <div style={{ display: 'flex', gap: '0.25rem', backgroundColor: '#0b0c11', borderRadius: '4px', padding: '0.25rem', order: 11 }}>
                         <button
                             onClick={() => setViewMode('table')}
                             title="Table view"
                             style={{
                                 padding: '0.35rem 0.5rem',
-                                backgroundColor: viewMode === 'table' ? '#3a3a3a' : 'transparent',
+                                backgroundColor: viewMode === 'table' ? '#23263a' : 'transparent',
                                 border: 'none',
                                 borderRadius: '3px',
                                 cursor: 'pointer',
@@ -613,7 +613,7 @@ export default function FileList({
                             title="Grid view"
                             style={{
                                 padding: '0.35rem 0.5rem',
-                                backgroundColor: viewMode === 'grid' ? '#3a3a3a' : 'transparent',
+                                backgroundColor: viewMode === 'grid' ? '#23263a' : 'transparent',
                                 border: 'none',
                                 borderRadius: '3px',
                                 cursor: 'pointer',
@@ -640,7 +640,7 @@ export default function FileList({
                         marginBottom: '1rem',
                         padding: '0.75rem 1rem',
                         borderRadius: '6px',
-                        backgroundColor: '#1e3a5f',
+                        backgroundColor: '#1e1b4b',
                         border: '1px solid #6366f1',
                         display: 'flex',
                         alignItems: 'center',
@@ -689,7 +689,7 @@ export default function FileList({
                                 fontSize: '0.8rem',
                                 color: '#9ca3af',
                                 backgroundColor: 'transparent',
-                                border: '1px solid #3a3a3a',
+                                border: '1px solid #23263a',
                                 borderRadius: '4px',
                                 cursor: 'pointer',
                             }}
@@ -707,8 +707,8 @@ export default function FileList({
                     marginBottom: '1rem',
                     padding: 'clamp(0.75rem, 2vw, 1rem)',
                     borderRadius: '6px',
-                    border: '1px solid #3a3a3a',
-                    backgroundColor: '#1f1f1f',
+                    border: '1px solid #23263a',
+                    backgroundColor: '#0f1117',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
@@ -726,7 +726,7 @@ export default function FileList({
                                     fontSize: '0.85rem',
                                     color: '#e0e0e0',
                                     backgroundColor: idx === breadcrumbs.length - 1 ? '#6366f1' : 'transparent',
-                                    border: '1px solid #3a3a3a',
+                                    border: '1px solid #23263a',
                                     borderRadius: '4px',
                                     cursor: idx === breadcrumbs.length - 1 ? 'default' : 'pointer',
                                     opacity: idx === breadcrumbs.length - 1 ? 0.9 : 1,
@@ -810,7 +810,7 @@ export default function FileList({
                         <div style={{ overflowX: 'auto' }}>
                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
                                 <thead>
-                                    <tr style={{ borderBottom: '1px solid #3a3a3a' }}>
+                                    <tr style={{ borderBottom: '1px solid #23263a' }}>
                                         <th style={{ padding: '0.75rem 0.5rem', textAlign: 'left', width: '40px' }}>
                                             <div
                                                 onClick={selectAll}
@@ -818,7 +818,7 @@ export default function FileList({
                                                     width: '18px',
                                                     height: '18px',
                                                     borderRadius: '4px',
-                                                    border: `2px solid ${allSelected && (files.length > 0 || folders.length > 0) ? '#6366f1' : '#4a4a4a'}`,
+                                                    border: `2px solid ${allSelected && (files.length > 0 || folders.length > 0) ? '#6366f1' : '#2f3349'}`,
                                                     backgroundColor: allSelected && (files.length > 0 || folders.length > 0) ? '#6366f1' : 'transparent',
                                                     cursor: 'pointer',
                                                     display: 'flex',
@@ -849,8 +849,8 @@ export default function FileList({
                                             <tr
                                                 key={`folder-${folder.id}`}
                                                 style={{
-                                                    borderBottom: '1px solid #2a2a2a',
-                                                    backgroundColor: isSelected ? '#1e3a5f' : 'transparent',
+                                                    borderBottom: '1px solid #12141c',
+                                                    backgroundColor: isSelected ? '#1e1b4b' : 'transparent',
                                                     transition: 'background-color 0.15s',
                                                     cursor: 'pointer',
                                                 }}
@@ -863,7 +863,7 @@ export default function FileList({
                                                             width: '18px',
                                                             height: '18px',
                                                             borderRadius: '4px',
-                                                            border: `2px solid ${isSelected ? '#6366f1' : '#4a4a4a'}`,
+                                                            border: `2px solid ${isSelected ? '#6366f1' : '#2f3349'}`,
                                                             backgroundColor: isSelected ? '#6366f1' : 'transparent',
                                                             cursor: 'pointer',
                                                             display: 'flex',
@@ -934,8 +934,8 @@ export default function FileList({
                                             <tr
                                                 key={file.id}
                                                 style={{
-                                                    borderBottom: '1px solid #2a2a2a',
-                                                    backgroundColor: isSelected ? '#1e3a5f' : 'transparent',
+                                                    borderBottom: '1px solid #12141c',
+                                                    backgroundColor: isSelected ? '#1e1b4b' : 'transparent',
                                                     transition: 'background-color 0.15s',
                                                 }}
                                             >
@@ -946,7 +946,7 @@ export default function FileList({
                                                             width: '18px',
                                                             height: '18px',
                                                             borderRadius: '4px',
-                                                            border: `2px solid ${isSelected ? '#6366f1' : '#4a4a4a'}`,
+                                                            border: `2px solid ${isSelected ? '#6366f1' : '#2f3349'}`,
                                                             backgroundColor: isSelected ? '#6366f1' : 'transparent',
                                                             cursor: 'pointer',
                                                             display: 'flex',
@@ -964,7 +964,7 @@ export default function FileList({
                                                 </td>
                                                 <td style={{ padding: '0.75rem 0.5rem', maxWidth: '200px' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                        <span style={{ fontSize: '1.1rem', opacity: 0.7 }}>{typeInfo.icon}</span>
+                                                        <FileTypeIcon category={typeInfo.category} size={18} />
                                                         <div style={{ minWidth: 0, width: '100%' }}>
                                                             <div 
                                                                 title={file.originalFilename}
@@ -1035,8 +1035,8 @@ export default function FileList({
                                             flexDirection: 'column',
                                             padding: '1rem',
                                             borderRadius: '8px',
-                                            border: `1px solid ${isSelected ? '#6366f1' : '#3a3a3a'}`,
-                                            backgroundColor: isSelected ? '#1e3a5f' : '#252525',
+                                            border: `1px solid ${isSelected ? '#6366f1' : '#23263a'}`,
+                                            backgroundColor: isSelected ? '#1e1b4b' : '#151823',
                                             transition: 'all 0.15s',
                                             position: 'relative',
                                             cursor: 'pointer',
@@ -1053,7 +1053,7 @@ export default function FileList({
                                                 width: '18px',
                                                 height: '18px',
                                                 borderRadius: '4px',
-                                                border: `2px solid ${isSelected ? '#6366f1' : '#4a4a4a'}`,
+                                                border: `2px solid ${isSelected ? '#6366f1' : '#2f3349'}`,
                                                 backgroundColor: isSelected ? '#6366f1' : 'rgba(26, 26, 26, 0.8)',
                                                 cursor: 'pointer',
                                                 display: 'flex',
@@ -1079,7 +1079,7 @@ export default function FileList({
                                                 justifyContent: 'center',
                                                 height: '80px',
                                                 marginBottom: '0.75rem',
-                                                backgroundColor: '#1a1a1a',
+                                                backgroundColor: '#0b0c11',
                                                 borderRadius: '6px',
                                                 cursor: 'pointer',
                                             }}
@@ -1116,7 +1116,7 @@ export default function FileList({
                                         <span style={{ fontSize: '0.7rem', color: '#6b7280', marginBottom: '0.75rem' }}>{formatDateTime(folder.createdAt)}</span>
 
                                         {/* Actions */}
-                                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.25rem', borderTop: '1px solid #3a3a3a', paddingTop: '0.75rem', marginTop: 'auto' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.25rem', borderTop: '1px solid #23263a', paddingTop: '0.75rem', marginTop: 'auto' }}>
                                             <button onClick={(e) => { e.stopPropagation(); handleRenameFolder(folder); }} title="Rename" style={{ padding: '0.4rem', backgroundColor: 'transparent', border: 'none', borderRadius: '3px', cursor: 'pointer', color: '#6b7280' }}>
                                                 <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                                             </button>
@@ -1139,8 +1139,8 @@ export default function FileList({
                                             flexDirection: 'column',
                                             padding: '1rem',
                                             borderRadius: '8px',
-                                            border: `1px solid ${isSelected ? '#6366f1' : '#3a3a3a'}`,
-                                            backgroundColor: isSelected ? '#1e3a5f' : '#252525',
+                                            border: `1px solid ${isSelected ? '#6366f1' : '#23263a'}`,
+                                            backgroundColor: isSelected ? '#1e1b4b' : '#151823',
                                             transition: 'all 0.15s',
                                             position: 'relative',
                                         }}
@@ -1155,7 +1155,7 @@ export default function FileList({
                                                 width: '18px',
                                                 height: '18px',
                                                 borderRadius: '4px',
-                                                border: `2px solid ${isSelected ? '#6366f1' : '#4a4a4a'}`,
+                                                border: `2px solid ${isSelected ? '#6366f1' : '#2f3349'}`,
                                                 backgroundColor: isSelected ? '#6366f1' : 'rgba(26, 26, 26, 0.8)',
                                                 cursor: 'pointer',
                                                 display: 'flex',
@@ -1179,10 +1179,10 @@ export default function FileList({
                                             justifyContent: 'center',
                                             height: '80px',
                                             marginBottom: '0.75rem',
-                                            backgroundColor: '#1a1a1a',
+                                            backgroundColor: '#0b0c11',
                                             borderRadius: '6px',
                                         }}>
-                                            <span style={{ fontSize: '2.5rem', opacity: 0.7 }}>{typeInfo.icon}</span>
+                                            <FileTypeIcon category={typeInfo.category} size={36} />
                                         </div>
 
                                         {/* File Name */}
@@ -1202,7 +1202,7 @@ export default function FileList({
                                         {/* Meta info */}
                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.75rem' }}>
                                             <span style={{ fontSize: '0.75rem', color: '#9ca3af' }}>{formatFileSize(file.fileSize)}</span>
-                                            <span style={{ fontSize: '0.7rem', color: '#6b7280', padding: '0.1rem 0.4rem', borderRadius: '3px', backgroundColor: '#1a1a1a' }}>{typeInfo.category}</span>
+                                            <span style={{ fontSize: '0.7rem', color: '#6b7280', padding: '0.1rem 0.4rem', borderRadius: '3px', backgroundColor: '#0b0c11' }}>{typeInfo.category}</span>
                                         </div>
 
                                         {/* Folder badge */}
@@ -1228,7 +1228,7 @@ export default function FileList({
                                         <span style={{ fontSize: '0.7rem', color: '#6b7280', marginBottom: '0.75rem' }}>{formatDateTime(file.createdAt)}</span>
 
                                         {/* Actions */}
-                                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.25rem', borderTop: '1px solid #3a3a3a', paddingTop: '0.75rem', marginTop: 'auto' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.25rem', borderTop: '1px solid #23263a', paddingTop: '0.75rem', marginTop: 'auto' }}>
                                             <button onClick={() => copyShortLink(file.shortCode)} title="Copy link" style={{ padding: '0.4rem', backgroundColor: 'transparent', border: 'none', borderRadius: '3px', cursor: 'pointer', color: '#6b7280' }}>
                                                 <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
                                             </button>
@@ -1257,9 +1257,9 @@ export default function FileList({
                         flexWrap: 'wrap',
                         gap: '1rem',
                         padding: '1rem',
-                        backgroundColor: '#252525',
+                        backgroundColor: '#151823',
                         borderRadius: '6px',
-                        border: '1px solid #3a3a3a',
+                        border: '1px solid #23263a',
                     }}
                 >
                     <div style={{ fontSize: '0.875rem', color: '#9ca3af', minWidth: 0 }}>
@@ -1275,7 +1275,7 @@ export default function FileList({
                                 fontSize: '0.8rem',
                                 color: currentPage === 1 ? '#555' : '#9ca3af',
                                 backgroundColor: 'transparent',
-                                border: '1px solid #3a3a3a',
+                                border: '1px solid #23263a',
                                 borderRadius: '4px',
                                 cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
                                 transition: 'all 0.2s',
@@ -1283,7 +1283,7 @@ export default function FileList({
                             }}
                             onMouseEnter={(e) => {
                                 if (currentPage !== 1) {
-                                    e.currentTarget.style.backgroundColor = '#1a1a1a';
+                                    e.currentTarget.style.backgroundColor = '#0b0c11';
                                     e.currentTarget.style.color = '#e0e0e0';
                                 }
                             }}
@@ -1305,7 +1305,7 @@ export default function FileList({
                                 fontSize: '0.8rem',
                                 color: currentPage === 1 ? '#555' : '#9ca3af',
                                 backgroundColor: 'transparent',
-                                border: '1px solid #3a3a3a',
+                                border: '1px solid #23263a',
                                 borderRadius: '4px',
                                 cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
                                 transition: 'all 0.2s',
@@ -1313,7 +1313,7 @@ export default function FileList({
                             }}
                             onMouseEnter={(e) => {
                                 if (currentPage !== 1) {
-                                    e.currentTarget.style.backgroundColor = '#1a1a1a';
+                                    e.currentTarget.style.backgroundColor = '#0b0c11';
                                     e.currentTarget.style.color = '#e0e0e0';
                                 }
                             }}
@@ -1335,7 +1335,7 @@ export default function FileList({
                                 fontSize: '0.8rem',
                                 color: currentPage === totalPages ? '#555' : '#9ca3af',
                                 backgroundColor: 'transparent',
-                                border: '1px solid #3a3a3a',
+                                border: '1px solid #23263a',
                                 borderRadius: '4px',
                                 cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
                                 transition: 'all 0.2s',
@@ -1343,7 +1343,7 @@ export default function FileList({
                             }}
                             onMouseEnter={(e) => {
                                 if (currentPage !== totalPages) {
-                                    e.currentTarget.style.backgroundColor = '#1a1a1a';
+                                    e.currentTarget.style.backgroundColor = '#0b0c11';
                                     e.currentTarget.style.color = '#e0e0e0';
                                 }
                             }}
@@ -1365,7 +1365,7 @@ export default function FileList({
                                 fontSize: '0.8rem',
                                 color: currentPage === totalPages ? '#555' : '#9ca3af',
                                 backgroundColor: 'transparent',
-                                border: '1px solid #3a3a3a',
+                                border: '1px solid #23263a',
                                 borderRadius: '4px',
                                 cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
                                 transition: 'all 0.2s',
@@ -1373,7 +1373,7 @@ export default function FileList({
                             }}
                             onMouseEnter={(e) => {
                                 if (currentPage !== totalPages) {
-                                    e.currentTarget.style.backgroundColor = '#1a1a1a';
+                                    e.currentTarget.style.backgroundColor = '#0b0c11';
                                     e.currentTarget.style.color = '#e0e0e0';
                                 }
                             }}
@@ -1402,7 +1402,7 @@ export default function FileList({
                             fontSize: '0.875rem',
                             color: '#6366f1',
                             backgroundColor: 'transparent',
-                            border: '1px solid #3a3a3a',
+                            border: '1px solid #23263a',
                             borderRadius: '6px',
                             textDecoration: 'none',
                             transition: 'all 0.2s',
@@ -1474,7 +1474,7 @@ export default function FileList({
                     <p style={{ margin: 0, fontSize: '0.875rem', color: '#9ca3af' }}>
                         Select a destination folder for {selectedFileIds.size + selectedFolderIds.size} selected items:
                     </p>
-                    <div style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid #3a3a3a', borderRadius: '6px' }}>
+                    <div style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid #23263a', borderRadius: '6px' }}>
                         <button
                             onClick={() => setMoveTargetFolder(null)}
                             style={{
@@ -1483,9 +1483,9 @@ export default function FileList({
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '0.5rem',
-                                backgroundColor: moveTargetFolder === null ? '#1e3a5f' : 'transparent',
+                                backgroundColor: moveTargetFolder === null ? '#1e1b4b' : 'transparent',
                                 border: 'none',
-                                borderBottom: '1px solid #2a2a2a',
+                                borderBottom: '1px solid #12141c',
                                 cursor: 'pointer',
                                 textAlign: 'left',
                             }}
@@ -1509,9 +1509,9 @@ export default function FileList({
                                         display: 'flex',
                                         alignItems: 'center',
                                         gap: '0.5rem',
-                                        backgroundColor: moveTargetFolder === folder.id ? '#1e3a5f' : 'transparent',
+                                        backgroundColor: moveTargetFolder === folder.id ? '#1e1b4b' : 'transparent',
                                         border: 'none',
-                                        borderBottom: '1px solid #2a2a2a',
+                                        borderBottom: '1px solid #12141c',
                                         cursor: 'pointer',
                                         textAlign: 'left',
                                     }}
@@ -1532,7 +1532,7 @@ export default function FileList({
                                 fontSize: '0.875rem',
                                 color: '#9ca3af',
                                 backgroundColor: 'transparent',
-                                border: '1px solid #3a3a3a',
+                                border: '1px solid #23263a',
                                 borderRadius: '4px',
                                 cursor: 'pointer',
                             }}

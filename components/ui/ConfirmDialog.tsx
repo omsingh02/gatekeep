@@ -86,9 +86,9 @@ export function ConfirmDialog({
                     position: 'relative',
                     width: '100%',
                     maxWidth: '400px',
-                    backgroundColor: '#2a2a2a',
+                    backgroundColor: '#12141c',
                     borderRadius: '8px',
-                    border: '1px solid #3a3a3a',
+                    border: '1px solid #23263a',
                     boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
                     animation: 'fadeInScale 0.15s ease-out',
                 }}
@@ -168,7 +168,7 @@ export function ConfirmDialog({
                                 fontWeight: 500,
                                 color: '#e0e0e0',
                                 backgroundColor: 'transparent',
-                                border: '1px solid #3a3a3a',
+                                border: '1px solid #23263a',
                                 borderRadius: '6px',
                                 cursor: isLoading ? 'not-allowed' : 'pointer',
                                 opacity: isLoading ? 0.5 : 1,
@@ -176,7 +176,7 @@ export function ConfirmDialog({
                             }}
                             onMouseEnter={(e) => {
                                 if (!isLoading) {
-                                    e.currentTarget.style.backgroundColor = '#1a1a1a';
+                                    e.currentTarget.style.backgroundColor = '#0b0c11';
                                 }
                             }}
                             onMouseLeave={(e) => {
