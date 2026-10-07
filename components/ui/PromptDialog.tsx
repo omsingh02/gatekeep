@@ -118,9 +118,9 @@ export function PromptDialog({
                     position: 'relative',
                     width: '100%',
                     maxWidth: '400px',
-                    backgroundColor: '#2a2a2a',
+                    backgroundColor: '#12141c',
                     borderRadius: '8px',
-                    border: '1px solid #3a3a3a',
+                    border: '1px solid #23263a',
                     boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
                     animation: 'fadeInScale 0.15s ease-out',
                 }}
@@ -170,8 +170,8 @@ export function PromptDialog({
                                 padding: '0.75rem 1rem',
                                 fontSize: '0.9rem',
                                 color: '#e0e0e0',
-                                backgroundColor: '#1a1a1a',
-                                border: `1px solid ${error ? '#ef4444' : '#3a3a3a'}`,
+                                backgroundColor: '#0b0c11',
+                                border: `1px solid ${error ? '#ef4444' : '#23263a'}`,
                                 borderRadius: '6px',
                                 outline: 'none',
                                 transition: 'border-color 0.2s',
@@ -180,7 +180,7 @@ export function PromptDialog({
                                 if (!error) e.currentTarget.style.borderColor = '#6366f1';
                             }}
                             onBlur={(e) => {
-                                if (!error) e.currentTarget.style.borderColor = '#3a3a3a';
+                                if (!error) e.currentTarget.style.borderColor = '#23263a';
                             }}
                         />
                         {error && (
@@ -216,7 +216,7 @@ export function PromptDialog({
                                 fontWeight: 500,
                                 color: '#e0e0e0',
                                 backgroundColor: 'transparent',
-                                border: '1px solid #3a3a3a',
+                                border: '1px solid #23263a',
                                 borderRadius: '6px',
                                 cursor: isLoading ? 'not-allowed' : 'pointer',
                                 opacity: isLoading ? 0.5 : 1,
@@ -224,7 +224,7 @@ export function PromptDialog({
                             }}
                             onMouseEnter={(e) => {
                                 if (!isLoading) {
-                                    e.currentTarget.style.backgroundColor = '#1a1a1a';
+                                    e.currentTarget.style.backgroundColor = '#0b0c11';
                                 }
                             }}
                             onMouseLeave={(e) => {

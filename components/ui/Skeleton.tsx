@@ -12,7 +12,7 @@ export function Skeleton({
     variant = 'rectangular' 
 }: SkeletonProps) {
     const baseStyles: React.CSSProperties = {
-        backgroundColor: '#3a3a3a',
+        backgroundColor: '#23263a',
         animation: 'pulse 1.5s ease-in-out infinite',
         width: width || '100%',
         height: height || (variant === 'text' ? '1em' : '100%'),

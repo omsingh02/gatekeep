@@ -229,9 +229,9 @@ function DateTimePickerModal({
         }} onClick={onClose}>
             <div 
                 style={{
-                    backgroundColor: '#2a2a2a',
+                    backgroundColor: '#12141c',
                     borderRadius: '8px',
-                    border: '1px solid #3a3a3a',
+                    border: '1px solid #23263a',
                     boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
                     display: 'flex',
                     overflow: 'hidden',
@@ -240,7 +240,7 @@ function DateTimePickerModal({
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Calendar Side */}
-                <div style={{ padding: '1.5rem', borderRight: '1px solid #3a3a3a' }}>
+                <div style={{ padding: '1.5rem', borderRight: '1px solid #23263a' }}>
                     {/* Month/Year Header */}
                     <div style={{ 
                         display: 'flex', 
@@ -265,8 +265,8 @@ function DateTimePickerModal({
                                     alignItems: 'center',
                                     gap: '0.25rem',
                                     padding: '0.375rem 0.625rem',
-                                    backgroundColor: showYearDropdown ? '#2a2a2a' : 'transparent',
-                                    border: '1px solid #444444',
+                                    backgroundColor: showYearDropdown ? '#12141c' : 'transparent',
+                                    border: '1px solid #2c2f42',
                                     borderRadius: '6px',
                                     color: '#e0e0e0',
                                     fontWeight: 600,
@@ -288,8 +288,8 @@ function DateTimePickerModal({
                                     top: '100%',
                                     left: 0,
                                     marginTop: '0.5rem',
-                                    backgroundColor: '#1a1a1a',
-                                    border: '2px solid #444444',
+                                    backgroundColor: '#0b0c11',
+                                    border: '2px solid #2c2f42',
                                     borderRadius: '8px',
                                     boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
                                     maxHeight: '200px',
@@ -319,7 +319,7 @@ function DateTimePickerModal({
                                                 transition: 'background-color 0.15s',
                                             }}
                                             onMouseEnter={(e) => {
-                                                if (viewYear !== year) e.currentTarget.style.backgroundColor = '#2a2a2a';
+                                                if (viewYear !== year) e.currentTarget.style.backgroundColor = '#12141c';
                                             }}
                                             onMouseLeave={(e) => {
                                                 if (viewYear !== year) e.currentTarget.style.backgroundColor = 'transparent';
@@ -341,20 +341,20 @@ function DateTimePickerModal({
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    backgroundColor: '#1a1a1a',
-                                    border: '2px solid #444444',
+                                    backgroundColor: '#0b0c11',
+                                    border: '2px solid #2c2f42',
                                     borderRadius: '8px',
                                     color: '#9ca3af',
                                     cursor: 'pointer',
                                     transition: 'all 0.15s',
                                 }}
                                 onMouseEnter={(e) => {
-                                    e.currentTarget.style.backgroundColor = '#2a2a2a';
-                                    e.currentTarget.style.borderColor = '#555555';
+                                    e.currentTarget.style.backgroundColor = '#12141c';
+                                    e.currentTarget.style.borderColor = '#3a3e55';
                                 }}
                                 onMouseLeave={(e) => {
-                                    e.currentTarget.style.backgroundColor = '#1a1a1a';
-                                    e.currentTarget.style.borderColor = '#444444';
+                                    e.currentTarget.style.backgroundColor = '#0b0c11';
+                                    e.currentTarget.style.borderColor = '#2c2f42';
                                 }}
                             >
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -370,20 +370,20 @@ function DateTimePickerModal({
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    backgroundColor: '#1a1a1a',
-                                    border: '2px solid #444444',
+                                    backgroundColor: '#0b0c11',
+                                    border: '2px solid #2c2f42',
                                     borderRadius: '8px',
                                     color: '#9ca3af',
                                     cursor: 'pointer',
                                     transition: 'all 0.15s',
                                 }}
                                 onMouseEnter={(e) => {
-                                    e.currentTarget.style.backgroundColor = '#2a2a2a';
-                                    e.currentTarget.style.borderColor = '#555555';
+                                    e.currentTarget.style.backgroundColor = '#12141c';
+                                    e.currentTarget.style.borderColor = '#3a3e55';
                                 }}
                                 onMouseLeave={(e) => {
-                                    e.currentTarget.style.backgroundColor = '#1a1a1a';
-                                    e.currentTarget.style.borderColor = '#444444';
+                                    e.currentTarget.style.backgroundColor = '#0b0c11';
+                                    e.currentTarget.style.borderColor = '#2c2f42';
                                 }}
                             >
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -445,7 +445,7 @@ function DateTimePickerModal({
                                         alignItems: 'center',
                                         justifyContent: 'center',
                                         backgroundColor: selected ? '#4f46e5' : 'transparent',
-                                        border: isTodayDate && !selected ? '2px solid #555555' : selected ? '2px solid #6366f1' : '2px solid transparent',
+                                        border: isTodayDate && !selected ? '2px solid #3a3e55' : selected ? '2px solid #6366f1' : '2px solid transparent',
                                         borderRadius: '8px',
                                         color: disabled ? '#4b5563' : selected ? '#ffffff' : '#e0e0e0',
                                         cursor: disabled ? 'not-allowed' : 'pointer',
@@ -455,14 +455,14 @@ function DateTimePickerModal({
                                     }}
                                     onMouseEnter={(e) => {
                                         if (!disabled && !selected) {
-                                            e.currentTarget.style.backgroundColor = '#252525';
-                                            e.currentTarget.style.borderColor = '#555555';
+                                            e.currentTarget.style.backgroundColor = '#151823';
+                                            e.currentTarget.style.borderColor = '#3a3e55';
                                         }
                                     }}
                                     onMouseLeave={(e) => {
                                         if (!disabled && !selected) {
                                             e.currentTarget.style.backgroundColor = 'transparent';
-                                            e.currentTarget.style.borderColor = isTodayDate ? '#555555' : 'transparent';
+                                            e.currentTarget.style.borderColor = isTodayDate ? '#3a3e55' : 'transparent';
                                         }
                                     }}
                                 >
@@ -474,11 +474,11 @@ function DateTimePickerModal({
                 </div>
 
                 {/* Time Picker Side */}
-                <div style={{ display: 'flex', flexDirection: 'column', backgroundColor: '#252525' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', backgroundColor: '#151823' }}>
                     {/* Time Header */}
                     <div style={{
                         padding: '1rem 1.25rem',
-                        borderBottom: '1px solid #3a3a3a',
+                        borderBottom: '1px solid #23263a',
                         textAlign: 'center',
                     }}>
                         <span style={{ color: '#6b7280', fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -494,7 +494,7 @@ function DateTimePickerModal({
                                 width: '80px', 
                                 height: '280px',
                                 overflowY: 'auto',
-                                borderRight: '1px solid #3a3a3a',
+                                borderRight: '1px solid #23263a',
                                 padding: '0.75rem 0',
                             }}
                         >
@@ -505,7 +505,7 @@ function DateTimePickerModal({
                                     onClick={() => setSelectedHour(h)}
                                     style={scrollItemStyle(selectedHour === h)}
                                     onMouseEnter={(e) => {
-                                        if (selectedHour !== h) e.currentTarget.style.backgroundColor = '#252525';
+                                        if (selectedHour !== h) e.currentTarget.style.backgroundColor = '#151823';
                                     }}
                                     onMouseLeave={(e) => {
                                         if (selectedHour !== h) e.currentTarget.style.backgroundColor = 'transparent';
@@ -523,7 +523,7 @@ function DateTimePickerModal({
                                 width: '80px', 
                                 height: '280px',
                                 overflowY: 'auto',
-                                borderRight: '1px solid #3a3a3a',
+                                borderRight: '1px solid #23263a',
                                 padding: '0.75rem 0',
                             }}
                         >
@@ -534,7 +534,7 @@ function DateTimePickerModal({
                                     onClick={() => setSelectedMinute(m)}
                                     style={scrollItemStyle(selectedMinute === m)}
                                     onMouseEnter={(e) => {
-                                        if (selectedMinute !== m) e.currentTarget.style.backgroundColor = '#252525';
+                                        if (selectedMinute !== m) e.currentTarget.style.backgroundColor = '#151823';
                                     }}
                                     onMouseLeave={(e) => {
                                         if (selectedMinute !== m) e.currentTarget.style.backgroundColor = 'transparent';
@@ -570,7 +570,7 @@ function DateTimePickerModal({
                                         cursor: 'pointer',
                                         color: selectedPeriod === p ? '#ffffff' : '#9ca3af',
                                         backgroundColor: selectedPeriod === p ? '#4f46e5' : 'transparent',
-                                        border: selectedPeriod === p ? '1px solid #6366f1' : '1px solid #3a3a3a',
+                                        border: selectedPeriod === p ? '1px solid #6366f1' : '1px solid #23263a',
                                         fontWeight: selectedPeriod === p ? 600 : 500,
                                         fontSize: '0.9rem',
                                         transition: 'all 0.15s',
@@ -578,14 +578,14 @@ function DateTimePickerModal({
                                     }}
                                     onMouseEnter={(e) => {
                                         if (selectedPeriod !== p) {
-                                            e.currentTarget.style.backgroundColor = '#333333';
-                                            e.currentTarget.style.borderColor = '#4a4a4a';
+                                            e.currentTarget.style.backgroundColor = '#23263a';
+                                            e.currentTarget.style.borderColor = '#2f3349';
                                         }
                                     }}
                                     onMouseLeave={(e) => {
                                         if (selectedPeriod !== p) {
                                             e.currentTarget.style.backgroundColor = 'transparent';
-                                            e.currentTarget.style.borderColor = '#3a3a3a';
+                                            e.currentTarget.style.borderColor = '#23263a';
                                         }
                                     }}
                                 >
@@ -601,8 +601,8 @@ function DateTimePickerModal({
                         justifyContent: 'flex-end',
                         gap: '0.75rem',
                         padding: '1rem 1.25rem',
-                        borderTop: '1px solid #3a3a3a',
-                        backgroundColor: '#2a2a2a',
+                        borderTop: '1px solid #23263a',
+                        backgroundColor: '#12141c',
                     }}>
                         <button
                             type="button"
@@ -613,18 +613,18 @@ function DateTimePickerModal({
                                 fontWeight: 600,
                                 color: '#9ca3af',
                                 backgroundColor: 'transparent',
-                                border: '2px solid #444444',
+                                border: '2px solid #2c2f42',
                                 borderRadius: '8px',
                                 cursor: 'pointer',
                                 transition: 'all 0.15s',
                             }}
                             onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = '#252525';
-                                e.currentTarget.style.borderColor = '#555555';
+                                e.currentTarget.style.backgroundColor = '#151823';
+                                e.currentTarget.style.borderColor = '#3a3e55';
                             }}
                             onMouseLeave={(e) => {
                                 e.currentTarget.style.backgroundColor = 'transparent';
-                                e.currentTarget.style.borderColor = '#444444';
+                                e.currentTarget.style.borderColor = '#2c2f42';
                             }}
                         >
                             Cancel
@@ -733,7 +733,7 @@ export default function ExpiryPicker({
         fontWeight: 500,
         color: isActive ? '#ffffff' : '#9ca3af',
         backgroundColor: isActive ? '#4f46e5' : 'transparent',
-        border: `1px solid ${isActive ? '#6366f1' : '#3a3a3a'}`,
+        border: `1px solid ${isActive ? '#6366f1' : '#23263a'}`,
         borderRadius: '4px',
         cursor: 'pointer',
         transition: 'all 0.15s',
@@ -771,14 +771,14 @@ export default function ExpiryPicker({
                         style={presetButtonStyle(selectedPreset === key)}
                         onMouseEnter={(e) => {
                             if (selectedPreset !== key) {
-                                e.currentTarget.style.backgroundColor = '#252525';
-                                e.currentTarget.style.borderColor = '#4a4a4a';
+                                e.currentTarget.style.backgroundColor = '#151823';
+                                e.currentTarget.style.borderColor = '#2f3349';
                             }
                         }}
                         onMouseLeave={(e) => {
                             if (selectedPreset !== key) {
                                 e.currentTarget.style.backgroundColor = 'transparent';
-                                e.currentTarget.style.borderColor = '#3a3a3a';
+                                e.currentTarget.style.borderColor = '#23263a';
                             }
                         }}
                     >
@@ -792,9 +792,9 @@ export default function ExpiryPicker({
                 <div style={{ 
                     marginBottom: '0.5rem',
                     padding: '0.625rem 0.875rem',
-                    backgroundColor: '#1f1f1f',
+                    backgroundColor: '#0f1117',
                     borderRadius: '6px',
-                    border: '1px solid #2a2a2a',
+                    border: '1px solid #12141c',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',

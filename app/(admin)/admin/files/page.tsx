@@ -41,10 +41,10 @@ export default function AllFilesPage() {
 
             {/* Files List */}
             <div style={{
-                backgroundColor: '#2a2a2a',
+                backgroundColor: '#12141c',
                 borderRadius: '8px',
                 padding: '1.5rem',
-                border: '1px solid #3a3a3a',
+                border: '1px solid #23263a',
             }}>
                 <FileList enablePagination={true} itemsPerPage={20} />
             </div>

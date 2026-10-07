@@ -58,15 +58,15 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
                 position: 'relative',
                 width: '100%',
                 maxWidth: sizeStyles[size],
-                backgroundColor: '#2a2a2a',
+                backgroundColor: '#12141c',
                 borderRadius: '8px',
-                border: '1px solid #3a3a3a',
+                border: '1px solid #23263a',
                 boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
             }}>
                 {title && (
                     <div style={{
                         padding: '1rem 1.5rem',
-                        borderBottom: '1px solid #3a3a3a',
+                        borderBottom: '1px solid #23263a',
                     }}>
                         <h2 style={{
                             fontSize: '1.125rem',
@@ -101,7 +101,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
                         transition: 'all 0.2s',
                     }}
                     onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = '#1a1a1a';
+                        e.currentTarget.style.backgroundColor = '#0b0c11';
                         e.currentTarget.style.color = '#e0e0e0';
                     }}
                     onMouseLeave={(e) => {
