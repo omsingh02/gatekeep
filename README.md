@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <a href="https://dl.omsingh.me">Website</a> ·
+  <a href="https://gatekeep.omsingh.me">Website</a> ·
   <a href="#-self-host-in-10-minutes">Self-host</a> ·
   <a href="docs/DEPLOYMENT.md">Docs</a> ·
   <a href="https://github.com/omsingh02/gatekeep/issues/new/choose">Report a bug</a> ·
