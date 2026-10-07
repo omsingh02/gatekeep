@@ -67,7 +67,7 @@ export async function sendAccessGrantEmail(params: AccessGrantEmailParams): Prom
         const { error } = await resend.emails.send({
             from: fromEmail,
             to: params.to,
-            subject: `Access granted: ${params.fileName}`,
+            subject: `Access granted: ${params.fileName} — Gatekeep`,
             html: generateEmailHtml(params, fileLink, expirationText),
             text: generateEmailText(params, fileLink, expirationText),
         });
@@ -96,12 +96,11 @@ function generateEmailHtml(
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #1a1a1a; color: #e0e0e0; padding: 40px 20px; margin: 0;">
-    <div style="max-width: 480px; margin: 0 auto; background-color: #2a2a2a; border-radius: 8px; padding: 32px; border: 1px solid #3a3a3a;">
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #0a0b10; color: #e4e4e7; padding: 40px 20px; margin: 0;">
+    <div style="max-width: 480px; margin: 0 auto; background-color: #12141c; border-radius: 12px; padding: 32px; border: 1px solid #262838;">
         <div style="text-align: center; margin-bottom: 24px;">
-            <div style="width: 48px; height: 48px; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); border-radius: 8px; display: inline-flex; align-items: center; justify-content: center;">
-                <span style="font-size: 24px;">📁</span>
-            </div>
+            <span style="display: inline-block; width: 12px; height: 12px; border-radius: 4px; background: linear-gradient(135deg, #6366f1 0%, #22d3ee 100%); vertical-align: middle;"></span>
+            <span style="font-size: 16px; font-weight: 700; letter-spacing: -0.02em; color: #ffffff; vertical-align: middle; margin-left: 6px;">gatekeep</span>
         </div>
         
         <h1 style="font-size: 20px; font-weight: 600; color: #ffffff; text-align: center; margin: 0 0 8px 0;">
@@ -120,7 +119,7 @@ function generateEmailHtml(
                 </tr>
                 <tr>
                     <td style="padding: 8px 0; color: #9ca3af; font-size: 13px;">Password</td>
-                    <td style="padding: 8px 0; color: #3b82f6; font-size: 13px; text-align: right; font-family: monospace; font-weight: 600;">${escapeHtml(params.password)}</td>
+                    <td style="padding: 8px 0; color: #a5b4fc; font-size: 13px; text-align: right; font-family: monospace; font-weight: 600;">${escapeHtml(params.password)}</td>
                 </tr>
                 ${expirationText ? `
                 <tr>
@@ -137,7 +136,7 @@ function generateEmailHtml(
             </table>
         </div>
 
-        <a href="${fileLink}" style="display: block; width: 100%; padding: 12px; background-color: #3b82f6; color: white; text-align: center; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 14px; box-sizing: border-box;">
+        <a href="${fileLink}" style="display: block; width: 100%; padding: 12px; background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color: white; text-align: center; text-decoration: none; border-radius: 8px; font-weight: 500; font-size: 14px; box-sizing: border-box;">
             Access File
         </a>
 
@@ -147,7 +146,7 @@ function generateEmailHtml(
     </div>
     
     <p style="font-size: 11px; color: #4b5563; text-align: center; margin-top: 24px;">
-        This is an automated message. Please do not reply to this email.
+        Sent by Gatekeep · This is an automated message. Please do not reply.
     </p>
 </body>
 </html>
@@ -178,7 +177,7 @@ Access the file here: ${fileLink}
 
 Use your email address and the password above to access the file.
 
-This is an automated message. Please do not reply to this email.
+Sent by Gatekeep. This is an automated message. Please do not reply.
 `;
 
     return text;

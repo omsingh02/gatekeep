@@ -483,7 +483,7 @@ export default function FileList({
                             opacity: isLoading ? 0.5 : 1,
                             cursor: isLoading ? 'not-allowed' : 'text',
                         }}
-                        onFocus={(e) => !isLoading && (e.currentTarget.style.borderColor = '#3b82f6')}
+                        onFocus={(e) => !isLoading && (e.currentTarget.style.borderColor = '#6366f1')}
                         onBlur={(e) => (e.currentTarget.style.borderColor = '#3a3a3a')}
                     />
 
@@ -641,7 +641,7 @@ export default function FileList({
                         padding: '0.75rem 1rem',
                         borderRadius: '6px',
                         backgroundColor: '#1e3a5f',
-                        border: '1px solid #3b82f6',
+                        border: '1px solid #6366f1',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
@@ -658,7 +658,7 @@ export default function FileList({
                                 padding: '0.4rem 0.75rem',
                                 fontSize: '0.8rem',
                                 color: '#e0e0e0',
-                                backgroundColor: '#2563eb',
+                                backgroundColor: '#4f46e5',
                                 border: 'none',
                                 borderRadius: '4px',
                                 cursor: 'pointer',
@@ -725,7 +725,7 @@ export default function FileList({
                                     padding: '0.4rem 0.65rem',
                                     fontSize: '0.85rem',
                                     color: '#e0e0e0',
-                                    backgroundColor: idx === breadcrumbs.length - 1 ? '#3b82f6' : 'transparent',
+                                    backgroundColor: idx === breadcrumbs.length - 1 ? '#6366f1' : 'transparent',
                                     border: '1px solid #3a3a3a',
                                     borderRadius: '4px',
                                     cursor: idx === breadcrumbs.length - 1 ? 'default' : 'pointer',
@@ -746,7 +746,7 @@ export default function FileList({
                         padding: '0.5rem 0.85rem',
                         fontSize: '0.85rem',
                         color: '#e0e0e0',
-                        backgroundColor: '#2563eb',
+                        backgroundColor: '#4f46e5',
                         border: 'none',
                         borderRadius: '4px',
                         cursor: 'pointer',
@@ -776,20 +776,20 @@ export default function FileList({
                                 style={{
                                     padding: '0.5rem 1rem',
                                     fontSize: '0.875rem',
-                                    color: '#3b82f6',
+                                    color: '#6366f1',
                                     backgroundColor: 'transparent',
-                                    border: '1px solid #3b82f6',
+                                    border: '1px solid #6366f1',
                                     borderRadius: '4px',
                                     cursor: 'pointer',
                                     transition: 'all 0.2s',
                                 }}
                                 onMouseEnter={(e) => {
-                                    e.currentTarget.style.backgroundColor = '#3b82f6';
+                                    e.currentTarget.style.backgroundColor = '#6366f1';
                                     e.currentTarget.style.color = '#ffffff';
                                 }}
                                 onMouseLeave={(e) => {
                                     e.currentTarget.style.backgroundColor = 'transparent';
-                                    e.currentTarget.style.color = '#3b82f6';
+                                    e.currentTarget.style.color = '#6366f1';
                                 }}
                             >
                                 Clear All Filters
@@ -818,8 +818,8 @@ export default function FileList({
                                                     width: '18px',
                                                     height: '18px',
                                                     borderRadius: '4px',
-                                                    border: `2px solid ${allSelected && (files.length > 0 || folders.length > 0) ? '#3b82f6' : '#4a4a4a'}`,
-                                                    backgroundColor: allSelected && (files.length > 0 || folders.length > 0) ? '#3b82f6' : 'transparent',
+                                                    border: `2px solid ${allSelected && (files.length > 0 || folders.length > 0) ? '#6366f1' : '#4a4a4a'}`,
+                                                    backgroundColor: allSelected && (files.length > 0 || folders.length > 0) ? '#6366f1' : 'transparent',
                                                     cursor: 'pointer',
                                                     display: 'flex',
                                                     alignItems: 'center',
@@ -863,8 +863,8 @@ export default function FileList({
                                                             width: '18px',
                                                             height: '18px',
                                                             borderRadius: '4px',
-                                                            border: `2px solid ${isSelected ? '#3b82f6' : '#4a4a4a'}`,
-                                                            backgroundColor: isSelected ? '#3b82f6' : 'transparent',
+                                                            border: `2px solid ${isSelected ? '#6366f1' : '#4a4a4a'}`,
+                                                            backgroundColor: isSelected ? '#6366f1' : 'transparent',
                                                             cursor: 'pointer',
                                                             display: 'flex',
                                                             alignItems: 'center',
@@ -892,7 +892,7 @@ export default function FileList({
                                                             padding: 0,
                                                         }}
                                                     >
-                                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="#60a5fa" stroke="none">
+                                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="#818cf8" stroke="none">
                                                             <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                                                         </svg>
                                                         <span style={{ color: '#e0e0e0', fontWeight: 500 }}>{folder.name}</span>
@@ -946,8 +946,8 @@ export default function FileList({
                                                             width: '18px',
                                                             height: '18px',
                                                             borderRadius: '4px',
-                                                            border: `2px solid ${isSelected ? '#3b82f6' : '#4a4a4a'}`,
-                                                            backgroundColor: isSelected ? '#3b82f6' : 'transparent',
+                                                            border: `2px solid ${isSelected ? '#6366f1' : '#4a4a4a'}`,
+                                                            backgroundColor: isSelected ? '#6366f1' : 'transparent',
                                                             cursor: 'pointer',
                                                             display: 'flex',
                                                             alignItems: 'center',
@@ -973,8 +973,8 @@ export default function FileList({
                                                                 {file.originalFilename}
                                                             </div>
                                                             {file.folderName && (
-                                                                <span style={{ fontSize: '0.75rem', color: '#60a5fa', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="#60a5fa" stroke="none"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
+                                                                <span style={{ fontSize: '0.75rem', color: '#818cf8', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="#818cf8" stroke="none"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
                                                                     {file.folderName}
                                                                 </span>
                                                             )}
@@ -1035,7 +1035,7 @@ export default function FileList({
                                             flexDirection: 'column',
                                             padding: '1rem',
                                             borderRadius: '8px',
-                                            border: `1px solid ${isSelected ? '#3b82f6' : '#3a3a3a'}`,
+                                            border: `1px solid ${isSelected ? '#6366f1' : '#3a3a3a'}`,
                                             backgroundColor: isSelected ? '#1e3a5f' : '#252525',
                                             transition: 'all 0.15s',
                                             position: 'relative',
@@ -1053,8 +1053,8 @@ export default function FileList({
                                                 width: '18px',
                                                 height: '18px',
                                                 borderRadius: '4px',
-                                                border: `2px solid ${isSelected ? '#3b82f6' : '#4a4a4a'}`,
-                                                backgroundColor: isSelected ? '#3b82f6' : 'rgba(26, 26, 26, 0.8)',
+                                                border: `2px solid ${isSelected ? '#6366f1' : '#4a4a4a'}`,
+                                                backgroundColor: isSelected ? '#6366f1' : 'rgba(26, 26, 26, 0.8)',
                                                 cursor: 'pointer',
                                                 display: 'flex',
                                                 alignItems: 'center',
@@ -1084,7 +1084,7 @@ export default function FileList({
                                                 cursor: 'pointer',
                                             }}
                                         >
-                                            <svg width="48" height="48" viewBox="0 0 24 24" fill="#60a5fa" stroke="none">
+                                            <svg width="48" height="48" viewBox="0 0 24 24" fill="#818cf8" stroke="none">
                                                 <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                                             </svg>
                                         </div>
@@ -1109,7 +1109,7 @@ export default function FileList({
 
                                         {/* Meta info */}
                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                                            <span style={{ fontSize: '0.7rem', color: '#60a5fa', padding: '0.1rem 0.4rem', borderRadius: '3px', backgroundColor: 'rgba(59, 130, 246, 0.1)' }}>Folder</span>
+                                            <span style={{ fontSize: '0.7rem', color: '#818cf8', padding: '0.1rem 0.4rem', borderRadius: '3px', backgroundColor: 'rgba(99, 102, 241, 0.1)' }}>Folder</span>
                                         </div>
 
                                         {/* Date */}
@@ -1139,7 +1139,7 @@ export default function FileList({
                                             flexDirection: 'column',
                                             padding: '1rem',
                                             borderRadius: '8px',
-                                            border: `1px solid ${isSelected ? '#3b82f6' : '#3a3a3a'}`,
+                                            border: `1px solid ${isSelected ? '#6366f1' : '#3a3a3a'}`,
                                             backgroundColor: isSelected ? '#1e3a5f' : '#252525',
                                             transition: 'all 0.15s',
                                             position: 'relative',
@@ -1155,8 +1155,8 @@ export default function FileList({
                                                 width: '18px',
                                                 height: '18px',
                                                 borderRadius: '4px',
-                                                border: `2px solid ${isSelected ? '#3b82f6' : '#4a4a4a'}`,
-                                                backgroundColor: isSelected ? '#3b82f6' : 'rgba(26, 26, 26, 0.8)',
+                                                border: `2px solid ${isSelected ? '#6366f1' : '#4a4a4a'}`,
+                                                backgroundColor: isSelected ? '#6366f1' : 'rgba(26, 26, 26, 0.8)',
                                                 cursor: 'pointer',
                                                 display: 'flex',
                                                 alignItems: 'center',
@@ -1210,15 +1210,15 @@ export default function FileList({
                                             <div style={{ marginBottom: '0.5rem' }}>
                                                 <span style={{
                                                     fontSize: '0.7rem',
-                                                    color: '#60a5fa',
+                                                    color: '#818cf8',
                                                     padding: '0.15rem 0.4rem',
                                                     borderRadius: '3px',
-                                                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                                    backgroundColor: 'rgba(99, 102, 241, 0.1)',
                                                     display: 'inline-flex',
                                                     alignItems: 'center',
                                                     gap: '0.25rem',
                                                 }}>
-                                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="#60a5fa" stroke="none"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
+                                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="#818cf8" stroke="none"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
                                                     {file.folderName}
                                                 </span>
                                             </div>
@@ -1400,7 +1400,7 @@ export default function FileList({
                             gap: '0.5rem',
                             padding: '0.5rem 1rem',
                             fontSize: '0.875rem',
-                            color: '#3b82f6',
+                            color: '#6366f1',
                             backgroundColor: 'transparent',
                             border: '1px solid #3a3a3a',
                             borderRadius: '6px',
@@ -1490,7 +1490,7 @@ export default function FileList({
                                 textAlign: 'left',
                             }}
                         >
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                                 <polyline points="9 22 9 12 15 12 15 22" />
                             </svg>
@@ -1516,7 +1516,7 @@ export default function FileList({
                                         textAlign: 'left',
                                     }}
                                 >
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="#60a5fa" stroke="none">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="#818cf8" stroke="none">
                                         <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                                     </svg>
                                     <span style={{ color: '#e0e0e0' }}>{folder.name}</span>
@@ -1546,7 +1546,7 @@ export default function FileList({
                                 padding: '0.5rem 1rem',
                                 fontSize: '0.875rem',
                                 color: '#ffffff',
-                                backgroundColor: '#2563eb',
+                                backgroundColor: '#4f46e5',
                                 border: 'none',
                                 borderRadius: '4px',
                                 cursor: moveDialog.isLoading ? 'not-allowed' : 'pointer',

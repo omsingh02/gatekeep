@@ -118,9 +118,9 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
             icon: '#fcd34d',
         },
         info: {
-            bg: '#1e3a8a',
-            border: '#3b82f6',
-            icon: '#93c5fd',
+            bg: '#312e81',
+            border: '#6366f1',
+            icon: '#a5b4fc',
         },
     };
 

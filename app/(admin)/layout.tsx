@@ -40,26 +40,22 @@ export default async function AdminLayout({
                     }}>
                         {/* Logo & Brand */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
-                            <div style={{
-                                width: '40px',
-                                height: '40px',
-                                backgroundColor: '#2563eb',
-                                borderRadius: '8px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                            }}>
-                                <svg style={{ width: '22px', height: '22px', color: 'white' }} fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M19.5 21a3 3 0 003-3v-4.5a3 3 0 00-3-3h-15a3 3 0 00-3 3V18a3 3 0 003 3h15zM1.5 10.146V6a3 3 0 013-3h5.379a2.25 2.25 0 011.59.659l2.122 2.121c.14.141.331.22.53.22H19.5a3 3 0 013 3v1.146A4.483 4.483 0 0019.5 9h-15a4.483 4.483 0 00-3 1.146z" />
-                                </svg>
-                            </div>
+                            {/* eslint-disable-next-line @next/next/no-img-element -- tiny static SVG */}
+                            <img
+                                src="/brand/logo-mark.svg"
+                                alt=""
+                                aria-hidden="true"
+                                width={38}
+                                height={38}
+                                style={{ width: '38px', height: '38px', display: 'block' }}
+                            />
                             <div>
                                 <h1 style={{
                                     fontSize: '1.125rem',
                                     fontWeight: 600,
                                     color: '#e0e0e0',
                                     margin: 0,
-                                }}>File Share</h1>
+                                }}>Gatekeep</h1>
                                 <p style={{
                                     fontSize: '0.7rem',
                                     color: '#6b7280',
@@ -88,7 +84,7 @@ export default async function AdminLayout({
                                     width: '28px',
                                     height: '28px',
                                     borderRadius: '6px',
-                                    backgroundColor: '#2563eb',
+                                    backgroundColor: '#4f46e5',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',

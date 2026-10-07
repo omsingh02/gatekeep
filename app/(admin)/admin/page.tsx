@@ -131,7 +131,7 @@ export default function DashboardPage() {
                         <div style={{
                             width: '48px',
                             height: '48px',
-                            backgroundColor: '#3b82f6',
+                            backgroundColor: '#6366f1',
                             borderRadius: '4px',
                             display: 'flex',
                             alignItems: 'center',
