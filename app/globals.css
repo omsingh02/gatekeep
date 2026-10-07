@@ -3,9 +3,14 @@
 /* Font loaded via next/font in layout.tsx for better performance */
 
 :root {
+  /* Brand */
+  --brand-indigo: #6366f1;
+  --brand-cyan: #22d3ee;
+  --brand-ink: #07080c;
+
   /* Professional Color Palette */
-  --primary: #0066cc;
-  --primary-hover: #0052a3;
+  --primary: #6366f1;
+  --primary-hover: #4f46e5;
   --success: #059669;
   --error: #dc2626;
   --warning: #d97706;
@@ -30,51 +35,53 @@
   }
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+/*
+ * Base styles live in @layer base: in Tailwind v4 any unlayered rule beats utilities,
+ * so the old unlayered `* { margin: 0; padding: 0 }` silently disabled mx-auto, px-*, py-*.
+ * Tailwind's preflight already resets margins/padding and sets border-box.
+ */
+@layer base {
+  body {
+    font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--background);
+    color: var(--text);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 
-body {
-  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background: var(--background);
-  color: var(--text);
-  line-height: 1.6;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
+  ::-webkit-scrollbar-track {
+    background: var(--background);
+  }
 
-::-webkit-scrollbar-track {
-  background: var(--background);
-}
+  ::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 5px;
+  }
 
-::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 5px;
-}
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+  }
 
-::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
-}
+  *:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
 
-/* Focus styles */
-*:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
-}
+  /* Inputs draw their own focus state */
+  input:focus {
+    outline: none;
+  }
 
-/* Override focus for login page inputs */
-input:focus {
-  outline: none !important;
-  box-shadow: none !important;
-  ring: 0 !important;
+  /* <details> FAQ: hide the default disclosure marker */
+  summary::-webkit-details-marker {
+    display: none;
+  }
 }
 
 /* Spinner animation */
@@ -86,6 +93,7 @@ input:focus {
     transform: rotate(360deg);
   }
 }
+
 /* Shake animation */
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
@@ -95,4 +103,16 @@ input:focus {
 
 .animate-shake {
   animation: shake 0.5s ease-in-out;
+}
+
+/* Landing page: slow floating motion for the hero share card */
+@keyframes gk-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .gk-float {
+    animation: gk-float 6s ease-in-out infinite;
+  }
 }
