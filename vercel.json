@@ -5,5 +5,10 @@
       "path": "/api/cron/keep-alive",
       "schedule": "0 6 * * *"
     }
-  ]
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "dependabot/**": false
+    }
+  }
 }

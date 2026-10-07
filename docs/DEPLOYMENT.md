@@ -51,6 +51,11 @@ Connecting the GitHub repo in Vercel gives preview deployments for pull requests
 deployments on merge to `main`. Add your domain under **Project → Settings → Domains**, set
 `NEXT_PUBLIC_APP_URL` to it and redeploy.
 
+### Dependabot and the deployment quota
+
+Vercel's Hobby plan allows 100 deployments a day, and every Dependabot PR would otherwise get a preview
+build. `vercel.json` disables deployments for `dependabot/**` branches; GitHub Actions still tests them.
+
 ## 5. Keep the database awake
 
 Supabase pauses free-tier projects after about a week without activity, which takes the whole app down
