@@ -1,13 +1,13 @@
 # syntax=docker/dockerfile:1
 
 # ---- deps: install node_modules from the lockfile ----
-FROM node:22-alpine AS deps
+FROM node:26-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 
 # ---- build: compile the standalone Next.js server ----
-FROM node:22-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /app
 
 # NEXT_PUBLIC_* values are inlined into the client bundle at build time
@@ -27,7 +27,7 @@ COPY . .
 RUN SUPABASE_SERVICE_ROLE_KEY=build-placeholder npm run build
 
 # ---- runner: minimal image with only the standalone output ----
-FROM node:22-alpine AS runner
+FROM node:26-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
