@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { Copy } from 'lucide-react';
 import {
     Button,
@@ -71,6 +71,8 @@ function AddPeopleForm({
     const [peopleError, setPeopleError] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
     const [results, setResults] = useState<RecipientResult[] | null>(null);
+    // Focus starts in the field (not "Help me choose" above it) and goes back to the trigger on close
+    const peopleInput = useRef<HTMLInputElement>(null);
     const existing = active.map((r) => r.identifier).filter((x): x is string => Boolean(x));
 
     const submit = async (event: FormEvent) => {
@@ -146,6 +148,7 @@ function AddPeopleForm({
             onClose={onClose}
             busy={busy}
             size="md"
+            initialFocus={peopleInput}
             title="Add people"
             description={`Each person gets their own access to ${delivery.title}.`}
             footer={
@@ -172,14 +175,14 @@ function AddPeopleForm({
                     allowAnyone={!active.some((r) => r.kind === 'anyone')}
                     kind={delivery.kind}
                     error={peopleError}
-                    autoFocus
+                    inputRef={peopleInput}
                 />
                 <div className="flex flex-col gap-1.5 border-t border-subtle pt-4">
                     <span className="text-caption font-medium text-secondary">Access ends</span>
                     <DateTimePicker label="Access ends" value={endsAt} onChange={setEndsAt} />
                 </div>
                 {!isRequest && (
-                    <Field label="Download limit" helper="Optional. Downloads per person.">
+                    <Field label="Download limit" helper="Optional. Downloads per person; Download all counts as one.">
                         <Input type="number" inputMode="numeric" min={1} placeholder="No limit" className="max-w-40" value={limit} onChange={(e) => setLimit(e.target.value)} />
                     </Field>
                 )}

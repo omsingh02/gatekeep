@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ClipboardEvent, type KeyboardEvent } from 'react';
+import { useState, type ClipboardEvent, type KeyboardEvent, type Ref } from 'react';
 import { Plus, RefreshCw, X } from 'lucide-react';
 import { Avatar, Button, Callout, CopyField, Field, IconButton, Input, SegmentedControl, Switch, cn } from '@/components/ds';
 import { AccessMethodHelper } from '@/components/product/AccessMethodHelper';
@@ -94,7 +94,8 @@ export interface RecipientEditorProps {
     allowAnyone?: boolean;
     kind?: 'send' | 'request';
     error?: string | null;
-    autoFocus?: boolean;
+    /** The "Add people" field, e.g. for a dialog's initialFocus */
+    inputRef?: Ref<HTMLInputElement>;
 }
 
 /**
@@ -110,7 +111,7 @@ export function RecipientEditor({
     allowAnyone = true,
     kind = 'send',
     error,
-    autoFocus,
+    inputRef,
 }: RecipientEditorProps) {
     const [inputError, setInputError] = useState<string | null>(null);
     const [note, setNote] = useState<string | null>(null);
@@ -208,7 +209,7 @@ export function RecipientEditor({
                 <div className="flex gap-2">
                     <div className="min-w-0 flex-1">
                         <Input
-                            autoFocus={autoFocus}
+                            ref={inputRef}
                             value={value.pending}
                             onChange={(event) => {
                                 onChange({ ...value, pending: event.target.value });
