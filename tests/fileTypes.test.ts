@@ -84,7 +84,10 @@ describe('getFileTypeInfo', () => {
 
 describe('helpers', () => {
     it('formats file sizes', () => {
-        expect(formatFileSize(0)).toBe('0 Bytes');
+        expect(formatFileSize(0)).toBe('0 bytes');
+        expect(formatFileSize(512)).toBe('512 bytes');
+        expect(formatFileSize(42_425_000)).toBe('40.5 MB');
+        expect(formatFileSize(200 * MB)).toBe('200 MB');
         expect(formatFileSize(1536)).toBe('1.5 KB');
         expect(formatFileSize(100 * MB)).toBe('100 MB');
     });

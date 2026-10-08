@@ -6,8 +6,8 @@ Supabase (hosted or [self-hosted](https://supabase.com/docs/guides/self-hosting)
 ## Prerequisites
 
 - Docker with the Compose plugin
-- A Supabase project set up as in [DEPLOYMENT.md](DEPLOYMENT.md) steps 1–2 (migrations applied, private `files`
-  bucket, admin user created)
+- A Supabase project set up as in [DEPLOYMENT.md](DEPLOYMENT.md) steps 1–3 (migrations applied, private `files`
+  and public `branding` buckets, owner account created)
 
 ## Run
 
@@ -29,8 +29,8 @@ The app listens on `http://localhost:3000`. Compose starts two services:
 
 - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` and `NEXT_PUBLIC_APP_URL` are inlined into the
   browser bundle **at build time**. Changing them requires `docker compose up -d --build`.
-- `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`, `EMAIL_FROM` and `CRON_SECRET` are read **at runtime** from `.env`
-  and are never baked into the image.
+- `SUPABASE_SERVICE_ROLE_KEY`, `OWNER_EMAILS`, `RESEND_API_KEY`, `EMAIL_FROM`, `GATEKEEP_TIMEZONE` and
+  `CRON_SECRET` are read **at runtime** from `.env` and are never baked into the image.
 
 ## HTTPS / reverse proxy
 
@@ -52,4 +52,5 @@ git pull
 docker compose up -d --build
 ```
 
-Apply any new files in `supabase/migrations` to your database (`supabase db push`) before or after updating.
+Apply any new files in `supabase/migrations` to your database (`npx supabase db push`) **before** updating.
+Coming from 1.x? Follow [Upgrading from 1.x to 2.0](DEPLOYMENT.md#upgrading-from-1x-to-20) first.

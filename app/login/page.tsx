@@ -1,130 +1,104 @@
 'use client';
 
-import { use, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
-import { Logo } from '@/components/brand/Logo';
-import { ArrowLeft, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { use, useState, type FormEvent } from 'react';
+import { useRouter } from 'next/navigation';
+import { ArrowLeft } from 'lucide-react';
+import { Button, Callout, Field, Input } from '@/components/ds';
+import { AuthCard, AuthFooterLink } from '@/components/account/AuthCard';
+import { createClient } from '@/lib/supabase/client';
+
+/** Supabase's messages are for developers; say what happened and what to do instead. */
+function signInError(err: unknown): string {
+    const code = typeof err === 'object' && err && 'code' in err ? String((err as { code?: string }).code) : '';
+    const status = typeof err === 'object' && err && 'status' in err ? Number((err as { status?: number }).status) : 0;
+    if (code === 'invalid_credentials' || status === 400) return "That email and password don't match. Check them and try again.";
+    if (code === 'over_request_rate_limit' || status === 429) return 'Too many tries. Wait a few minutes, then try again.';
+    if (code === 'email_not_confirmed') return "This account's email address isn't confirmed yet.";
+    return "We couldn't sign you in. Check your connection and try again.";
+}
 
 export default function LoginPage({ searchParams }: { searchParams: Promise<{ reason?: string }> }) {
     const { reason } = use(searchParams);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const router = useRouter();
-    const supabase = createClient();
 
-    const handleLogin = async (e: React.FormEvent) => {
+    const handleLogin = async (e: FormEvent) => {
         e.preventDefault();
         setError('');
+        const found: typeof errors = {};
+        if (!email.trim()) found.email = 'Enter your email address.';
+        if (!password) found.password = 'Enter your password.';
+        setErrors(found);
+        if (Object.keys(found).length) return;
+
         setIsLoading(true);
-
         try {
-            const { error } = await supabase.auth.signInWithPassword({
-                email,
-                password,
-            });
-
+            const { error } = await createClient().auth.signInWithPassword({ email: email.trim(), password });
             if (error) throw error;
-
             router.push('/admin');
             router.refresh();
         } catch (err) {
-            setError((err instanceof Error && err.message) || 'Failed to sign in');
+            setError(signInError(err));
         } finally {
+            // A non-owner account comes straight back here (?reason=not-owner), so never stay "Signing in…"
             setIsLoading(false);
         }
     };
 
+    const forgotHref = email.trim() ? `/forgot-password?email=${encodeURIComponent(email.trim())}` : '/forgot-password';
+
     return (
-        <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#07080c] px-4 py-12 text-zinc-100">
-            {/* Ambient background */}
-            <div
-                aria-hidden
-                className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[size:56px_56px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_40%,#000_20%,transparent_100%)]"
-            />
-            <div
-                aria-hidden
-                className="pointer-events-none absolute left-1/2 top-[18%] h-[420px] w-[720px] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,rgba(99,102,241,0.28),transparent)]"
-            />
-
-            <div className="relative w-full max-w-sm">
-                <Link href="/" className="mx-auto flex w-fit text-white" aria-label="Gatekeep home">
-                    <Logo size={34} />
-                </Link>
-
-                <div className="mt-8 rounded-2xl border border-white/10 bg-[#0d0f15]/80 p-7 shadow-2xl shadow-black/60 backdrop-blur-xl sm:p-8">
-                    <h1 className="text-xl font-semibold tracking-tight text-white">Sign in to Gatekeep</h1>
-                    <p className="mt-1.5 text-sm text-zinc-400">Use the admin account for this instance.</p>
-
-                    {reason === 'not-owner' && (
-                        <p role="status" className="mt-5 rounded-xl border border-amber-400/25 bg-amber-500/10 px-3.5 py-2.5 text-sm text-amber-100">
-                            That account isn&apos;t the owner of this Gatekeep. Sign in with the owner account.
-                        </p>
-                    )}
-
-                    <form onSubmit={handleLogin} className="mt-7 space-y-5">
-                        <div>
-                            <label htmlFor="email" className="block text-sm font-medium text-zinc-300">
-                                Email
-                            </label>
-                            <input
-                                id="email"
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                required
-                                autoComplete="email"
-                                placeholder="you@example.com"
-                                className="mt-2 block h-11 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3.5 text-[15px] text-white placeholder:text-zinc-600 transition focus:border-indigo-400/70 focus:bg-white/[0.06] focus:ring-4 focus:ring-indigo-500/15"
-                            />
-                        </div>
-
-                        <div>
-                            <label htmlFor="password" className="block text-sm font-medium text-zinc-300">
-                                Password
-                            </label>
-                            <input
-                                id="password"
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                required
-                                autoComplete="current-password"
-                                className="mt-2 block h-11 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3.5 text-[15px] text-white placeholder:text-zinc-600 transition focus:border-indigo-400/70 focus:bg-white/[0.06] focus:ring-4 focus:ring-indigo-500/15"
-                            />
-                        </div>
-
-                        {error && (
-                            <div
-                                role="alert"
-                                className="rounded-xl border border-rose-400/25 bg-rose-500/10 px-3.5 py-2.5 text-sm text-rose-200"
-                            >
-                                {error}
-                            </div>
-                        )}
-
-                        <button
-                            type="submit"
-                            disabled={isLoading}
-                            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-white text-sm font-semibold text-zinc-900 shadow-[0_8px_30px_-6px_rgba(99,102,241,0.6)] transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-70"
-                        >
-                            {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-                            {isLoading ? 'Signing in…' : 'Sign in'}
-                        </button>
-                    </form>
-                </div>
-
-                <Link
-                    href="/"
-                    className="mx-auto mt-6 flex w-fit items-center gap-1.5 text-sm text-zinc-500 transition hover:text-zinc-300"
-                >
-                    <ArrowLeft className="h-3.5 w-3.5" />
+        <AuthCard
+            title="Sign in to Gatekeep"
+            description="Use the owner account for this Gatekeep."
+            footer={
+                <AuthFooterLink href="/">
+                    <ArrowLeft aria-hidden strokeWidth={1.75} className="h-3.5 w-3.5" />
                     Back to home
-                </Link>
-            </div>
-        </div>
+                </AuthFooterLink>
+            }
+        >
+            {reason === 'not-owner' && (
+                <Callout tone="warning" className="mt-5">
+                    That account isn&apos;t the owner of this Gatekeep. Sign in with the owner account.
+                </Callout>
+            )}
+
+            <form noValidate onSubmit={handleLogin} className="mt-6 flex flex-col gap-4">
+                <Field label="Email" error={errors.email}>
+                    <Input
+                        size="lg"
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        autoComplete="email"
+                        autoFocus
+                        placeholder="you@example.com"
+                    />
+                </Field>
+                <Field
+                    label="Password"
+                    error={errors.password}
+                    labelAction={
+                        <Link href={forgotHref} className="rounded-sm text-caption font-medium text-secondary underline-offset-4 hover:text-primary hover:underline focus-ring">
+                            Forgot password?
+                        </Link>
+                    }
+                >
+                    <Input size="lg" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
+                </Field>
+
+                {error && <Callout tone="danger">{error}</Callout>}
+
+                <Button type="submit" variant="primary" size="lg" fullWidth loading={isLoading} className="mt-1">
+                    {isLoading ? 'Signing in…' : 'Sign in'}
+                </Button>
+            </form>
+        </AuthCard>
     );
 }

@@ -7,7 +7,14 @@ const CREDENTIALS_ERROR = "That email, username or password doesn't match. Check
 
 let ipCounter = 0;
 /** Each API caller gets its own client IP, like separate people would. */
-const ip = () => ({ 'x-forwarded-for': `10.250.${++ipCounter}.${Math.floor(Math.random() * 250) + 1}` });
+const ip = () => ({ 'x-forwarded-for': `10.250.${++ipCounter % 250}.${Math.floor(Math.random() * 250) + 1}` });
+
+function serviceClient() {
+    const env = localSupabaseEnv();
+    return createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+        auth: { autoRefreshToken: false, persistSession: false },
+    });
+}
 
 async function firstFileId(request: APIRequestContext): Promise<string> {
     const res = await request.get('/api/files?limit=50');
@@ -17,14 +24,26 @@ async function firstFileId(request: APIRequestContext): Promise<string> {
     return files[0].id;
 }
 
-test('a signed-in account that is not the owner cannot use the dashboard or APIs', async ({ browser, baseURL }) => {
-    const env = localSupabaseEnv();
-    const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
-        auth: { autoRefreshToken: false, persistSession: false },
+/** A delivery of one file with no recipients yet; returns its id and link code. */
+async function createDelivery(owner: APIRequestContext, title: string, extra: Record<string, unknown> = {}) {
+    const res = await owner.post('/api/deliveries', {
+        data: { title, fileIds: [await firstFileId(owner)], sendInvites: false, ...extra },
     });
+    expect(res.status()).toBe(201);
+    const body = await res.json();
+    return { id: body.delivery.id as string, code: body.delivery.shortCode as string, recipients: body.recipients as { id: string; label: string }[] };
+}
+
+test('a signed-in account that is not the owner cannot use the dashboard or any owner API', async ({ browser, baseURL }) => {
+    const admin = serviceClient();
     const stranger = { email: `stranger-${RUN_ID}@example.test`, password: `stranger-${RUN_ID}` };
     const { data, error } = await admin.auth.admin.createUser({ ...stranger, email_confirm: true });
     expect(error).toBeNull();
+
+    // Real ids, so a 403 can't be a 404 in disguise
+    const { data: delivery } = await admin.from('deliveries').select('id').is('deleted_at', null).limit(1).single();
+    const { data: recipient } = await admin.from('delivery_recipients').select('id').eq('delivery_id', delivery!.id).limit(1).maybeSingle();
+    const { data: file } = await admin.from('files').select('id').is('deleted_at', null).limit(1).single();
 
     const context = await newVisitor(browser, baseURL!);
     const page = await context.newPage();
@@ -36,14 +55,48 @@ test('a signed-in account that is not the owner cannot use the dashboard or APIs
 
         await page.waitForURL('**/login?reason=not-owner');
         await expect(page.getByText("That account isn't the owner of this Gatekeep.")).toBeVisible();
-
-        const api = await page.request.get('/api/files');
-        expect(api.status()).toBe(403);
         await page.goto('/admin');
         await page.waitForURL('**/login?reason=not-owner');
+
+        const api = page.request;
+        const calls: [string, () => ReturnType<APIRequestContext['get']>][] = [
+            ['GET /api/files', () => api.get('/api/files')],
+            ['PATCH /api/files/{id}', () => api.patch(`/api/files/${file!.id}`, { data: { folderId: null } })],
+            ['GET /api/files/{id}/url', () => api.get(`/api/files/${file!.id}/url?action=download`)],
+            ['POST /api/files/presign', () => api.post('/api/files/presign', { data: { filename: 'x.txt', fileSize: 1, mimeType: 'text/plain' } })],
+            ['GET /api/deliveries', () => api.get('/api/deliveries')],
+            ['POST /api/deliveries', () => api.post('/api/deliveries', { data: { title: 'Nope', fileIds: [file!.id] } })],
+            ['GET /api/deliveries/{id}', () => api.get(`/api/deliveries/${delivery!.id}`)],
+            ['DELETE /api/deliveries/{id}', () => api.delete(`/api/deliveries/${delivery!.id}`)],
+            [
+                'POST /api/deliveries/{id}/recipients',
+                () => api.post(`/api/deliveries/${delivery!.id}/recipients`, { data: { people: [{ identifier: stranger.email, method: 'password' }] } }),
+            ],
+            ...(recipient
+                ? ([
+                      [
+                          'PATCH /api/deliveries/{id}/recipients/{rid}',
+                          () => api.patch(`/api/deliveries/${delivery!.id}/recipients/${recipient.id}`, { data: { regeneratePassword: true } }),
+                      ],
+                      ['DELETE /api/deliveries/{id}/recipients/{rid}', () => api.delete(`/api/deliveries/${delivery!.id}/recipients/${recipient.id}`)],
+                  ] as [string, () => ReturnType<APIRequestContext['get']>][])
+                : []),
+            ['GET /api/activity', () => api.get('/api/activity')],
+            ['GET /api/activity/export', () => api.get('/api/activity/export')],
+            ['GET /api/settings', () => api.get('/api/settings')],
+        ];
+        for (const [name, call] of calls) {
+            expect((await call()).status(), name).toBe(403);
+        }
     } finally {
         await context.close();
         await admin.auth.admin.deleteUser(data.user!.id);
+    }
+});
+
+test('the v1 API is gone', async ({ request }) => {
+    for (const path of ['/api/access', '/api/access/download', '/api/access/stream', '/api/verify', '/api/analytics']) {
+        expect((await request.post(path, { data: {} })).status(), path).toBe(404);
     }
 });
 
@@ -69,62 +122,91 @@ test('unknown recipients and wrong passwords get the same answer', async ({ brow
 
 test('previews do not use up downloads, and recipients are case-insensitive', async ({ page, browser, baseURL }) => {
     await signInAsAdmin(page);
-    const fileId = await firstFileId(page.request);
     const recipient = `Case-${RUN_ID}@Example.COM`;
     const password = `limit-${RUN_ID}`;
-
-    const grant = await page.request.post('/api/access', {
-        data: { fileId, userIdentifier: recipient, identifierType: 'email', password, maxDownloads: 1 },
+    const delivery = await createDelivery(page.request, `Limit ${RUN_ID}`, {
+        people: [{ identifier: recipient, identifierType: 'email', method: 'password', password, downloadLimit: 1 }],
     });
-    expect(grant.ok()).toBeTruthy();
-    const { access } = await grant.json();
-    expect(access.userIdentifier).toBe(recipient.toLowerCase());
-
-    const files = await page.request.get(`/api/files/${fileId}`);
-    const shortCode = (await files.json()).file.short_code as string;
+    expect(delivery.recipients.map((r) => r.label)).toEqual([recipient.toLowerCase()]);
 
     const visitor = await newVisitor(browser, baseURL!);
     const api = visitor.request;
     try {
-        // Typed in a different case than it was granted
-        const verify = await api.post('/api/verify', {
+        // Typed in a different case than it was given
+        const session = await api.post(`/api/d/${delivery.code}/session`, {
             headers: ip(),
-            data: { shortCode, userIdentifier: recipient.toLowerCase(), password },
+            data: { identifier: recipient.toUpperCase(), password },
         });
-        expect(verify.ok()).toBeTruthy();
-        expect(await verify.json()).not.toHaveProperty('fileUrl');
+        expect(session.ok()).toBeTruthy();
+        const view = await session.json();
+        expect(view.recipient).toMatchObject({ label: recipient.toLowerCase(), downloadsLeft: 1 });
+        // Signing in never hands out a file URL: every URL is asked for (and recorded) separately
+        expect(JSON.stringify(view)).not.toMatch(/"url"/);
 
-        const body = { shortCode, userIdentifier: recipient.toLowerCase() };
+        const fileUrl = `/api/d/${delivery.code}/files/${view.delivery.files[0].id}`;
         for (let i = 0; i < 3; i++) {
-            const preview = await api.post('/api/access/download', { headers: ip(), data: { ...body, action: 'preview' } });
+            const preview = await api.post(fileUrl, { headers: ip(), data: { action: 'preview' } });
             expect(preview.ok()).toBeTruthy();
+            expect(await preview.json()).toMatchObject({ downloadCount: 0, downloadsLeft: 1 });
         }
-        const download = await api.post('/api/access/download', { headers: ip(), data: { ...body, action: 'download' } });
+        const download = await api.post(fileUrl, { headers: ip(), data: { action: 'download' } });
         expect(download.ok()).toBeTruthy();
-        expect((await download.json()).downloadCount).toBe(1);
+        expect(await download.json()).toMatchObject({ downloadCount: 1, downloadsLeft: 0 });
 
-        const again = await api.post('/api/access/download', { headers: ip(), data: { ...body, action: 'download' } });
+        const again = await api.post(fileUrl, { headers: ip(), data: { action: 'download' } });
         expect(again.status()).toBe(403);
+        expect((await again.json()).code).toBe('ERR_DOWNLOAD_LIMIT');
+        // Previews keep working after the limit
+        expect((await api.post(fileUrl, { headers: ip(), data: { action: 'preview' } })).ok()).toBeTruthy();
     } finally {
         await visitor.close();
-        await page.request.delete(`/api/access?id=${access.id}`);
+        await page.request.delete(`/api/deliveries/${delivery.id}`);
     }
 });
 
-test('giving access rejects weak passwords, past end dates and zero download limits', async ({ page }) => {
+test('giving access rejects short passwords, past end dates and download limits below 1', async ({ page }) => {
     await signInAsAdmin(page);
-    const fileId = await firstFileId(page.request);
-    const base = { fileId, userIdentifier: `v-${RUN_ID}`, identifierType: 'username' };
-
+    const delivery = await createDelivery(page.request, `Validation ${RUN_ID}`, {
+        people: [{ identifier: `ok-${RUN_ID}`, identifierType: 'username', method: 'password' }],
+    });
+    const person = { identifier: `v-${RUN_ID}`, identifierType: 'username', method: 'password' };
     const cases: [Record<string, unknown>, string][] = [
         [{ password: 'short' }, 'Use a password of at least 8 characters.'],
-        [{ password: 'long-enough-1', expiresAt: '2001-01-01T00:00:00Z' }, 'Pick an end date in the future.'],
-        [{ password: 'long-enough-1', maxDownloads: -2 }, 'The download limit must be a whole number of at least 1.'],
+        [{ password: 'long-enough-1', endsAt: '2001-01-01T00:00:00Z' }, 'Pick an end date in the future.'],
+        [{ password: 'long-enough-1', downloadLimit: -2 }, 'The download limit must be a whole number of at least 1.'],
     ];
-    for (const [settings, message] of cases) {
-        const res = await page.request.post('/api/access', { data: { ...base, ...settings } });
-        expect(res.status()).toBe(400);
-        expect((await res.json()).error).toBe(message);
+    try {
+        for (const [settings, message] of cases) {
+            // Adding someone to a delivery
+            const add = await page.request.post(`/api/deliveries/${delivery.id}/recipients`, { data: { people: [{ ...person, ...settings }] } });
+            expect(add.status()).toBe(400);
+            expect((await add.json()).error).toBe(message);
+
+            // Anyone with the password
+            const anyone = await page.request.post(`/api/deliveries/${delivery.id}/recipients`, { data: { anyone: settings } });
+            expect(anyone.status()).toBe(400);
+            expect((await anyone.json()).error).toBe(message);
+
+            // Changing someone who's already on it
+            const change = await page.request.patch(`/api/deliveries/${delivery.id}/recipients/${delivery.recipients[0].id}`, { data: settings });
+            expect(change.status()).toBe(400);
+            expect((await change.json()).error).toBe(message);
+        }
+
+        // A delivery created with invalid access isn't created at all
+        const before = (await (await page.request.get(`/api/deliveries?q=${encodeURIComponent(`Rejected ${RUN_ID}`)}`)).json()).total;
+        const rejected = await page.request.post('/api/deliveries', {
+            data: { title: `Rejected ${RUN_ID}`, fileIds: [await firstFileId(page.request)], people: [{ ...person, password: 'short' }] },
+        });
+        expect(rejected.status()).toBe(400);
+        expect((await rejected.json()).error).toBe('Use a password of at least 8 characters.');
+        expect((await (await page.request.get(`/api/deliveries?q=${encodeURIComponent(`Rejected ${RUN_ID}`)}`)).json()).total).toBe(before);
+
+        // Nobody was added along the way
+        const detail = await (await page.request.get(`/api/deliveries/${delivery.id}`)).json();
+        expect(detail.delivery.recipients.map((r: { label: string }) => r.label)).toEqual([`ok-${RUN_ID}`]);
+    } finally {
+        await page.request.delete(`/api/deliveries/${delivery.id}`);
     }
 });
 

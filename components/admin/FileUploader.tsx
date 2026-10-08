@@ -1,624 +1,246 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { validateFile, formatFileSize, getMaxFileSize } from '@/lib/utils/fileTypes';
+import { useRef, useState, type DragEvent } from 'react';
+import { useRouter } from 'next/navigation';
+import { AlertTriangle, CheckCircle2, FolderUp, RotateCw, Send, Upload, X } from 'lucide-react';
+import { Button, Dialog, IconButton, cn, useToast } from '@/components/ds';
+import { getMaxFileSize } from '@/lib/utils/fileTypes';
+import { FileTypeIcon } from './files/FileTypeIcon';
+import { count, formatSize, sendHref } from './files/format';
+import { reason } from './files/api';
+import { filesFromDrop, filesFromFolderInput, type UploadItem, type UploadTarget, type Uploads } from './files/useUploads';
 
-const getErrorMessage = (err: unknown) => (err instanceof Error ? err.message : '');
+const ICON = { 'aria-hidden': true, strokeWidth: 1.75, className: 'h-4 w-4' } as const;
 
-interface FileUploaderProps {
-    onUploadComplete?: () => void;
-    currentFolderId?: string | null;
+export interface FileUploaderProps {
+    open: boolean;
+    onClose: () => void;
+    /** The folder files go to (the folder you're in) */
+    target: UploadTarget;
+    uploads: Uploads;
 }
 
-interface PresignResponse {
-    uploadUrl: string;
-    token: string;
-    path: string;
-    fileKey: string;
-    metadata: {
-        uniqueFilename: string;
-        sanitizedFilename: string;
-        shortCode: string;
-        fileSize: number;
-        mimeType: string;
-        userId: string;
-        folderId: string | null;
-    };
-}
+/**
+ * "Upload files" dialog: drop zone or pickers, then one row per file with progress, cancel,
+ * retry and clear. Uploads keep going if the dialog closes; the Files page toasts when they finish.
+ */
+export default function FileUploader({ open, onClose, target, uploads }: FileUploaderProps) {
+    const router = useRouter();
+    const toast = useToast();
+    const fileInput = useRef<HTMLInputElement>(null);
+    const folderInput = useRef<HTMLInputElement>(null);
+    const [dragging, setDragging] = useState(false);
 
-interface FileWithPath extends File {
-    relativePath?: string;
-    targetFolderId?: string | null;
-}
+    const { items, active } = uploads;
+    const done = items.filter((item) => item.status === 'done');
+    const failed = items.filter((item) => item.status === 'error').length;
 
-export default function FileUploader({ onUploadComplete, currentFolderId }: FileUploaderProps) {
-    const [isDragging, setIsDragging] = useState(false);
-    const [isUploading, setIsUploading] = useState(false);
-    const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
-    const [error, setError] = useState('');
-    const abortControllerRef = useRef<AbortController | null>(null);
-    const folderInputRef = useRef<HTMLInputElement>(null);
-
-    // Set webkitdirectory attribute on mount (non-standard attribute)
-    useEffect(() => {
-        if (folderInputRef.current) {
-            folderInputRef.current.setAttribute('webkitdirectory', '');
-        }
-    }, []);
-
-    /**
-     * Creates a folder via API and returns its ID
-     */
-    const createFolder = async (name: string, parentId: string | null): Promise<string> => {
-        const response = await fetch('/api/folders', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, parentId }),
-        });
-
-        if (!response.ok) {
-            const data = await response.json();
-            throw new Error(data.error || 'Failed to create folder');
-        }
-
-        const data = await response.json();
-        return data.folder.id;
+    const close = () => {
+        // Keep the list while files are still uploading, so it's there if you come back
+        if (!active) uploads.clearFinished();
+        onClose();
     };
 
-    /**
-     * Recursively reads all files from a directory entry
-     */
-    const readDirectoryEntries = async (directoryEntry: FileSystemDirectoryEntry, basePath: string = ''): Promise<FileWithPath[]> => {
-        const files: FileWithPath[] = [];
-        const reader = directoryEntry.createReader();
-        
-        const readEntries = (): Promise<FileSystemEntry[]> => {
-            return new Promise((resolve, reject) => {
-                reader.readEntries(resolve, reject);
-            });
-        };
-
-        // Read entries in batches (readEntries may not return all at once)
-        let entries: FileSystemEntry[] = [];
-        let batch: FileSystemEntry[];
-        do {
-            batch = await readEntries();
-            entries = entries.concat(batch);
-        } while (batch.length > 0);
-
-        for (const entry of entries) {
-            const entryPath = basePath ? `${basePath}/${entry.name}` : entry.name;
-            
-            if (entry.isFile) {
-                const fileEntry = entry as FileSystemFileEntry;
-                const file = await new Promise<FileWithPath>((resolve, reject) => {
-                    fileEntry.file((f) => {
-                        const fileWithPath = f as FileWithPath;
-                        fileWithPath.relativePath = entryPath;
-                        resolve(fileWithPath);
-                    }, reject);
-                });
-                files.push(file);
-            } else if (entry.isDirectory) {
-                const dirEntry = entry as FileSystemDirectoryEntry;
-                const subFiles = await readDirectoryEntries(dirEntry, entryPath);
-                files.push(...subFiles);
-            }
-        }
-        
-        return files;
-    };
-
-    /**
-     * Process dropped items and extract files from folders
-     * Returns: { files, rootFolderName } - rootFolderName is set if a single folder was dropped
-     */
-    const processDroppedItems = async (dataTransfer: DataTransfer): Promise<{ files: FileWithPath[]; rootFolderName: string | null }> => {
-        const files: FileWithPath[] = [];
-        const items = dataTransfer.items;
-        let rootFolderName: string | null = null;
-
-        // Check if webkitGetAsEntry is available (for folder support)
-        if (items && items.length > 0 && items[0].webkitGetAsEntry) {
-            const entries: FileSystemEntry[] = [];
-            
-            for (let i = 0; i < items.length; i++) {
-                const entry = items[i].webkitGetAsEntry();
-                if (entry) {
-                    entries.push(entry);
-                }
-            }
-
-            // Check if exactly one directory was dropped (folder upload)
-            if (entries.length === 1 && entries[0].isDirectory) {
-                rootFolderName = entries[0].name;
-            }
-
-            for (const entry of entries) {
-                if (entry.isFile) {
-                    const fileEntry = entry as FileSystemFileEntry;
-                    const file = await new Promise<FileWithPath>((resolve, reject) => {
-                        fileEntry.file((f) => {
-                            const fileWithPath = f as FileWithPath;
-                            fileWithPath.relativePath = f.name;
-                            resolve(fileWithPath);
-                        }, reject);
-                    });
-                    files.push(file);
-                } else if (entry.isDirectory) {
-                    const dirEntry = entry as FileSystemDirectoryEntry;
-                    // For folder uploads, we only want the files inside (not the folder path prefix)
-                    const subFiles = await readDirectoryEntries(dirEntry, '');
-                    files.push(...subFiles);
-                }
-            }
-        } else {
-            // Fallback: just use files directly
-            const fileList = Array.from(dataTransfer.files) as FileWithPath[];
-            fileList.forEach(f => f.relativePath = f.name);
-            files.push(...fileList);
-        }
-
-        return { files, rootFolderName };
-    };
-
-    const handleDragOver = useCallback((e: React.DragEvent) => {
-        e.preventDefault();
-        setIsDragging(true);
-    }, []);
-
-    const handleDragLeave = useCallback((e: React.DragEvent) => {
-        e.preventDefault();
-        setIsDragging(false);
-    }, []);
-
-    // Plain handlers (not useCallback) so they always call the latest handleFiles/onUploadComplete
-    const handleDrop = async (e: React.DragEvent) => {
-        e.preventDefault();
-        setIsDragging(false);
-
+    const addFolder = async (files: File[], folderName: string) => {
         try {
-            const { files, rootFolderName } = await processDroppedItems(e.dataTransfer);
-            if (files.length > 0) {
-                let targetFolderId = currentFolderId || null;
-                
-                // If a folder was dropped, create it first
-                if (rootFolderName) {
-                    try {
-                        targetFolderId = await createFolder(rootFolderName, currentFolderId || null);
-                    } catch (err) {
-                        setError(`Failed to create folder "${rootFolderName}": ${getErrorMessage(err)}`);
-                        return;
-                    }
-                }
-                
-                // Set target folder for all files
-                files.forEach(f => f.targetFolderId = targetFolderId);
-                handleFiles(files);
-            }
-        } catch {
-            setError('Failed to process dropped items');
+            await uploads.enqueueFolder(folderName, files, target);
+        } catch (error) {
+            toast.error(`We couldn't create the folder ${folderName}. ${reason(error)}`);
         }
     };
 
-    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files) {
-            const files = Array.from(e.target.files) as FileWithPath[];
-            
-            // For folder selection, webkitRelativePath contains "folderName/path/to/file"
-            // Detect if this is a folder upload by checking if paths have a common root
-            let rootFolderName: string | null = null;
-            const firstPath = files[0]?.webkitRelativePath;
-            if (firstPath && firstPath.includes('/')) {
-                const potentialRoot = firstPath.split('/')[0];
-                const allSameRoot = files.every(f =>
-                    f.webkitRelativePath?.startsWith(potentialRoot + '/')
-                );
-                if (allSameRoot) {
-                    rootFolderName = potentialRoot;
-                }
-            }
-            
-            // Set relative paths (strip root folder name since we're creating the folder)
-            files.forEach(f => {
-                const webkitPath = f.webkitRelativePath;
-                if (webkitPath && rootFolderName) {
-                    // Remove the root folder prefix from display path
-                    f.relativePath = webkitPath.substring(rootFolderName.length + 1);
-                } else {
-                    f.relativePath = webkitPath || f.name;
-                }
-            });
-            
-            // Create folder and upload
-            (async () => {
-                let targetFolderId = currentFolderId || null;
-                
-                if (rootFolderName) {
-                    try {
-                        targetFolderId = await createFolder(rootFolderName, currentFolderId || null);
-                    } catch (err) {
-                        setError(`Failed to create folder "${rootFolderName}": ${getErrorMessage(err)}`);
-                        return;
-                    }
-                }
-                
-                files.forEach(f => f.targetFolderId = targetFolderId);
-                handleFiles(files);
-            })();
-            
-            // Reset input value to allow selecting the same folder again
-            e.target.value = '';
-        }
-    };
-
-    /**
-     * Upload a single file using presigned URL (direct to Supabase)
-     */
-    const uploadFileWithPresignedUrl = async (file: FileWithPath): Promise<void> => {
-        const displayName = file.relativePath || file.name;
-        
-        // Step 1: Get presigned upload URL from our API
-        const presignResponse = await fetch('/api/files/presign', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                filename: file.name,
-                fileSize: file.size,
-                mimeType: file.type || 'application/octet-stream',
-                folderId: file.targetFolderId || null,
-            }),
-        });
-
-        if (!presignResponse.ok) {
-            const errorData = await presignResponse.json();
-            throw new Error(errorData.error || 'Failed to get upload URL');
-        }
-
-        const presignData: PresignResponse = await presignResponse.json();
-
-        // Step 2: Upload file directly to Supabase using XMLHttpRequest for progress tracking
-        await new Promise<void>((resolve, reject) => {
-            const xhr = new XMLHttpRequest();
-            
-            // Track upload progress
-            xhr.upload.addEventListener('progress', (event) => {
-                if (event.lengthComputable) {
-                    const percentComplete = Math.round((event.loaded / event.total) * 95); // Reserve 5% for confirm
-                    setUploadProgress(prev => ({ ...prev, [displayName]: percentComplete }));
-                }
-            });
-
-            xhr.addEventListener('load', () => {
-                if (xhr.status >= 200 && xhr.status < 300) {
-                    resolve();
-                } else {
-                    reject(new Error(`Upload failed with status ${xhr.status}`));
-                }
-            });
-
-            xhr.addEventListener('error', () => {
-                reject(new Error('Upload failed - network error'));
-            });
-
-            xhr.addEventListener('abort', () => {
-                reject(new Error('Upload cancelled'));
-            });
-
-            // Open connection and set headers
-            xhr.open('PUT', presignData.uploadUrl);
-            xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
-            
-            // Send the file
-            xhr.send(file);
-
-            // Store abort controller reference for potential cancellation
-            abortControllerRef.current = {
-                abort: () => xhr.abort(),
-            } as AbortController;
-        });
-
-        // Step 3: Confirm upload and save metadata
-        setUploadProgress(prev => ({ ...prev, [displayName]: 97 }));
-        
-        const confirmResponse = await fetch('/api/files/confirm', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                metadata: presignData.metadata,
-            }),
-        });
-
-        if (!confirmResponse.ok) {
-            const errorData = await confirmResponse.json();
-            throw new Error(errorData.error || 'Failed to confirm upload');
-        }
-
-        setUploadProgress(prev => ({ ...prev, [displayName]: 100 }));
-    };
-
-    /**
-     * Delay utility for retry logic
-     */
-    const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-    /**
-     * Upload with retry logic for transient errors
-     */
-    const uploadWithRetry = async (file: FileWithPath, maxRetries = 3): Promise<{ success: boolean; error?: string }> => {
-        const displayName = file.relativePath || file.name;
-        
-        for (let attempt = 1; attempt <= maxRetries; attempt++) {
-            try {
-                await uploadFileWithPresignedUrl(file);
-                return { success: true };
-            } catch (err) {
-                const message = getErrorMessage(err);
-                const isLastAttempt = attempt === maxRetries;
-                const isRetryable = message.includes('401') ||
-                                   message.includes('Unauthorized') ||
-                                   message.includes('network');
-                
-                if (!isRetryable || isLastAttempt) {
-                    return { success: false, error: `${displayName}: ${message}` };
-                }
-                
-                // Wait before retry (exponential backoff)
-                await delay(1000 * attempt);
-                setUploadProgress(prev => ({ ...prev, [displayName]: 0 }));
-            }
-        }
-        
-        return { success: false, error: `${displayName}: Upload failed after retries` };
-    };
-
-    /**
-     * Run tasks with limited concurrency
-     */
-    const runWithConcurrency = async <T,>(
-        items: T[],
-        fn: (item: T) => Promise<void>,
-        concurrency: number
-    ): Promise<void> => {
-        const queue = [...items];
-        const active: Promise<void>[] = [];
-
-        const runNext = async (): Promise<void> => {
-            if (queue.length === 0) return;
-            
-            const item = queue.shift()!;
-            const promise = fn(item).finally(() => {
-                const index = active.indexOf(promise);
-                if (index > -1) active.splice(index, 1);
-            });
-            active.push(promise);
-            
-            if (active.length >= concurrency) {
-                await Promise.race(active);
-            }
-            
-            await runNext();
-        };
-
-        // Start initial batch
-        const starters = Array(Math.min(concurrency, items.length))
-            .fill(null)
-            .map(() => runNext());
-        
-        await Promise.all(starters);
-        await Promise.all(active);
-    };
-
-    const handleFiles = async (files: FileWithPath[]) => {
-        setError('');
-        setIsUploading(true);
-        const errors: string[] = [];
-        let successCount = 0;
-
-        // Validate all files first
-        const validFiles: FileWithPath[] = [];
-        for (const file of files) {
-            const validation = validateFile(file);
-            if (!validation.valid) {
-                errors.push(`${file.relativePath || file.name}: ${validation.error}`);
-            } else {
-                validFiles.push(file);
-                const displayName = file.relativePath || file.name;
-                setUploadProgress(prev => ({ ...prev, [displayName]: 0 }));
-            }
-        }
-
-        try {
-            // Upload files in parallel with concurrency limit of 4
-            await runWithConcurrency(validFiles, async (file) => {
-                const result = await uploadWithRetry(file);
-                if (result.success) {
-                    successCount++;
-                } else if (result.error) {
-                    errors.push(result.error);
-                }
-            }, 4);
-
-            setTimeout(() => {
-                setUploadProgress({});
-                if (successCount > 0) {
-                    onUploadComplete?.();
-                }
-            }, 1000);
-            
-            if (errors.length > 0) {
-                setError(`${errors.length} file(s) failed: ${errors[0]}${errors.length > 1 ? ` (+${errors.length - 1} more)` : ''}`);
-            }
-        } catch (err) {
-            setError(getErrorMessage(err) || 'Failed to upload files');
-        } finally {
-            setIsUploading(false);
-            abortControllerRef.current = null;
-        }
+    const onDrop = async (event: DragEvent) => {
+        event.preventDefault();
+        setDragging(false);
+        const { files, folderName } = await filesFromDrop(event.dataTransfer);
+        if (files.length === 0) return;
+        if (folderName) await addFolder(files, folderName);
+        else uploads.enqueue(files, target);
     };
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <Dialog
+            open={open}
+            onClose={close}
+            size="md"
+            title="Upload files"
+            description={
+                <>
+                    Files go to <span className="font-medium text-primary">{target.name}</span> and stay private until you deliver them.
+                </>
+            }
+            footer={
+                done.length > 0 && !active ? (
+                    <>
+                        <Button variant="secondary" onClick={close}>
+                            Done
+                        </Button>
+                        <Button
+                            variant="primary"
+                            icon={<Send {...ICON} />}
+                            onClick={() => {
+                                const ids = done.flatMap((item) => (item.fileId ? [item.fileId] : []));
+                                close();
+                                router.push(sendHref(ids));
+                            }}
+                        >
+                            {done.length === 1 ? 'Send file' : `Send ${done.length} files`}
+                        </Button>
+                    </>
+                ) : (
+                    <Button variant="secondary" onClick={close}>
+                        Close
+                    </Button>
+                )
+            }
+        >
             <div
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                style={{
-                    border: isDragging ? '2px dashed #6366f1' : '2px dashed #23263a',
-                    borderRadius: '6px',
-                    padding: '2rem',
-                    textAlign: 'center',
-                    backgroundColor: isDragging ? '#1e1b4b' : 'transparent',
-                    transition: 'all 0.2s',
+                onDragEnter={(event) => {
+                    event.preventDefault();
+                    setDragging(true);
                 }}
+                onDragOver={(event) => event.preventDefault()}
+                onDragLeave={(event) => {
+                    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false);
+                }}
+                onDrop={(event) => void onDrop(event)}
+                className={cn(
+                    'flex flex-col items-center rounded-lg border border-dashed px-6 py-8 text-center transition-colors',
+                    dragging ? 'border-gray-8 bg-raised' : 'border-default bg-inset'
+                )}
             >
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
-                    <div style={{
-                        width: '64px',
-                        height: '64px',
-                        borderRadius: '6px',
-                        backgroundColor: '#23263a',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                    }}>
-                        <svg style={{ width: '32px', height: '32px', color: '#6b7280' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                        </svg>
-                    </div>
-
-                    <div>
-                        <p style={{
-                            fontSize: '1rem',
-                            fontWeight: 500,
-                            color: '#e0e0e0',
-                            marginBottom: '0.25rem',
-                        }}>
-                            Drop files or folders here
-                        </p>
-                        <p style={{ fontSize: '0.875rem', color: '#9ca3af' }}>
-                            Max {formatFileSize(getMaxFileSize())} per file • Supports folders
-                        </p>
-                    </div>
-
-                    <input
-                        type="file"
-                        id="file-upload"
-                        multiple
-                        onChange={handleFileSelect}
-                        style={{ display: 'none' }}
-                        disabled={isUploading}
-                    />
-
-                    <input
-                        ref={folderInputRef}
-                        type="file"
-                        id="folder-upload"
-                        onChange={handleFileSelect}
-                        style={{ display: 'none' }}
-                        disabled={isUploading}
-                    />
-
-                    <div style={{ display: 'flex', gap: '0.75rem' }}>
-                        <button
-                            type="button"
-                            onClick={() => document.getElementById('file-upload')?.click()}
-                            disabled={isUploading}
-                            style={{
-                                padding: '0.625rem 1.5rem',
-                                fontSize: '0.875rem',
-                                fontWeight: 500,
-                                color: 'white',
-                                backgroundColor: '#6366f1',
-                                border: 'none',
-                                borderRadius: '4px',
-                                cursor: isUploading ? 'not-allowed' : 'pointer',
-                                opacity: isUploading ? 0.6 : 1,
-                                transition: 'all 0.2s',
-                            }}
-                            onMouseEnter={(e) => {
-                                if (!isUploading) e.currentTarget.style.backgroundColor = '#4f46e5';
-                            }}
-                            onMouseLeave={(e) => {
-                                if (!isUploading) e.currentTarget.style.backgroundColor = '#6366f1';
-                            }}
-                        >
-                            {isUploading ? 'Uploading...' : 'Select Files'}
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => document.getElementById('folder-upload')?.click()}
-                            disabled={isUploading}
-                            style={{
-                                padding: '0.625rem 1.5rem',
-                                fontSize: '0.875rem',
-                                fontWeight: 500,
-                                color: '#e0e0e0',
-                                backgroundColor: 'transparent',
-                                border: '1px solid #23263a',
-                                borderRadius: '4px',
-                                cursor: isUploading ? 'not-allowed' : 'pointer',
-                                opacity: isUploading ? 0.6 : 1,
-                                transition: 'all 0.2s',
-                            }}
-                            onMouseEnter={(e) => {
-                                if (!isUploading) e.currentTarget.style.borderColor = '#6b7280';
-                            }}
-                            onMouseLeave={(e) => {
-                                if (!isUploading) e.currentTarget.style.borderColor = '#23263a';
-                            }}
-                        >
-                            Select Folder
-                        </button>
-                    </div>
+                <span className="flex h-10 w-10 items-center justify-center rounded-md border border-default bg-raised text-secondary">
+                    <Upload aria-hidden strokeWidth={1.75} className="h-5 w-5" />
+                </span>
+                <p className="mt-3 text-body text-primary">
+                    {dragging ? (
+                        'Drop to upload'
+                    ) : (
+                        <>
+                            {/* Phones can't drag and drop (as on the request page) */}
+                            <span className="hidden sm:inline">Drop files or a folder here</span>
+                            <span className="sm:hidden">Choose files to upload</span>
+                        </>
+                    )}
+                </p>
+                <p className="mt-1 text-caption text-tertiary">Up to {formatSize(getMaxFileSize())} per file</p>
+                <div className="mt-4 flex flex-wrap justify-center gap-2">
+                    <Button variant="secondary" icon={<Upload {...ICON} />} onClick={() => fileInput.current?.click()}>
+                        Choose files
+                    </Button>
+                    <Button variant="ghost" icon={<FolderUp {...ICON} />} onClick={() => folderInput.current?.click()}>
+                        Choose a folder
+                    </Button>
                 </div>
+                <input
+                    ref={fileInput}
+                    type="file"
+                    multiple
+                    hidden
+                    onChange={(event) => {
+                        if (event.target.files?.length) uploads.enqueue(Array.from(event.target.files), target);
+                        event.target.value = '';
+                    }}
+                />
+                <input
+                    ref={(el) => {
+                        folderInput.current = el;
+                        el?.setAttribute('webkitdirectory', '');
+                    }}
+                    type="file"
+                    hidden
+                    onChange={(event) => {
+                        const list = event.target.files;
+                        if (list?.length) {
+                            const { files, folderName } = filesFromFolderInput(list);
+                            if (folderName) void addFolder(files, folderName);
+                            else uploads.enqueue(files, target);
+                        }
+                        event.target.value = '';
+                    }}
+                />
             </div>
 
-            {/* Upload Progress */}
-            {Object.keys(uploadProgress).length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    {Object.entries(uploadProgress).map(([filename, progress]) => (
-                        <div key={filename} style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem' }}>
-                                <span style={{
-                                    color: '#e0e0e0',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap',
-                                }}>{filename}</span>
-                                <span style={{ color: '#9ca3af' }}>{progress}%</span>
-                            </div>
-                            <div style={{
-                                height: '0.5rem',
-                                backgroundColor: '#0b0c11',
-                                borderRadius: '4px',
-                                overflow: 'hidden',
-                            }}>
-                                <div
-                                    style={{
-                                        height: '100%',
-                                        backgroundColor: '#6366f1',
-                                        width: `${progress}%`,
-                                        transition: 'width 0.3s',
-                                    }}
-                                />
-                            </div>
-                        </div>
-                    ))}
-                </div>
+            {items.length > 0 && (
+                <section aria-label="Uploads" className="mt-4">
+                    <div className="mb-2 flex min-h-7 items-center justify-between gap-3">
+                        <p className="flex items-center gap-1.5 text-body-sm text-secondary" aria-live="polite">
+                            {active > 0 ? (
+                                `Uploading ${count(items.length - failed, 'file')}… ${done.length} done`
+                            ) : failed > 0 ? (
+                                <>
+                                    <AlertTriangle aria-hidden strokeWidth={1.75} className="h-4 w-4 text-warning" />
+                                    {done.length > 0 ? `Uploaded ${done.length} of ${done.length + failed} files. ` : ''}
+                                    {failed === 1 ? "1 file couldn't be uploaded." : `${failed} files couldn't be uploaded.`}
+                                </>
+                            ) : done.length > 0 ? (
+                                <>
+                                    <CheckCircle2 aria-hidden strokeWidth={1.75} className="h-4 w-4 text-success" />
+                                    Uploaded {count(done.length, 'file')}
+                                </>
+                            ) : (
+                                'Nothing uploaded'
+                            )}
+                        </p>
+                        {active === 0 && (
+                            <Button variant="ghost" size="sm" onClick={uploads.clearFinished}>
+                                Clear list
+                            </Button>
+                        )}
+                    </div>
+                    <ul className="max-h-72 overflow-y-auto rounded-lg border border-default">
+                        {items.map((item) => (
+                            <UploadRow key={item.id} item={item} uploads={uploads} />
+                        ))}
+                    </ul>
+                    {active > 0 && <p className="mt-2 text-caption text-tertiary">You can close this and keep working. Uploads continue in the background.</p>}
+                </section>
             )}
+        </Dialog>
+    );
+}
 
-            {/* Error Message */}
-            {error && (
-                <div style={{
-                    padding: '0.75rem',
-                    borderRadius: '4px',
-                    backgroundColor: '#7f1d1d',
-                    border: '1px solid #ef4444',
-                }}>
-                    <p style={{ fontSize: '0.875rem', color: '#fecaca', margin: 0 }}>{error}</p>
-                </div>
-            )}
-        </div>
+function UploadRow({ item, uploads }: { item: UploadItem; uploads: Uploads }) {
+    const size = formatSize(item.size);
+    return (
+        <li className="flex items-center gap-3 border-b border-subtle px-3 py-2.5 last:border-b-0">
+            <FileTypeIcon mimeType={item.file.type} name={item.name} />
+            <div className="min-w-0 flex-1">
+                <p className="truncate text-body-sm text-primary" title={item.name}>
+                    {item.name}
+                </p>
+                {item.status === 'uploading' ? (
+                    <div className="mt-1.5 flex items-center gap-2">
+                        <progress
+                            value={item.progress}
+                            max={100}
+                            aria-label={`Uploading ${item.name}`}
+                            className="h-1 w-full appearance-none overflow-hidden rounded-full bg-gray-4 [&::-moz-progress-bar]:bg-gray-10 [&::-webkit-progress-bar]:bg-gray-4 [&::-webkit-progress-value]:bg-gray-10 [&::-webkit-progress-value]:transition-[width]"
+                        />
+                        <span className="w-9 shrink-0 text-right text-caption tabular-nums text-secondary">{item.progress}%</span>
+                    </div>
+                ) : item.status === 'error' ? (
+                    <p className="mt-0.5 text-caption text-danger">{item.error}</p>
+                ) : (
+                    <p className="mt-0.5 flex items-center gap-1 text-caption text-tertiary">
+                        {item.status === 'done' && <CheckCircle2 aria-hidden strokeWidth={1.75} className="h-3.5 w-3.5 text-success" />}
+                        <span className="tabular-nums">{size}</span>
+                        <span aria-hidden>·</span>
+                        {item.status === 'queued' ? 'Waiting…' : item.status === 'done' ? 'Uploaded' : 'Canceled'}
+                    </p>
+                )}
+            </div>
+            <div className="flex shrink-0 items-center gap-0.5">
+                {(item.status === 'queued' || item.status === 'uploading') && (
+                    <IconButton size="sm" label={`Cancel ${item.name}`} icon={<X {...ICON} />} onClick={() => uploads.cancel(item.id)} />
+                )}
+                {((item.status === 'error' && item.retryable) || item.status === 'canceled') && (
+                    <IconButton size="sm" label={`Retry ${item.name}`} icon={<RotateCw {...ICON} />} onClick={() => uploads.retry(item.id)} />
+                )}
+                {(item.status === 'error' || item.status === 'canceled') && (
+                    <IconButton size="sm" label={`Clear ${item.name}`} icon={<X {...ICON} />} onClick={() => uploads.remove(item.id)} />
+                )}
+            </div>
+        </li>
     );
 }

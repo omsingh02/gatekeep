@@ -16,9 +16,6 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
     return bcrypt.compare(password, hash);
 }
 
-/**
- * Generates a cryptographically secure random password
- */
 let dummyHash: Promise<string> | null = null;
 
 /**
@@ -29,19 +26,4 @@ export async function verifyAgainstDummy(password: string): Promise<false> {
     dummyHash ??= hashPassword('gatekeep-timing-equaliser');
     await verifyPassword(password, await dummyHash);
     return false;
-}
-
-export function generateRandomPassword(length: number = 12): string {
-    const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
-    const charsetLength = charset.length;
-    let password = '';
-    
-    // Use crypto.getRandomValues for cryptographically secure randomness
-    const randomValues = new Uint32Array(length);
-    crypto.getRandomValues(randomValues);
-    
-    for (let i = 0; i < length; i++) {
-        password += charset.charAt(randomValues[i] % charsetLength);
-    }
-    return password;
 }

@@ -1,11 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Gatekeep">
-  <defs>
-    <linearGradient id="gk-tile" x1="4" y1="2" x2="60" y2="62" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#6366F1"/>
-      <stop offset="1" stop-color="#22D3EE"/>
-    </linearGradient>
-  </defs>
-  <rect width="64" height="64" rx="15" fill="url(#gk-tile)"/>
-  <path fill="none" stroke="#FFFFFF" stroke-opacity=".38" stroke-width="2.5" stroke-linecap="round" d="M11.5 53V30.5a20.5 20.5 0 0 1 41 0V53"/>
-  <path fill="#FFFFFF" fill-rule="evenodd" d="M17.5 31a14.5 14.5 0 0 1 29 0v20a2 2 0 0 1-2 2h-25a2 2 0 0 1-2-2zM29.75 37.4a5.6 5.6 0 1 1 4.5 0L36 45.5h-8z"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Gatekeep"><rect width="64" height="64" rx="14" fill="#f5f5f5"/><path fill="#1a1a1a" fill-rule="evenodd" d="M17.5 31a14.5 14.5 0 0 1 29 0v20a2 2 0 0 1-2 2h-25a2 2 0 0 1-2-2zM29.75 37.4a5.6 5.6 0 1 1 4.5 0L36 45.5h-8z" transform="translate(32 32.5) scale(1.15) translate(-32 -34.75)"/></svg>

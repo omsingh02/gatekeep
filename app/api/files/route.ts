@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { env } from '@/lib/env';
 import { validateAuth } from '@/lib/utils/validation';
 
 export async function GET(request: NextRequest) {
@@ -21,6 +20,11 @@ export async function GET(request: NextRequest) {
         const dateFilter = searchParams.get('dateFilter');
         const folderId = searchParams.get('folderId');
         const showAll = searchParams.get('showAll') === 'true'; // For recent files view
+        // Sort: name | size | modified (default); order: asc | desc (default)
+        const sortColumns = { name: 'original_filename', size: 'file_size', modified: 'updated_at' } as const;
+        const sortKey = searchParams.get('sort');
+        const sortColumn = sortKey && sortKey in sortColumns ? sortColumns[sortKey as keyof typeof sortColumns] : 'updated_at';
+        const ascending = searchParams.get('order') === 'asc';
         const limitNum = Math.min(Math.max(parseInt(limit || '', 10) || 20, 1), 100); // Bounded 1-100, default 20
         const pageNum = Math.max(parseInt(page || '', 10) || 1, 1); // Minimum 1
 
@@ -61,14 +65,11 @@ export async function GET(request: NextRequest) {
               file_path,
               file_size,
               mime_type,
-              short_code,
               uploaded_by,
               created_at,
               updated_at,
               folder_id,
-              folders!folder_id(id, name),
-              file_access(count),
-              access_log(count)
+              folders!folder_id(id, name)
             `, { count: 'exact' })
             .eq('uploaded_by', user.id)
             .is('deleted_at', null);
@@ -138,7 +139,9 @@ export async function GET(request: NextRequest) {
         }
 
         query = query
-            .order('created_at', { ascending: false })
+            .order(sortColumn, { ascending })
+            // Tie-breaker so equal values never shuffle between pages
+            .order('id', { ascending })
             .range(offset, offset + limitNum - 1);
         
         const { data: files, count: totalCount, error } = await query;
@@ -147,7 +150,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to fetch files' }, { status: 500 });
         }
 
-        // Transform to camelCase with aggregated stats
+        // Transform to camelCase
         const transformedFiles = (files || []).map((file) => ({
             id: file.id,
             filename: file.filename,
@@ -155,16 +158,11 @@ export async function GET(request: NextRequest) {
             filePath: file.file_path,
             fileSize: file.file_size,
             mimeType: file.mime_type,
-            shortCode: file.short_code,
             uploadedBy: file.uploaded_by,
             createdAt: file.created_at,
             updatedAt: file.updated_at,
             folderId: file.folder_id,
             folderName: file.folders?.name || null,
-            shortUrl: `${env.app.url}/${file.short_code}`,
-            // Eager loaded aggregates (avoids N+1 queries for stats)
-            accessGrantCount: file.file_access?.[0]?.count ?? 0,
-            accessLogCount: file.access_log?.[0]?.count ?? 0,
         }));
 
         // Calculate pagination metadata
