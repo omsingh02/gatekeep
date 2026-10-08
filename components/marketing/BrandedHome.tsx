@@ -41,7 +41,7 @@ export default function BrandedHome({ name, person, logoUrl }: BrandedHomeProps)
                     </p>
                 </Card>
                 <Link href="/login" className="rounded-sm text-body-sm text-secondary underline-offset-4 hover:text-strong hover:underline">
-                    Owner sign in
+                    Sign in to send files
                 </Link>
             </main>
             <footer className="mt-10 flex justify-center">

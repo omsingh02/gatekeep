@@ -98,7 +98,7 @@ test('the homepage is the product page or the branded welcome, as set in Setting
         await home.goto('/');
         await expect(home.getByRole('heading', { level: 1, name: 'Northwind Studio' })).toBeVisible();
         await expect(home.getByText('Files from Northwind Studio are delivered securely through this site. Use the link you were sent.')).toBeVisible();
-        await expect(home.getByRole('link', { name: 'Owner sign in' })).toHaveAttribute('href', '/login');
+        await expect(home.getByRole('link', { name: 'Sign in to send files' })).toHaveAttribute('href', '/login');
         await expect(home.getByText('Sent with Gatekeep')).toBeVisible();
         await expect(home.getByRole('link', { name: 'Deploy your own' })).toHaveCount(0);
         expect(await home.locator('body').innerText()).not.toContain(DEMO.admin.email);

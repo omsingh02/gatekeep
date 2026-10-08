@@ -58,7 +58,7 @@ the dashboard is now owner-only and three database migrations must run before th
   for, named recipients vs bearer links, how it works with real screenshots, "Email code or password?" with
   the helper (also in the FAQ), security, self-hosting and an FAQ. Settings → Branding → **Homepage** switches
   it to a simple welcome with your name and logo that points visitors back to their link. A fresh install
-  shows the product page until settings are saved.
+  starts with the welcome.
 
 ### Security
 

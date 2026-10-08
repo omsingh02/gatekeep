@@ -70,7 +70,15 @@ function ProfileForm({ settings }: { settings: OwnerSettings }) {
             </Field>
             <Callout tone="neutral" title="How recipients see you">
                 <span className="mt-1.5 flex items-start gap-2.5">
-                    <Avatar name={preview} size="sm" />
+                    {settings.logoUrl ? (
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-sm border border-default bg-raised">
+                            {/* The owner's logo from the public branding bucket, as recipients see it */}
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={settings.logoUrl} alt="" className="h-full w-full object-contain p-0.5" />
+                        </span>
+                    ) : (
+                        <Avatar name={preview} size="sm" />
+                    )}
                     <span className="min-w-0">
                         <span className="font-medium text-strong" data-testid="sender-preview">
                             {preview}

@@ -233,7 +233,7 @@ function HomepageForm({ settings }: { settings: OwnerSettings }) {
                     checked={homepage === 'branded'}
                     onChange={() => setHomepage('branded')}
                     label="Branded welcome"
-                    description="Your name and logo, and a note to use the link they were sent. Best once you send links to clients."
+                    description="Your name and logo, and a note to use the link they were sent. New installs start with this."
                 />
                 <Radio
                     name="homepage"
@@ -241,7 +241,7 @@ function HomepageForm({ settings }: { settings: OwnerSettings }) {
                     checked={homepage === 'landing'}
                     onChange={() => setHomepage('landing')}
                     label="Product page"
-                    description="Explains what Gatekeep is and links to the project. New installs start with this."
+                    description="Explains what Gatekeep is, with links to the project and its docs."
                 />
             </fieldset>
         </SettingsSection>

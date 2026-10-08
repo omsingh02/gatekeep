@@ -47,7 +47,7 @@ Gatekeep v2 is built around **deliveries**: one link that sends files to (or req
 | `delivery_recipients` | One row per person (`email` / `username`, lowercased) or one `anyone` row. `method` is `email_code` or `password` (bcrypt hash). `ends_at`, `download_limit` / `download_count`, `open_count` / `last_opened_at`, hashed session token + expiry, `removed_at` (kept for receipts). |
 | `verification_codes` | Email codes: SHA-256 of `recipient:code`, 10-minute expiry, attempt count, consumed time. Service role only. |
 | `activity` | Every event: `opened`, `previewed`, `downloaded`, `downloaded_all`, `denied` (+ `reason`), `code_sent`, `uploaded`, `access_given`, `access_removed`, `invite_sent`; actor, IP, user agent, request id, `notified_at`. |
-| `owner_settings` | Display name and organization (shown to recipients), logo, message to recipients, sharing defaults, notification switches, homepage style (`/` is the product page or a branded welcome; with no row yet, the product page) |
+| `owner_settings` | Display name and organization (shown to recipients), logo, message to recipients, sharing defaults, notification switches, homepage style (`/` is the product page or a branded welcome; with no row yet, the branded welcome) |
 
 Every table has row-level security with owner-scoped policies. The server uses the service-role client (never sent to the browser). `gk_count_download` and `gk_count_open` are SQL functions that update counters atomically. A download is only counted while under the limit, in one statement.
 

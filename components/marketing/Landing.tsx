@@ -500,7 +500,7 @@ const SECURITY: { icon: LucideIcon; title: string; body: string }[] = [
     {
         icon: Timer,
         title: 'Signed, short-lived URLs',
-        body: 'Files sit in a private bucket. Each download gets a link that lasts 60 seconds, issued only after access is checked again.',
+        body: 'Files sit in a private bucket. Each link is issued only after access is checked again, and lasts 60 seconds for a download, 15 minutes for a video or audio preview.',
     },
     {
         icon: Database,
@@ -784,7 +784,7 @@ function Footer() {
     );
 }
 
-/** The product page at `/` (homepage = 'landing', and on every fresh install). */
+/** The product page at `/`, when the owner picks it in Settings → Branding (homepage = 'landing'). */
 export default function Landing() {
     return (
         <div className="min-h-dvh bg-canvas">

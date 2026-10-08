@@ -21,8 +21,8 @@ export function defaultSettings(ownerId: string): OwnerSettings {
         notify_downloaded: false,
         notify_denied: true,
         notify_uploaded: true,
-        // No settings saved yet: a fresh install shows the product page at `/` so it explains itself
-        homepage: 'landing',
+        // Same as the column default: clients who open the bare address see the owner, not an ad for Gatekeep
+        homepage: 'branded',
         created_at: new Date(0).toISOString(),
         updated_at: new Date(0).toISOString(),
     };
@@ -38,10 +38,12 @@ export type InstanceHomepage =
     | { mode: 'landing' }
     | { mode: 'branded'; name: string | null; person: string | null; logoUrl: string | null };
 
+const UNNAMED_WELCOME: InstanceHomepage = { mode: 'branded', name: null, person: null, logoUrl: null };
+
 /**
- * What `/` shows. The product page until the owner has saved settings, then their choice
- * (Settings → Branding → Homepage). Falls back to the product page if the database can't be
- * reached, so a half-configured install still explains itself. Never exposes the owner's email.
+ * What `/` shows: the owner's choice in Settings → Branding → Homepage, the branded welcome by
+ * default. With no settings saved, or if the database can't be reached, it's the welcome without a
+ * name. Never exposes the owner's email.
  */
 export async function getInstanceHomepage(): Promise<InstanceHomepage> {
     try {
@@ -51,7 +53,8 @@ export async function getInstanceHomepage(): Promise<InstanceHomepage> {
             .order('created_at', { ascending: true })
             .limit(1)
             .maybeSingle();
-        if (error || !data || data.homepage !== 'branded') return { mode: 'landing' };
+        if (error || !data) return UNNAMED_WELCOME;
+        if (data.homepage === 'landing') return { mode: 'landing' };
         const organization = data.organization?.trim() || null;
         const person = data.display_name?.trim() || null;
         return {
@@ -61,7 +64,7 @@ export async function getInstanceHomepage(): Promise<InstanceHomepage> {
             logoUrl: logoUrl(data),
         };
     } catch {
-        return { mode: 'landing' };
+        return UNNAMED_WELCOME;
     }
 }
 
