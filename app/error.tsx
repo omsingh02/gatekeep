@@ -1,17 +1,13 @@
 'use client';
 
-import { RotateCw, WifiOff } from 'lucide-react';
+import { CircleAlert, RotateCw } from 'lucide-react';
 import { AuthCard } from '@/components/account/AuthCard';
 import { Button } from '@/components/ds';
 
-/** A lookup failed (not a missing link): the link is probably fine, so offer a retry. */
-export default function DeliveryError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
+/** Any other page that failed to render: the same card as the sign-in pages, with a retry. */
+export default function PageError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
     return (
-        <AuthCard
-            icon={WifiOff}
-            title="We couldn't load this delivery"
-            description="Something went wrong on our side. Your link is probably fine, so try again in a moment."
-        >
+        <AuthCard icon={CircleAlert} title="We couldn't load this page" description="Something went wrong on our side. Try again in a moment.">
             <Button
                 variant="primary"
                 size="lg"
