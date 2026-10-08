@@ -50,6 +50,42 @@ export async function deliveryFiles(deliveryId: string): Promise<DeliveryFile[]>
     }));
 }
 
+export interface ReceivedFile extends DeliveryFile {
+    createdAt: string;
+    updatedAt: string;
+    folderId: string | null;
+    folderName: string | null;
+    /** Who uploaded it, as the owner sees them ("maya@acme.co"); null if they're no longer on the request */
+    from: string | null;
+}
+
+const RECEIVED_LIMIT = 500;
+
+/** Files people uploaded through a request that are still in the owner's files, newest first. */
+export async function receivedFiles(delivery: Delivery, recipients: Recipient[]): Promise<ReceivedFile[]> {
+    const { data, error } = await createAdminClient()
+        .from('files')
+        .select('id, original_filename, file_size, mime_type, created_at, updated_at, folder_id, received_from_recipient_id, folders!folder_id(name)')
+        .eq('received_via_delivery_id', delivery.id)
+        .eq('uploaded_by', delivery.owner_id)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+        .limit(RECEIVED_LIMIT);
+    if (error) throw error;
+    const labels = new Map(recipients.map((r) => [r.id, recipientLabel(r)]));
+    return (data ?? []).map((file) => ({
+        id: file.id,
+        name: file.original_filename,
+        size: file.file_size,
+        mimeType: file.mime_type,
+        createdAt: file.created_at,
+        updatedAt: file.updated_at,
+        folderId: file.folder_id,
+        folderName: file.folders?.name ?? null,
+        from: file.received_from_recipient_id ? (labels.get(file.received_from_recipient_id) ?? null) : null,
+    }));
+}
+
 /** Validate that every id is a live file of this owner. Returns the ids in order, or an error. */
 export async function ownedFileIds(ownerId: string, fileIds: unknown): Promise<{ ids: string[] } | { error: string }> {
     if (!Array.isArray(fileIds)) return { error: 'Choose at least one file.' };
@@ -88,10 +124,13 @@ export async function deliveryDetail(delivery: Delivery) {
             : Promise.resolve({ data: null }),
     ]);
     const rows = recipients ?? [];
+    const received = delivery.kind === 'request' ? await receivedFiles(delivery, rows) : [];
     return {
         ...serializeDeliverySummary(delivery),
         requestFolder: folder ? { id: folder.id, name: folder.name } : null,
         files,
+        /** Requests: the files people uploaded (empty for deliveries) */
+        received,
         recipients: rows.map(serializeRecipient),
         stats: {
             recipients: rows.filter((r) => !r.removed_at).length,

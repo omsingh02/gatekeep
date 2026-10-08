@@ -52,7 +52,7 @@ export default function BrandedHome({ name, person, logoUrl }: BrandedHomeProps)
                     className="inline-flex items-center gap-2 rounded-sm text-caption text-tertiary hover:text-secondary"
                 >
                     <LogoMark size={16} />
-                    Sent with Gatekeep
+                    Powered by Gatekeep
                 </a>
             </footer>
         </div>

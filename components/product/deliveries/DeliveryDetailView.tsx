@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { CalendarClock, ExternalLink, FileX, FolderOpen, KeyRound, Link2, MailCheck, Pencil, Plus, SearchX, Trash2, Upload, UserMinus, UserPlus, Users, X } from 'lucide-react';
+import { CalendarClock, Download, ExternalLink, Eye, FileX, FolderOpen, KeyRound, Link2, MailCheck, Pencil, Plus, SearchX, Trash2, Upload, UserMinus, UserPlus, Users, X } from 'lucide-react';
 import {
     Badge,
     Breadcrumb,
@@ -30,16 +30,36 @@ import {
     useToast,
     type MenuItem,
 } from '@/components/ds';
-import { api, errorMessage, type ActivityItem, type DeliveryDetail, type DeliveryFile, type DeliveryKind, type Recipient } from './api';
-import { ActivityFeed, ActivityRow } from './ActivityFeed';
+import FilePreviewDialog from '@/components/admin/files/FilePreviewDialog';
+import { isPreviewable } from '@/components/admin/files/FileTypeIcon';
+import { downloadFile, reason } from '@/components/admin/files/api';
+import { api, errorMessage, type ActivityItem, type DeliveryDetail, type DeliveryFile, type DeliveryKind, type ReceivedFile, type Recipient } from './api';
+import { ActivityFeed } from './ActivityFeed';
 import { AddFilesDialog, AddPeopleDialog, ChangeAccessDialog, ChangePasswordDialog, EditDetailsDialog } from './DetailDialogs';
 import { FileIcon, fileTypeLabel } from './FileIcon';
-import { METHOD_LABELS, dateTime, downloadsLabel, endsShort, formatSize, plural, possessive, recipientPill, shortDate, shortName, timeAgo, timeAgoInSentence } from './format';
+import {
+    DELIVERY_STATUS,
+    METHOD_LABELS,
+    dateTime,
+    deliveryStatus,
+    downloadsLabel,
+    endsShort,
+    formatSize,
+    plural,
+    possessive,
+    recipientPill,
+    shortDate,
+    shortName,
+    timeAgo,
+    timeAgoInSentence,
+} from './format';
 import { useOwnerDefaults } from './hooks';
 import { PersonAvatar } from './PersonAvatar';
 import { useCopy } from './SentPanel';
 
 const ICON = { strokeWidth: 1.75, className: 'h-4 w-4', 'aria-hidden': true } as const;
+/** " · " between metadata parts; the no-break space keeps the dot on the line before */
+const SEPARATOR = '\u00a0· ';
 
 type Tab = 'recipients' | 'files' | 'activity';
 
@@ -51,11 +71,13 @@ function RecipientsPanel({
     delivery,
     emailConfigured,
     onAdd,
+    onChangeAccess,
     onChanged,
 }: {
     delivery: DeliveryDetail;
     emailConfigured: boolean | undefined;
     onAdd: () => void;
+    onChangeAccess: (recipient: Recipient) => void;
     onChanged: () => void;
 }) {
     const toast = useToast();
@@ -63,7 +85,6 @@ function RecipientsPanel({
     const [removing, setRemoving] = useState<Recipient | null>(null);
     const [notify, setNotify] = useState(false);
     const [passwordFor, setPasswordFor] = useState<Recipient | null>(null);
-    const [accessFor, setAccessFor] = useState<Recipient | null>(null);
 
     // Active people first, removed ones last (kept for the record)
     const rows = [...delivery.recipients].sort((a, b) => Number(Boolean(a.removedAt)) - Number(Boolean(b.removedAt)));
@@ -99,7 +120,7 @@ function RecipientsPanel({
         items.push({
             label: isRequest ? 'Change end date' : 'Change end date or limit',
             icon: <CalendarClock {...ICON} />,
-            onSelect: () => setAccessFor(r),
+            onSelect: () => onChangeAccess(r),
         });
         items.push({ type: 'separator' });
         items.push({
@@ -247,7 +268,6 @@ function RecipientsPanel({
                 </div>
             </ConfirmDialog>
             <ChangePasswordDialog deliveryId={delivery.id} recipient={passwordFor} onClose={() => setPasswordFor(null)} onChanged={onChanged} />
-            <ChangeAccessDialog deliveryId={delivery.id} kind={delivery.kind} recipient={accessFor} onClose={() => setAccessFor(null)} onChanged={onChanged} />
         </Card>
     );
 }
@@ -332,10 +352,25 @@ function FilesPanel({ delivery, onChanged }: { delivery: DeliveryDetail; onChang
 /* Files received (requests)                                                                   */
 /* ------------------------------------------------------------------------------------------ */
 
-function ReceivedPanel({ delivery, uploads }: { delivery: DeliveryDetail; uploads: ActivityItem[] | null }) {
+function ReceivedPanel({ delivery }: { delivery: DeliveryDetail }) {
     const router = useRouter();
+    const toast = useToast();
+    const [preview, setPreview] = useState<{ file: ReceivedFile; key: number } | null>(null);
+    const [downloading, setDownloading] = useState<string | null>(null);
     const folder = delivery.requestFolder;
     const folderHref = folder ? `/admin/files?folder=${folder.id}` : '/admin/files';
+
+    const download = async (file: ReceivedFile) => {
+        setDownloading(file.id);
+        try {
+            await downloadFile(file.id);
+        } catch (error) {
+            toast.error(`We couldn't download ${file.name}. ${reason(error)}`);
+        } finally {
+            setDownloading(null);
+        }
+    };
+
     return (
         <Card flush>
             <CardHeader
@@ -347,21 +382,123 @@ function ReceivedPanel({ delivery, uploads }: { delivery: DeliveryDetail; upload
                     </Button>
                 }
             />
-            {uploads === null ? (
-                <div className="flex flex-col gap-3 px-5 py-4">
-                    <Skeleton className="h-4 w-64" />
-                    <Skeleton className="h-4 w-48" />
-                </div>
-            ) : uploads.length === 0 ? (
+            {delivery.received.length === 0 ? (
                 <EmptyState icon={Upload} title="Nothing uploaded yet" description={`Files people upload appear here and in ${folder?.name ?? 'All files'}.`} />
             ) : (
                 <ul className="divide-y divide-gray-4" aria-label="Files received">
-                    {uploads.map((item) => (
-                        <ActivityRow key={item.id} item={item} />
-                    ))}
+                    {delivery.received.map((file) => {
+                        const previewable = isPreviewable(file.mimeType, file.name);
+                        const open = () => setPreview({ file, key: Date.now() });
+                        return (
+                            <li key={file.id} className="flex min-h-14 items-center gap-3 px-4 py-2.5 sm:px-5" data-testid="received-file">
+                                <FileIcon mimeType={file.mimeType} />
+                                <div className="min-w-0 flex-1">
+                                    {previewable ? (
+                                        <button
+                                            type="button"
+                                            onClick={open}
+                                            title={file.name}
+                                            className="block max-w-full truncate rounded-sm text-left text-body text-primary underline-offset-4 hover:text-strong hover:underline focus-ring"
+                                        >
+                                            {file.name}
+                                        </button>
+                                    ) : (
+                                        <p className="truncate text-body text-primary" title={file.name}>
+                                            {file.name}
+                                        </p>
+                                    )}
+                                    {/* Lines wrap between the parts, not inside them */}
+                                    <p className="break-words text-caption tabular-nums text-tertiary">
+                                        <span className="whitespace-nowrap">{fileTypeLabel(file.name, file.mimeType)}</span>
+                                        {SEPARATOR}
+                                        <span className="whitespace-nowrap">{formatSize(file.size)}</span>
+                                        {file.from && (
+                                            <>
+                                                {SEPARATOR}
+                                                <span>{`From\u00a0${file.from}`}</span>
+                                            </>
+                                        )}
+                                        {SEPARATOR}
+                                        <time dateTime={file.createdAt} title={dateTime(file.createdAt)} className="whitespace-nowrap">
+                                            {timeAgo(file.createdAt)}
+                                        </time>
+                                    </p>
+                                </div>
+                                <div className="flex shrink-0 items-center gap-1">
+                                    {previewable && <IconButton label={`Preview ${file.name}`} size="sm" icon={<Eye {...ICON} />} onClick={open} />}
+                                    <IconButton
+                                        label={`Download ${file.name}`}
+                                        size="sm"
+                                        icon={<Download {...ICON} />}
+                                        disabled={downloading === file.id}
+                                        onClick={() => void download(file)}
+                                    />
+                                </div>
+                            </li>
+                        );
+                    })}
                 </ul>
             )}
+            {preview && (
+                <FilePreviewDialog
+                    key={preview.key}
+                    file={{
+                        id: preview.file.id,
+                        originalFilename: preview.file.name,
+                        mimeType: preview.file.mimeType,
+                        fileSize: preview.file.size,
+                        updatedAt: preview.file.updatedAt,
+                    }}
+                    onClose={() => setPreview(null)}
+                />
+            )}
         </Card>
+    );
+}
+
+/* ------------------------------------------------------------------------------------------ */
+/* No one has access                                                                           */
+/* ------------------------------------------------------------------------------------------ */
+
+/**
+ * Under the header when every recipient's access has ended or been removed: says so, and offers
+ * the ways back (a new end date for the person whose access ended, or adding people).
+ */
+function NoAccessCallout({
+    delivery,
+    onAdd,
+    onChangeAccess,
+}: {
+    delivery: DeliveryDetail;
+    onAdd: () => void;
+    onChangeAccess: (recipient: Recipient) => void;
+}) {
+    const ended = delivery.recipients.filter((r) => r.status === 'ended');
+    const one = ended.length === 1 ? ended[0] : null;
+    let text: string;
+    if (ended.length === 0) {
+        text = "You removed everyone's access. Add people to give access again.";
+    } else if (one) {
+        const whose = one.kind === 'anyone' ? 'Access for anyone with the password' : `${possessive(one.label)} access`;
+        text = `${whose} ended ${shortDate(one.endsAt ?? one.createdAt)}. Change the end date to give ${one.kind === 'anyone' ? 'it' : 'them'} more time, or add people.`;
+    } else {
+        text = "Everyone's access has ended. To give someone more time, change their end date from the menu next to their name, or add people.";
+    }
+
+    return (
+        <Callout title={delivery.kind === 'request' ? 'No one can upload to this request' : 'No one can open this delivery'}>
+            <p>{text}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+                {one && (
+                    <Button size="sm" icon={<CalendarClock {...ICON} />} onClick={() => onChangeAccess(one)}>
+                        Change end date
+                    </Button>
+                )}
+                <Button size="sm" icon={<UserPlus {...ICON} />} onClick={onAdd}>
+                    Add people
+                </Button>
+            </div>
+        </Callout>
     );
 }
 
@@ -411,10 +548,10 @@ export function DeliveryDetailView({ id, kind }: { id: string; kind: DeliveryKin
     const [notFound, setNotFound] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [denied, setDenied] = useState<{ count: number; more: boolean } | null>(null);
-    const [uploads, setUploads] = useState<ActivityItem[] | null>(null);
     const [tab, setTab] = useState<Tab>('recipients');
     const [version, setVersion] = useState(0);
     const [adding, setAdding] = useState(false);
+    const [accessFor, setAccessFor] = useState<Recipient | null>(null);
     const [editing, setEditing] = useState(false);
     const [deleting, setDeleting] = useState(false);
 
@@ -441,15 +578,10 @@ export function DeliveryDetailView({ id, kind }: { id: string; kind: DeliveryKin
         api<{ items: ActivityItem[]; nextCursor: string | null }>(`/api/activity?delivery=${id}&type=denied&limit=100`)
             .then((page) => !cancelled && setDenied({ count: page.items.length, more: Boolean(page.nextCursor) }))
             .catch(() => !cancelled && setDenied({ count: 0, more: false }));
-        if (isRequest) {
-            api<{ items: ActivityItem[] }>(`/api/activity?delivery=${id}&type=uploaded&limit=100`)
-                .then((page) => !cancelled && setUploads(page.items))
-                .catch(() => !cancelled && setUploads([]));
-        }
         return () => {
             cancelled = true;
         };
-    }, [id, kind, isRequest, router, version]);
+    }, [id, kind, router, version]);
 
     if (notFound) {
         return (
@@ -476,11 +608,14 @@ export function DeliveryDetailView({ id, kind }: { id: string; kind: DeliveryKin
     const activeNow = delivery.recipients.filter((r) => r.status === 'active').length;
     const people = active.filter((r) => r.kind === 'person').length;
     const anyone = active.some((r) => r.kind === 'anyone');
+    const status = deliveryStatus(delivery.recipients);
     const meta = [
         isRequest ? `Saves to ${delivery.requestFolder?.name ?? 'All files'}` : plural(delivery.files.length, 'file'),
         `${plural(people, isRequest ? 'person' : 'recipient', isRequest ? 'people' : 'recipients')}${anyone ? ' + anyone with the password' : ''}`,
         `created ${shortDate(delivery.createdAt)}`,
     ].join(' · ');
+    const recipientsDetail =
+        active.length === 0 ? (delivery.recipients.length ? 'All removed' : 'No one yet') : activeNow === active.length ? 'All active' : `${activeNow} active`;
 
     const remove = async () => {
         try {
@@ -495,7 +630,7 @@ export function DeliveryDetailView({ id, kind }: { id: string; kind: DeliveryKin
     const tabs = [
         { value: 'recipients' as const, label: isRequest ? 'People' : 'Recipients', count: active.length },
         isRequest
-            ? { value: 'files' as const, label: 'Files received', count: uploads?.length }
+            ? { value: 'files' as const, label: 'Files received', count: delivery.received.length }
             : { value: 'files' as const, label: 'Files', count: delivery.files.length },
         { value: 'activity' as const, label: 'Activity' },
     ];
@@ -505,7 +640,12 @@ export function DeliveryDetailView({ id, kind }: { id: string; kind: DeliveryKin
             <PageHeader
                 breadcrumb={<Breadcrumb items={[{ label: isRequest ? 'Requests' : 'Deliveries', href: listHref }, { label: delivery.title }]} />}
                 title={<span className="break-words">{delivery.title}</span>}
-                description={meta}
+                description={
+                    <span className="inline-flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                        <StatusPill tone={DELIVERY_STATUS[status].tone}>{DELIVERY_STATUS[status].label}</StatusPill>
+                        <span>{meta}</span>
+                    </span>
+                }
                 actions={
                     <>
                         <Button variant="secondary" icon={<Link2 {...ICON} />} onClick={() => copy(delivery.link, 'Link copied')}>
@@ -536,6 +676,8 @@ export function DeliveryDetailView({ id, kind }: { id: string; kind: DeliveryKin
                 <p className="-mt-2 max-w-3xl whitespace-pre-line border-l-2 border-default pl-3 text-body-sm text-secondary">{delivery.message}</p>
             )}
 
+            {status === 'ended' && <NoAccessCallout delivery={delivery} onAdd={() => setAdding(true)} onChangeAccess={setAccessFor} />}
+
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                 <StatCard
                     label="Opens"
@@ -543,7 +685,7 @@ export function DeliveryDetailView({ id, kind }: { id: string; kind: DeliveryKin
                     detail={delivery.stats.lastOpenedAt ? `Last opened ${timeAgoInSentence(delivery.stats.lastOpenedAt)}` : 'Not opened yet'}
                 />
                 {isRequest ? (
-                    <StatCard label="Files received" value={uploads === null ? '–' : uploads.length.toLocaleString('en-US')} detail={`In ${delivery.requestFolder?.name ?? 'All files'}`} />
+                    <StatCard label="Files received" value={delivery.received.length.toLocaleString('en-US')} detail={`In ${delivery.requestFolder?.name ?? 'All files'}`} />
                 ) : (
                     <StatCard
                         label="Downloads"
@@ -560,7 +702,7 @@ export function DeliveryDetailView({ id, kind }: { id: string; kind: DeliveryKin
                 <StatCard
                     label={isRequest ? 'People' : 'Recipients'}
                     value={active.length}
-                    detail={activeNow === active.length ? (active.length ? 'All active' : 'No one yet') : `${activeNow} active`}
+                    detail={recipientsDetail}
                 />
             </div>
 
@@ -568,10 +710,16 @@ export function DeliveryDetailView({ id, kind }: { id: string; kind: DeliveryKin
                 <Tabs label={isRequest ? 'Request sections' : 'Delivery sections'} value={tab} onChange={setTab} items={tabs} />
                 <div role="tabpanel" id={`${tab}-panel`} aria-labelledby={`${tab}-tab`}>
                     {tab === 'recipients' && (
-                        <RecipientsPanel delivery={delivery} emailConfigured={defaults.emailConfigured} onAdd={() => setAdding(true)} onChanged={refresh} />
+                        <RecipientsPanel
+                            delivery={delivery}
+                            emailConfigured={defaults.emailConfigured}
+                            onAdd={() => setAdding(true)}
+                            onChangeAccess={setAccessFor}
+                            onChanged={refresh}
+                        />
                     )}
-                    {tab === 'files' && (isRequest ? <ReceivedPanel delivery={delivery} uploads={uploads} /> : <FilesPanel delivery={delivery} onChanged={refresh} />)}
-                    {tab === 'activity' && <ActivityFeed deliveryId={delivery.id} version={version} />}
+                    {tab === 'files' && (isRequest ? <ReceivedPanel delivery={delivery} /> : <FilesPanel delivery={delivery} onChanged={refresh} />)}
+                    {tab === 'activity' && <ActivityFeed deliveryId={delivery.id} kind={delivery.kind} version={version} />}
                 </div>
             </div>
 
@@ -583,6 +731,7 @@ export function DeliveryDetailView({ id, kind }: { id: string; kind: DeliveryKin
                 defaultMethod={defaults.defaultMethod}
                 onAdded={refresh}
             />
+            <ChangeAccessDialog deliveryId={delivery.id} kind={delivery.kind} recipient={accessFor} onClose={() => setAccessFor(null)} onChanged={refresh} />
             <EditDetailsDialog open={editing} onClose={() => setEditing(false)} delivery={delivery} onSaved={refresh} />
             <ConfirmDialog
                 open={deleting}

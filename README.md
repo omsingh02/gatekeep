@@ -102,7 +102,7 @@ simple branded welcome.
 
 <table>
   <tr>
-    <td width="50%"><img src="public/screenshots/overview.png" alt="Overview: files, storage, deliveries and opens, and recent files" /></td>
+    <td width="50%"><img src="public/screenshots/overview.png" alt="Overview: files, storage, deliveries and opens, recent deliveries, recent activity and recent files" /></td>
     <td width="50%"><img src="public/screenshots/settings.png" alt="Settings → Branding: logo, message to recipients and a live preview" /></td>
   </tr>
 </table>

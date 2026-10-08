@@ -5,7 +5,7 @@
  */
 import type { ActivityItem as ServerActivityItem } from '@/lib/deliveries/activity-query';
 import type { serializeDeliverySummary, serializeRecipient } from '@/lib/deliveries/deliveries';
-import type { deliveryDetail, recipientResult, DeliveryFile as ServerDeliveryFile } from '@/lib/deliveries/owner';
+import type { deliveryDetail, recipientResult, DeliveryFile as ServerDeliveryFile, ReceivedFile as ServerReceivedFile } from '@/lib/deliveries/owner';
 import type { StatusCheck } from '@/lib/deliveries/status';
 import type { AccessMethod } from '@/lib/types';
 
@@ -16,6 +16,7 @@ export type RecipientResult = ReturnType<typeof recipientResult>;
 export type DeliverySummary = ReturnType<typeof serializeDeliverySummary>;
 export type DeliveryDetail = Awaited<ReturnType<typeof deliveryDetail>>;
 export type DeliveryFile = ServerDeliveryFile;
+export type ReceivedFile = ServerReceivedFile;
 export type ActivityItem = ServerActivityItem;
 
 /** GET /api/deliveries item */

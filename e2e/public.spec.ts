@@ -99,7 +99,9 @@ test('the homepage is the product page or the branded welcome, as set in Setting
         await expect(home.getByRole('heading', { level: 1, name: 'Northwind Studio' })).toBeVisible();
         await expect(home.getByText('Files from Northwind Studio are delivered securely through this site. Use the link you were sent.')).toBeVisible();
         await expect(home.getByRole('link', { name: 'Sign in to send files' })).toHaveAttribute('href', '/login');
-        await expect(home.getByText('Sent with Gatekeep')).toBeVisible();
+        // Nothing was sent here: the footer credits the product without claiming a delivery
+        await expect(home.getByText('Powered by Gatekeep')).toBeVisible();
+        await expect(home.getByText('Sent with Gatekeep')).toHaveCount(0);
         await expect(home.getByRole('link', { name: 'Deploy your own' })).toHaveCount(0);
         expect(await home.locator('body').innerText()).not.toContain(DEMO.admin.email);
 

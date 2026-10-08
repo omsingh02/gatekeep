@@ -1,6 +1,6 @@
 /** Display helpers for the owner's delivery screens. Wording follows docs/VOICE.md. */
 import type { BadgeTone } from '@/components/ds';
-import type { AccessMethod, ActivityItem, Recipient } from './api';
+import type { AccessMethod, Recipient } from './api';
 
 const DAY = 24 * 60 * 60 * 1000;
 export const ANYONE_LABEL = 'Anyone with the password';
@@ -96,6 +96,25 @@ export function recipientPill(recipient: Pick<Recipient, 'status' | 'endsAt'>, n
     }
 }
 
+export type DeliveryStatus = 'active' | 'ended' | 'no_recipients';
+
+/** How a delivery's status reads everywhere it's shown: the Deliveries list, Overview and the detail header. */
+export const DELIVERY_STATUS: Record<DeliveryStatus, { tone: BadgeTone; label: string }> = {
+    active: { tone: 'success', label: 'Active' },
+    ended: { tone: 'danger', label: 'Ended' },
+    no_recipients: { tone: 'neutral', label: 'No people' },
+};
+
+/**
+ * A delivery's status from its recipients, by the same rule as GET /api/deliveries: active while
+ * anyone can still open it (a reached download limit still lets people in to preview), ended once
+ * every recipient's access has ended or been removed.
+ */
+export function deliveryStatus(recipients: Pick<Recipient, 'status'>[]): DeliveryStatus {
+    if (recipients.length === 0) return 'no_recipients';
+    return recipients.some((r) => r.status === 'active' || r.status === 'limit_reached') ? 'active' : 'ended';
+}
+
 /** "1 of 3" with a limit, "2" without. */
 export function downloadsLabel(recipient: Pick<Recipient, 'downloadCount' | 'downloadLimit'>): string {
     return recipient.downloadLimit !== null ? `${recipient.downloadCount} of ${recipient.downloadLimit}` : String(recipient.downloadCount);
@@ -149,38 +168,4 @@ export function parsePeople(text: string): { valid: { identifier: string; identi
         }
     }
     return { valid, invalid };
-}
-
-/** One human sentence per activity event (docs/VOICE.md: people and files, not records). */
-export function activitySentence(item: ActivityItem): string {
-    const anyone = item.actor === ANYONE_LABEL;
-    const who = anyone ? 'Someone with the password' : item.actor;
-    const file = item.fileName ?? 'a file';
-    switch (item.type) {
-        case 'opened':
-            return `${who} opened the delivery`;
-        case 'previewed':
-            return `${who} previewed ${file}`;
-        case 'downloaded':
-            return `${who} downloaded ${file}`;
-        case 'downloaded_all':
-            return `${who} downloaded all files`;
-        case 'denied': {
-            const reason = item.reasonLabel ? ` — ${item.reasonLabel.toLowerCase()}` : '';
-            const subject = anyone || !item.actor || item.actor === 'You' ? 'Someone' : item.actor;
-            return `${subject} was denied${reason}`;
-        }
-        case 'code_sent':
-            return `Code sent to ${item.actor}`;
-        case 'uploaded':
-            return `${who} uploaded ${file}`;
-        case 'access_given':
-            return anyone ? 'You gave access to anyone with the password' : `You gave ${item.actor} access`;
-        case 'access_removed':
-            return anyone ? 'You removed access for anyone with the password' : `You removed ${possessive(item.actor)} access`;
-        case 'invite_sent':
-            return `Invite sent to ${item.actor}`;
-        default:
-            return item.typeLabel;
-    }
 }
