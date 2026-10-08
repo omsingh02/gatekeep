@@ -1,40 +1,17 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Download, Eye, FileDown, History, Mail, MailCheck, ShieldX, Upload, UserMinus, UserPlus, type LucideIcon } from 'lucide-react';
-import { Button, Callout, Card, CardHeader, EmptyState, Skeleton, Tooltip, cn, useToast } from '@/components/ds';
-import type { ActivityType } from '@/lib/types';
+import { Download, History } from 'lucide-react';
+import { Button, Callout, Card, CardHeader, EmptyState, Skeleton, Tooltip, useToast } from '@/components/ds';
+import { ActivityIcon } from './ActivityIcon';
 import { api, errorMessage, type ActivityItem } from './api';
 import { activitySentence, dateTime, timeAgo } from './format';
 
-const ICONS: Record<ActivityType, LucideIcon> = {
-    opened: Eye,
-    previewed: Eye,
-    downloaded: Download,
-    downloaded_all: Download,
-    denied: ShieldX,
-    code_sent: Mail,
-    uploaded: Upload,
-    access_given: UserPlus,
-    access_removed: UserMinus,
-    invite_sent: MailCheck,
-};
-
 export function ActivityRow({ item }: { item: ActivityItem }) {
-    const Icon = ICONS[item.type] ?? History;
-    const denied = item.type === 'denied';
     const details = [dateTime(item.createdAt), item.ip && item.ip !== 'unknown' ? `IP ${item.ip}` : null].filter(Boolean).join(' · ');
     return (
         <li className="flex items-start gap-3 px-4 py-3 sm:px-5" data-testid="activity-row">
-            <span
-                aria-hidden
-                className={cn(
-                    'mt-px flex h-7 w-7 shrink-0 items-center justify-center rounded-md border',
-                    denied ? 'border-danger-border bg-danger-bg text-danger' : 'border-subtle bg-raised text-secondary',
-                )}
-            >
-                <Icon strokeWidth={1.75} className="h-3.5 w-3.5" />
-            </span>
+            <ActivityIcon type={item.type} />
             <p className="min-w-0 flex-1 break-words pt-1 text-body-sm text-primary">{activitySentence(item)}</p>
             <Tooltip content={details} className="shrink-0 pt-1">
                 <time
@@ -115,7 +92,7 @@ export function ActivityFeed({ deliveryId, version = 0, title = 'Activity' }: Ac
                     <Button
                         variant="secondary"
                         size="sm"
-                        icon={<FileDown aria-hidden strokeWidth={1.75} className="h-4 w-4" />}
+                        icon={<Download aria-hidden strokeWidth={1.75} className="h-4 w-4" />}
                         onClick={() => {
                             window.location.href = `/api/activity/export?delivery=${deliveryId}`;
                         }}

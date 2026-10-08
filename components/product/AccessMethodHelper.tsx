@@ -237,6 +237,11 @@ function HelperFlow({
     );
 }
 
+/** When the dashboard already knows whether email works, that question is skipped: two questions, not three. */
+function subtitle(emailConfigured: boolean | undefined) {
+    return `Email code or password, in at most ${emailConfigured === undefined ? 'three' : 'two'} questions.`;
+}
+
 /** The helper, either as a "Help me choose" link + dialog, or inline. */
 export function AccessMethodHelper({
     variant = 'dialog',
@@ -257,7 +262,7 @@ export function AccessMethodHelper({
                 <div className="mb-3 flex items-start justify-between gap-3">
                     <div>
                         <h3 className="text-h3 text-strong">Which should I use?</h3>
-                        <p className="text-body-sm text-secondary">Email code or password, in at most three questions.</p>
+                        <p className="text-body-sm text-secondary">{subtitle(emailConfigured)}</p>
                     </div>
                     {onClose && (
                         <IconButton label="Close the helper" size="sm" icon={<X aria-hidden strokeWidth={1.75} className="h-4 w-4" />} onClick={onClose} />
@@ -283,7 +288,7 @@ export function AccessMethodHelper({
                 open={open}
                 onClose={() => setOpen(false)}
                 title="Which should I use?"
-                description="Email code or password, in at most three questions."
+                description={subtitle(emailConfigured)}
             >
                 {open && (
                     <HelperFlow

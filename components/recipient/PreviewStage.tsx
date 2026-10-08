@@ -322,10 +322,7 @@ export function PreviewStage({ code, files, index, onIndexChange, onClose, onDow
                     <h2 id={titleId} className="truncate text-body font-medium text-strong">
                         {file.name}
                     </h2>
-                    <p className="truncate text-caption tabular-nums text-tertiary">
-                        {fileMeta(file)}
-                        {hasMany && ` · ${index + 1} of ${files.length}`}
-                    </p>
+                    <p className="truncate text-caption tabular-nums text-tertiary">{fileMeta(file)}</p>
                 </div>
                 {canDownload && (
                     <>
@@ -352,15 +349,30 @@ export function PreviewStage({ code, files, index, onIndexChange, onClose, onDow
                 <div className="mx-auto flex h-full w-full max-w-marketing items-center justify-center">{content}</div>
             </div>
 
+            {/* Three columns so the count stays centred whatever the button widths */}
             {hasMany && (
-                <footer className="flex h-14 shrink-0 items-center justify-between gap-2 border-t border-subtle bg-surface px-2 sm:px-4">
-                    <Button size="lg" variant="ghost" icon={<ChevronLeft {...ICON} />} onClick={() => go(-1)} aria-label="Previous file">
+                <footer className="grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 border-t border-subtle bg-surface px-2 sm:px-4">
+                    <Button
+                        size="lg"
+                        variant="ghost"
+                        className="justify-self-start"
+                        icon={<ChevronLeft {...ICON} />}
+                        onClick={() => go(-1)}
+                        aria-label="Previous file"
+                    >
                         <span className="hidden sm:inline">Previous</span>
                     </Button>
                     <p className="text-body-sm tabular-nums text-secondary" aria-live="polite">
                         {index + 1} of {files.length}
                     </p>
-                    <Button size="lg" variant="ghost" iconRight={<ChevronRight {...ICON} />} onClick={() => go(1)} aria-label="Next file">
+                    <Button
+                        size="lg"
+                        variant="ghost"
+                        className="justify-self-end"
+                        iconRight={<ChevronRight {...ICON} />}
+                        onClick={() => go(1)}
+                        aria-label="Next file"
+                    >
                         <span className="hidden sm:inline">Next</span>
                     </Button>
                 </footer>

@@ -34,7 +34,7 @@ import { api, errorMessage, type ActivityItem, type DeliveryDetail, type Deliver
 import { ActivityFeed, ActivityRow } from './ActivityFeed';
 import { AddFilesDialog, AddPeopleDialog, ChangeAccessDialog, ChangePasswordDialog, EditDetailsDialog } from './DetailDialogs';
 import { FileIcon, fileTypeLabel } from './FileIcon';
-import { METHOD_LABELS, dateTime, downloadsLabel, formatSize, plural, possessive, recipientPill, shortDate, shortName, timeAgo, timeAgoInSentence } from './format';
+import { METHOD_LABELS, dateTime, downloadsLabel, endsShort, formatSize, plural, possessive, recipientPill, shortDate, shortName, timeAgo, timeAgoInSentence } from './format';
 import { useOwnerDefaults } from './hooks';
 import { PersonAvatar } from './PersonAvatar';
 import { useCopy } from './SentPanel';
@@ -126,7 +126,7 @@ function RecipientsPanel({
             <PersonAvatar label={r.label} />
             <span className="min-w-0">
                 <span className={r.removedAt ? 'block truncate text-secondary line-through decoration-gray-6' : 'block truncate text-primary'}>{r.label}</span>
-                {r.endsAt && !r.removedAt && <span className="block text-caption text-tertiary">Ends {shortDate(r.endsAt)}</span>}
+                {r.endsAt && !r.removedAt && <span className="block text-caption text-tertiary">{endsShort(r.endsAt)}</span>}
             </span>
         </span>
     );
@@ -548,7 +548,7 @@ export function DeliveryDetailView({ id, kind }: { id: string; kind: DeliveryKin
                     <StatCard
                         label="Downloads"
                         value={delivery.stats.downloads.toLocaleString('en-US')}
-                        detail={plural(delivery.files.length, 'file')}
+                        detail={`Across ${plural(delivery.files.length, 'file')}`}
                     />
                 )}
                 <StatCard

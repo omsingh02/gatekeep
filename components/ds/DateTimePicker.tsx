@@ -4,6 +4,7 @@ import { useId, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from './cn';
 import { SegmentedControl } from './SegmentedControl';
+import { Select } from './Select';
 
 const DAY = 24 * 60 * 60 * 1000;
 const WEEKDAYS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
@@ -103,16 +104,21 @@ export function DateTimePicker({ value, onChange, label, presets = DEFAULT_PRESE
     const monthLabel = viewMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
     const minDay = startOfDay(minDate);
     const time = value ? `${String(value.getHours()).padStart(2, '0')}:${String(value.getMinutes()).padStart(2, '0')}` : '18:00';
+    const options = [...presets.map((p) => ({ value: p.key, label: p.label })), { value: 'custom', label: 'Custom' }];
 
     return (
         <div className={cn('flex flex-col gap-3', className)}>
-            <SegmentedControl
-                label={label}
-                value={mode}
-                onChange={choosePreset}
-                options={[...presets.map((p) => ({ value: p.key, label: p.label })), { value: 'custom', label: 'Custom' }]}
-                className="max-w-full flex-wrap"
-            />
+            {/* The presets don't fit a phone's width: a select there (as on the Activity page), segments from sm up */}
+            <div className="sm:hidden">
+                <Select aria-label={label} value={mode} onChange={(event) => choosePreset(event.target.value)}>
+                    {options.map((option) => (
+                        <option key={option.value} value={option.value}>
+                            {option.label}
+                        </option>
+                    ))}
+                </Select>
+            </div>
+            <SegmentedControl label={label} value={mode} onChange={choosePreset} options={options} className="max-w-full flex-wrap max-sm:hidden" />
 
             {mode === 'custom' && (
                 <div className="w-full max-w-[300px] rounded-lg border border-default bg-surface p-3">
