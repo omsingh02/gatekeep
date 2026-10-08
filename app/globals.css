@@ -2,9 +2,7 @@
 
 /*
  * Gatekeep Mono (docs/DESIGN.md): dark, neutral grey, colour only for status.
- * Components in components/ds use only these tokens. The legacy variables in :root below are
- * kept until every screen is migrated (v2 Phase B), then removed together with Tailwind's
- * default palette (`--color-*: initial;`).
+ * Every screen uses only these tokens, through the components in components/ds.
  */
 @theme {
   /* Neutral scale: pure grey (R = G = B), no blue tint */

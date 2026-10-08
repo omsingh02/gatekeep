@@ -12,7 +12,7 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
-    // Agent/editor worktrees and local tooling
+    // Local editor and tool state
     ".claude/**",
   ]),
 ]);

@@ -100,7 +100,7 @@ Everything is behind `validateAuth` (owner-only).
 
 When an `activity` row is written, matching `owner_settings.notify_*` sends one email. Opens are deduplicated (first open per recipient per delivery per 24 h). Denials are batched: after 3 denials for the same delivery within 15 minutes, one alert is sent. Uploads send one email per request session. Emails use the light template in [DESIGN.md](../DESIGN.md#components-variants-and-states).
 
-### Migration from v1 (`2026xxxx_deliveries.sql`)
+### Migration from v1 (`20261009000000_deliveries.sql`)
 
 1. For every non-deleted file with a short code, create a `send` delivery that keeps the **same short code**, has the file name as its title and the file's owner, plus one `delivery_files` row.
 2. Copy each `file_access` row to `delivery_recipients`:
