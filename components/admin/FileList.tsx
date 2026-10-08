@@ -92,6 +92,15 @@ const TYPE_OPTIONS: { value: FileTypeFilter; label: string }[] = [
     { value: 'archive', label: 'Archives' },
 ];
 
+const TYPE_NOUNS: Partial<Record<FileTypeFilter, string>> = {
+    image: 'images',
+    video: 'videos',
+    audio: 'audio files',
+    pdf: 'PDFs',
+    document: 'documents',
+    archive: 'archives',
+};
+
 const folderHref = (id: string) => `/admin/files?folder=${encodeURIComponent(id)}`;
 
 // The table/grid choice is remembered on this device
@@ -259,7 +268,7 @@ function FolderBrowser({ folderId, location, target, view, sort, onSort, reloadK
         return () => controller.abort();
     }, [folderId, query, type, sort.key, sort.dir, page, queryKey, reloadKey]);
 
-    const filtering = query !== '' || type !== 'all';
+    const filtering = search.trim() !== '' || query !== '' || type !== 'all';
     const ready = result?.status === 'ready' ? result : null;
     const stale = result !== null && result.key !== queryKey;
 
@@ -271,6 +280,8 @@ function FolderBrowser({ folderId, location, target, view, sort, onSort, reloadK
     const selectedFolders = folders.filter((f) => current?.folders.has(f.id));
     const selectedCount = selectedFiles.length + selectedFolders.length;
     const allSelected = files.length + folders.length > 0 && selectedCount === files.length + folders.length;
+    // Nothing here at all: no toolbar, just the empty state
+    const empty = ready !== null && !stale && files.length === 0 && folders.length === 0;
 
     const toggle = (kind: 'files' | 'folders', id: string) =>
         setSelection((prev) => {
@@ -461,7 +472,7 @@ function FolderBrowser({ folderId, location, target, view, sort, onSort, reloadK
                 {filtering ? (
                     <EmptyState
                         icon={SearchX}
-                        title={query ? `No files match “${query}”` : `No ${TYPE_OPTIONS.find((t) => t.value === type)?.label.toLowerCase()} here`}
+                        title={query ? `No files match “${query}”` : `No ${TYPE_NOUNS[type] ?? 'files'} here`}
                         description={folderId ? `Try another name or type, or search from All files.` : 'Try another name or file type.'}
                         action={
                             <Button
@@ -485,7 +496,7 @@ function FolderBrowser({ folderId, location, target, view, sort, onSort, reloadK
                                 : 'Upload the files you want to send. They stay private until you deliver them.'
                         }
                         action={
-                            <Button variant="primary" icon={<Upload {...ICON} />} onClick={onUpload}>
+                            <Button icon={<Upload {...ICON} />} onClick={onUpload}>
                                 Upload files
                             </Button>
                         }
@@ -577,7 +588,7 @@ function FolderBrowser({ folderId, location, target, view, sort, onSort, reloadK
                             Clear selection
                         </Button>
                     </div>
-                ) : (
+                ) : empty && !filtering ? null : (
                     <Toolbar>
                         <div className="w-full sm:w-72">
                             <Input
