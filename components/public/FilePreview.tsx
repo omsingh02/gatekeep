@@ -10,7 +10,6 @@ import { FileTypeIcon } from '@/components/ui/FileTypeIcon';
 
 interface FilePreviewProps {
     fileData: {
-        fileUrl: string;
         file: {
             originalFilename: string;
             mimeType: string;

@@ -19,6 +19,18 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 /**
  * Generates a cryptographically secure random password
  */
+let dummyHash: Promise<string> | null = null;
+
+/**
+ * Spend the same time as a real password check when there is nothing to check against
+ * (unknown recipient), so response timing doesn't reveal who has access.
+ */
+export async function verifyAgainstDummy(password: string): Promise<false> {
+    dummyHash ??= hashPassword('gatekeep-timing-equaliser');
+    await verifyPassword(password, await dummyHash);
+    return false;
+}
+
 export function generateRandomPassword(length: number = 12): string {
     const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
     const charsetLength = charset.length;

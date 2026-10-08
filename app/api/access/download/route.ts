@@ -23,13 +23,13 @@ export async function POST(request: NextRequest) {
         // Sanitize short code early and use sanitized value for cookie lookup to avoid mismatches
         const sanitizedShortCode = sanitizeShortCode(shortCode);
         if (!sanitizedShortCode) {
-            return NextResponse.json({ error: 'Invalid short code' }, { status: 400 });
+            return NextResponse.json({ error: "This link isn't valid. Check you copied all of it." }, { status: 400 });
         }
 
         // Get session token from httpOnly cookie (use sanitized short code)
         const sessionToken = request.cookies.get(`access_${sanitizedShortCode}`)?.value;
         if (!sessionToken) {
-            return NextResponse.json({ error: 'Session token required' }, { status: 401 });
+            return NextResponse.json({ error: 'Your session ended. Unlock the file again to download it.' }, { status: 401 });
         }
 
         // Sanitize user identifier
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
             .single();
 
         if (fileError || !file) {
-            return NextResponse.json({ error: 'File not found' }, { status: 404 });
+            return NextResponse.json({ error: 'This file is no longer available.' }, { status: 404 });
         }
 
         // Get access grant and validate session token
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
         const { data: access } = await accessQuery.maybeSingle();
 
         if (!access) {
-            return NextResponse.json({ error: 'Invalid session' }, { status: 403 });
+            return NextResponse.json({ error: 'Your session ended. Unlock the file again to download it.' }, { status: 403 });
         }
 
         // Check if access expired
@@ -75,22 +75,26 @@ export async function POST(request: NextRequest) {
 
         // Check if session expired
         if (access.session_expires_at && new Date(access.session_expires_at) < new Date()) {
-            return NextResponse.json({ error: 'Session expired' }, { status: 403 });
+            return NextResponse.json({ error: 'Your session ended. Unlock the file again to download it.' }, { status: 403 });
         }
 
         // Check download limit
         const maxDownloads = access.max_downloads;
         const downloadCount = access.download_count || 0;
         if (maxDownloads !== null && downloadCount >= maxDownloads) {
-            return NextResponse.json({ error: 'Download limit reached' }, { status: 403 });
+            return NextResponse.json(
+                { error: "You've used all your downloads for this file. Ask the person who shared it if you need more." },
+                { status: 403 }
+            );
         }
 
-        // Increment download_count for both downloads and previews
-        // This tracks every time the file content is actually fetched
+        // Only real downloads count toward the limit; previews just refresh last_accessed
+        const isDownload = action === 'download';
+        const newDownloadCount = isDownload ? downloadCount + 1 : downloadCount;
         await adminClient
             .from('file_access')
             .update({
-                download_count: downloadCount + 1,
+                download_count: newDownloadCount,
                 last_accessed: new Date().toISOString(),
             })
             .eq('id', access.id);
@@ -99,11 +103,11 @@ export async function POST(request: NextRequest) {
         const { data: signedUrlData, error: urlError } = await adminClient.storage
             .from('files')
             .createSignedUrl(file.filename, 60, {
-                download: action === 'download' ? file.original_filename : undefined,
+                download: isDownload ? file.original_filename : undefined,
             });
 
         if (urlError || !signedUrlData) {
-            return NextResponse.json({ error: 'Failed to generate file URL' }, { status: 500 });
+            return NextResponse.json({ error: "We couldn't prepare the file. Try again in a moment." }, { status: 500 });
         }
 
         return NextResponse.json({
@@ -113,7 +117,7 @@ export async function POST(request: NextRequest) {
                 originalFilename: file.original_filename,
                 mimeType: file.mime_type,
             },
-            downloadCount: downloadCount + 1,
+            downloadCount: newDownloadCount,
             maxDownloads: maxDownloads,
         });
     } catch (error) {
