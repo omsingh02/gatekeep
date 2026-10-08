@@ -182,7 +182,8 @@ export function RequestUpload({ code, view, onFailure, onSignedOut }: RequestUpl
 
             <DeliveryHeading eyebrow={`${sender.name} asked you for files`} title={delivery.title} message={delivery.message} />
 
-            <MetaRow items={[{ icon: Upload, text: limitText }, ...endsItem(recipient.endsAt)]} />
+            {/* The file limits are shown once, where files are chosen */}
+            <MetaRow items={endsItem(recipient.endsAt)} />
 
             {showSuccess ? (
                 <Card className="flex flex-col items-start gap-4 p-5 sm:p-6">

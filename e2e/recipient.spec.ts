@@ -213,7 +213,9 @@ test('request: the recipient sees what was asked for, uploads files with progres
 
         await expect(page.getByText('Avery Stone asked you for files')).toBeVisible();
         await expect(page.getByRole('heading', { level: 1, name: request.title })).toBeVisible();
-        await expect(page.getByText('Up to 3 files, 5 MB each').first()).toBeVisible();
+        // The limits are stated once, next to where files are chosen
+        await expect(page.getByText('Up to 3 files, 5 MB each')).toHaveCount(1);
+        await expect(page.getByText('Up to 3 files, 5 MB each')).toBeVisible();
 
         await page.locator('input[type="file"]').setInputFiles([
             { name: 'signed-contract.pdf', mimeType: 'application/pdf', buffer: Buffer.from(`%PDF-1.4\n% ${RUN_ID}\n`) },
