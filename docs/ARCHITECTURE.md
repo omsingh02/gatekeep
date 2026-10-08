@@ -25,7 +25,7 @@ Gatekeep v2 is built around **deliveries**: one link that sends files to (or req
 |---|---|
 | `app/api/deliveries` | Owner: list/create deliveries; `[id]` read/update/delete; `[id]/recipients` add, change, remove, resend invite |
 | `app/api/d/[code]` | Recipient: delivery view, `code` (request an email code), `session` (sign in/out), `files/[fileId]` (preview/download URL), `download-all`, `uploads` (+ `confirm`, `complete`) for requests, `stream` (SSE for live removal) |
-| `app/api/activity` | Owner: activity feed (filters, cursor pagination) and `export` (CSV) |
+| `app/api/activity` | Owner: activity feed (filters, cursor pagination), `summary` (period totals and deliveries open now) and `export` (CSV) |
 | `app/api/settings` | Owner settings; `logo` upload to the public `branding` bucket |
 | `app/api/account` | `password` (change, confirming the current one), `forgot-password` (recovery link to `/reset-password`) |
 | `app/api/status` | What's set up: email, cron secret, sign-ups, storage, migrations, owner |
@@ -84,8 +84,8 @@ Every step writes an `activity` row (`lib/deliveries/activity.ts`). Owner emails
 `GET /api/activity/export` streams the same feed as CSV, with formula-injection protection.
 
 ### Owner account
-- **Change password:** `/api/account/password` confirms the current password with a throwaway client before updating.
-- **Forgot password:** `/api/account/forgot-password` always answers the same way. It generates a Supabase recovery link (`redirectTo` `/reset-password`) and sends it in Gatekeep's template, but only if the email belongs to the owner.
+- **Change password:** `/api/account/password` confirms the current password with a throwaway client before updating. Supabase ends every session of the account when its password changes; the route signs the current browser back in, so only other browsers and devices are signed out. Settings → Account also offers "Sign out everywhere" (`signOut({ scope: 'global' })`).
+- **Forgot password:** `/api/account/forgot-password` always answers the same way. It generates a Supabase recovery token and emails a link to `/reset-password?token_hash=…&type=recovery` in Gatekeep's template, but only if the email belongs to the owner. The page verifies the token with `verifyOtp` (it also accepts Supabase's own `#access_token` and `?code=` redirects), then sets the new password with `updateUser`. Linking to the app directly means no Supabase redirect URL has to be configured.
 
 ### Upgrade from v1
 Migration `20261009000000_deliveries.sql` runs `migrate_v1_to_v2()`, which can safely run more than once:

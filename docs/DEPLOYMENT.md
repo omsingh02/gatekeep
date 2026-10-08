@@ -35,9 +35,14 @@ Copy `.env.example` to `.env.local` (local / Docker) or add them in your host's 
 
 ### Supabase Auth URLs
 
-In Supabase → **Authentication → URL Configuration**, set **Site URL** to your public URL and add
-`https://<your-domain>/reset-password` to **Redirect URLs**. The owner's "Forgot password?" link
-lands there.
+In Supabase → **Authentication → URL Configuration**, set **Site URL** to your public URL. The
+owner's "Forgot password?" email links straight to `https://<your-domain>/reset-password` (using
+`NEXT_PUBLIC_APP_URL`), so no redirect URL is needed for it. Adding
+`https://<your-domain>/reset-password` to **Redirect URLs** does no harm: the page also accepts
+Supabase's own recovery redirects.
+
+Settings → **System status** in the dashboard checks email, the daily job, sign-ups, storage and
+migrations, and says what to change for each.
 
 ## 3. Owner account
 

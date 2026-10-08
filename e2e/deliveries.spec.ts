@@ -406,5 +406,6 @@ test('forgot password answers the same for any email', async ({ request }) => {
     expect(owner.status()).toBe(200);
     expect(await owner.json()).toEqual(await stranger.json());
     const reset = await waitForEmail(request, DEMO.admin.email, /Reset your Gatekeep password/);
-    expect(reset.text).toContain('/auth/v1/verify');
+    // Links straight to the reset page with a one-time token hash (no Supabase redirect allow list needed)
+    expect(reset.text).toMatch(/\/reset-password\?token_hash=[0-9a-f]+&type=recovery/);
 });
