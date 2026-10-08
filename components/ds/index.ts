@@ -22,4 +22,4 @@ export { Menu, type MenuItem, type MenuProps } from './Menu';
 export { ToastProvider, useToast, type ToastTone, type ToastOptions } from './Toast';
 export { CopyField, type CopyFieldProps } from './CopyField';
 export { DateTimePicker, DEFAULT_PRESETS, type DateTimePickerProps, type DatePreset } from './DateTimePicker';
-export { Logo, LogoMark, LOGO_GLYPH_PATH, type LogoProps, type LogoMarkProps } from './Logo';
+export { Logo, LogoMark, LOGO_GLYPH_PATH, LOGO_GLYPH_TRANSFORM, type LogoProps, type LogoMarkProps } from './Logo';

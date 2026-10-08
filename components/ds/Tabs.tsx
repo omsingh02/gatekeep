@@ -19,9 +19,10 @@ export interface TabItem<T extends string> {
 }
 
 export interface TabsProps<T extends string> {
-    items: TabItem<T>[];
+    /** NoInfer: T is inferred from `value` only, so string-literal state types (and setState) work */
+    items: TabItem<NoInfer<T>>[];
     value: T;
-    onChange: (value: T) => void;
+    onChange: (value: NoInfer<T>) => void;
     label: string;
     className?: string;
 }

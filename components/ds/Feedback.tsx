@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { AlertTriangle, CircleAlert, Info, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, CircleAlert, Info, type LucideIcon } from 'lucide-react';
 import { cn } from './cn';
 
 export interface EmptyStateProps {
@@ -34,7 +34,7 @@ export type CalloutTone = 'neutral' | 'warning' | 'danger' | 'success';
 
 const calloutTones: Record<CalloutTone, { box: string; icon: LucideIcon; iconClass: string }> = {
     neutral: { box: 'border-default bg-raised', icon: Info, iconClass: 'text-secondary' },
-    success: { box: 'border-success-border bg-success-bg', icon: Info, iconClass: 'text-success' },
+    success: { box: 'border-success-border bg-success-bg', icon: CheckCircle2, iconClass: 'text-success' },
     warning: { box: 'border-warning-border bg-warning-bg', icon: AlertTriangle, iconClass: 'text-warning' },
     danger: { box: 'border-danger-border bg-danger-bg', icon: CircleAlert, iconClass: 'text-danger' },
 };

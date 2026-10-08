@@ -11,9 +11,10 @@ export interface SegmentedOption<T extends string> {
 }
 
 export interface SegmentedControlProps<T extends string> {
-    options: SegmentedOption<T>[];
+    /** NoInfer: T is inferred from `value` only, so string-literal state types (and setState) work */
+    options: SegmentedOption<NoInfer<T>>[];
     value: T;
-    onChange: (value: T) => void;
+    onChange: (value: NoInfer<T>) => void;
     /** Accessible name for the group */
     label: string;
     size?: 'sm' | 'md';
@@ -48,7 +49,12 @@ export function SegmentedControl<T extends string>({
         <div
             role="radiogroup"
             aria-label={label}
-            className={cn('inline-flex gap-0.5 rounded-md border border-default bg-inset p-0.5', fullWidth && 'flex w-full', className)}
+            className={cn(
+                'inline-flex gap-0.5 rounded-md border border-default bg-inset p-0.5',
+                // Hug the options even inside stretching flex columns (e.g. a Field)
+                fullWidth ? 'flex w-full' : 'w-fit max-w-full self-start',
+                className
+            )}
         >
             {options.map((option, i) => {
                 const selected = option.value === value;

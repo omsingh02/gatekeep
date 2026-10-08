@@ -512,7 +512,8 @@ function Preview() {
 
                     <div className="mt-6 flex flex-col gap-3">
                         <Callout title="Email isn't set up on this Gatekeep">
-                            Email codes need `RESEND_API_KEY` and `EMAIL_FROM`. Until then, recipients use a password.
+                            Email codes need <code className="font-mono text-body-sm">RESEND_API_KEY</code> and{' '}
+                            <code className="font-mono text-body-sm">EMAIL_FROM</code>. Until then, recipients use a password.
                         </Callout>
                         <Callout tone="warning" title="Access ends in 2 days" action={<Button size="sm">Extend</Button>}>
                             j.chen can open this delivery until Oct 9 at 6:00 PM.

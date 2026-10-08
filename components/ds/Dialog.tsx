@@ -54,8 +54,15 @@ export function Dialog({ open, onClose, title, description, children, footer, si
         const previousOverflow = document.body.style.overflow;
         document.body.style.overflow = 'hidden';
 
+        // First field in the body, then the footer's first button, then the close button
         const focusFirst = () => {
-            const target = initialFocus?.current ?? panelRef.current?.querySelector<HTMLElement>(FOCUSABLE) ?? panelRef.current;
+            const panel = panelRef.current;
+            const target =
+                initialFocus?.current ??
+                panel?.querySelector<HTMLElement>(`[data-dialog-body] :is(${FOCUSABLE})`) ??
+                panel?.querySelector<HTMLElement>(`[data-dialog-footer] :is(${FOCUSABLE})`) ??
+                panel?.querySelector<HTMLElement>(FOCUSABLE) ??
+                panel;
             target?.focus();
         };
         const frame = requestAnimationFrame(focusFirst);
@@ -132,9 +139,15 @@ export function Dialog({ open, onClose, title, description, children, footer, si
                         <X aria-hidden strokeWidth={1.75} className="h-4 w-4" />
                     </button>
                 </div>
-                {children && <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 text-body text-primary">{children}</div>}
+                {children && (
+                    <div data-dialog-body className="min-h-0 flex-1 overflow-y-auto px-5 py-4 text-body text-primary">
+                        {children}
+                    </div>
+                )}
                 {footer && (
-                    <div className="flex flex-col-reverse gap-2 border-t border-subtle px-5 py-3 sm:flex-row sm:justify-end">{footer}</div>
+                    <div data-dialog-footer className="flex flex-col-reverse gap-2 border-t border-subtle px-5 py-3 sm:flex-row sm:justify-end">
+                        {footer}
+                    </div>
                 )}
             </div>
         </div>,

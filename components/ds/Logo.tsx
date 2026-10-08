@@ -2,6 +2,8 @@ import { cn } from './cn';
 
 /** The gate + keyhole glyph, drawn on a 64×64 grid. Even-odd fill knocks the keyhole out of the door. */
 export const LOGO_GLYPH_PATH = 'M17.5 31a14.5 14.5 0 0 1 29 0v20a2 2 0 0 1-2 2h-25a2 2 0 0 1-2-2zM29.75 37.4a5.6 5.6 0 1 1 4.5 0L36 45.5h-8z';
+/** Enlarges the glyph 15% and centres it optically in the tile (legible at 16px). */
+export const LOGO_GLYPH_TRANSFORM = 'translate(32 32.5) scale(1.15) translate(-32 -34.75)';
 
 export interface LogoMarkProps {
     size?: number;
@@ -15,7 +17,7 @@ export function LogoMark({ size = 28, inverted = false, className }: LogoMarkPro
     return (
         <svg viewBox="0 0 64 64" width={size} height={size} aria-hidden className={cn('shrink-0', className)}>
             <rect width="64" height="64" rx="14" fill={inverted ? '#1a1a1a' : '#f5f5f5'} />
-            <path fill={inverted ? '#ffffff' : '#1a1a1a'} fillRule="evenodd" d={LOGO_GLYPH_PATH} />
+            <path fill={inverted ? '#ffffff' : '#1a1a1a'} fillRule="evenodd" d={LOGO_GLYPH_PATH} transform={LOGO_GLYPH_TRANSFORM} />
         </svg>
     );
 }
