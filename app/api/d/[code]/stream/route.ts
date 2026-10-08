@@ -29,6 +29,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             let closed = false;
             let channel: RealtimeChannel | null = null;
             const timers: NodeJS.Timeout[] = [];
+            // Flush the headers now, so the browser sees the stream open instead of waiting for the first heartbeat
+            controller.enqueue(encoder.encode(': connected\n\n'));
 
             const close = () => {
                 if (closed) return;
