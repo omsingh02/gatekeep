@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ExternalLink, Inbox, Link2, Plus, Search, Send, Trash2, X } from 'lucide-react';
 import {
@@ -16,60 +15,22 @@ import {
     PageHeader,
     SegmentedControl,
     Skeleton,
-    StatusPill,
     TBody,
-    TD,
-    TH,
     THead,
-    TR,
     Table,
     TableEmpty,
     Toolbar,
     useToast,
-    type BadgeTone,
 } from '@/components/ds';
 import { useDebouncedValue } from '@/lib/utils/hooks';
 import { api, errorMessage, type DeliveryKind, type DeliveryListItem } from './api';
-import { dateTime, plural, timeAgoInSentence } from './format';
-import { PersonAvatar } from './PersonAvatar';
+import { DeliverySummary, DeliveryTableHead, DeliveryTableRow, DeliveryTableRowSkeleton } from './DeliveryRow';
 import { useCopy } from './SentPanel';
 
 const ICON = { strokeWidth: 1.75, className: 'h-4 w-4', 'aria-hidden': true } as const;
 const PAGE = 50;
 
 type StatusFilter = 'all' | 'active' | 'ended';
-
-const STATUS: Record<DeliveryListItem['status'], { tone: BadgeTone; label: string }> = {
-    active: { tone: 'success', label: 'Active' },
-    ended: { tone: 'danger', label: 'Ended' },
-    no_recipients: { tone: 'neutral', label: 'No people' },
-};
-
-function People({ item }: { item: DeliveryListItem }) {
-    if (item.recipientCount === 0) return <span className="text-tertiary">No one yet</span>;
-    const preview = item.recipientPreview ?? [];
-    const first = preview[0];
-    return (
-        <span className="flex min-w-0 items-center gap-2">
-            <span className="flex shrink-0 -space-x-1.5" aria-hidden>
-                {preview.map((name, i) => (
-                    <PersonAvatar key={i} label={name} className="ring-2 ring-gray-2" />
-                ))}
-            </span>
-            <span className="min-w-0 truncate text-body-sm text-secondary">
-                {item.recipientCount === 1 && first ? first : plural(item.recipientCount, 'person', 'people')}
-            </span>
-        </span>
-    );
-}
-
-function lastActivity(item: DeliveryListItem) {
-    return item.lastOpenedAt ? { text: `Opened ${timeAgoInSentence(item.lastOpenedAt)}`, at: item.lastOpenedAt } : { text: `Created ${timeAgoInSentence(item.createdAt)}`, at: item.createdAt };
-}
-
-function capitalize(text: string) {
-    return text[0].toUpperCase() + text.slice(1);
-}
 
 /** Deliveries (or requests): search, filter by status, open one, copy its link or delete it. */
 export function DeliveryList({ kind }: { kind: DeliveryKind }) {
@@ -222,82 +183,19 @@ export function DeliveryList({ kind }: { kind: DeliveryKind }) {
                     <Card flush className="hidden overflow-hidden md:block">
                         <Table aria-label={isRequest ? 'Requests' : 'Deliveries'}>
                             <THead>
-                                <tr>
-                                    <TH>Title</TH>
-                                    {!isRequest && <TH numeric>Files</TH>}
-                                    <TH>{isRequest ? 'Who can upload' : 'Recipients'}</TH>
-                                    <TH numeric>Opens</TH>
-                                    <TH>Last activity</TH>
-                                    <TH>Status</TH>
-                                    <TH className="w-12">
-                                        <span className="sr-only">Actions</span>
-                                    </TH>
-                                </tr>
+                                <DeliveryTableHead isRequest={isRequest} />
                             </THead>
                             <TBody>
                                 {loading ? (
-                                    Array.from({ length: 6 }, (_, i) => (
-                                        <TR key={i}>
-                                            <TD>
-                                                <Skeleton className="h-3.5 w-48" />
-                                            </TD>
-                                            {!isRequest && (
-                                                <TD numeric>
-                                                    <Skeleton className="ml-auto h-3.5 w-6" />
-                                                </TD>
-                                            )}
-                                            <TD>
-                                                <Skeleton className="h-6 w-32" />
-                                            </TD>
-                                            <TD numeric>
-                                                <Skeleton className="ml-auto h-3.5 w-6" />
-                                            </TD>
-                                            <TD>
-                                                <Skeleton className="h-3.5 w-24" />
-                                            </TD>
-                                            <TD>
-                                                <Skeleton className="h-5 w-16" />
-                                            </TD>
-                                            <TD />
-                                        </TR>
-                                    ))
+                                    Array.from({ length: 6 }, (_, i) => <DeliveryTableRowSkeleton key={i} isRequest={isRequest} />)
                                 ) : visible.length === 0 ? (
                                     <TableEmpty colSpan={isRequest ? 6 : 7}>
                                         {q ? `No ${noun === 'request' ? 'requests' : 'deliveries'} match “${q}”.` : `No ${status} ${noun === 'request' ? 'requests' : 'deliveries'}.`}
                                     </TableEmpty>
                                 ) : (
-                                    visible.map((item) => {
-                                        const last = lastActivity(item);
-                                        return (
-                                            <TR key={item.id} interactive onClick={() => router.push(`${base}/${item.id}`)} data-testid="delivery-row">
-                                                <TD strong className="max-w-[360px]">
-                                                    <Link
-                                                        href={`${base}/${item.id}`}
-                                                        onClick={(event) => event.stopPropagation()}
-                                                        className="block truncate rounded-sm font-medium text-strong hover:underline focus-ring"
-                                                    >
-                                                        {item.title}
-                                                    </Link>
-                                                </TD>
-                                                {!isRequest && <TD numeric>{item.fileCount}</TD>}
-                                                <TD>
-                                                    <People item={item} />
-                                                </TD>
-                                                <TD numeric>{item.opens}</TD>
-                                                <TD>
-                                                    <span title={dateTime(last.at)} className="whitespace-nowrap">
-                                                        {capitalize(last.text)}
-                                                    </span>
-                                                </TD>
-                                                <TD>
-                                                    <StatusPill tone={STATUS[item.status].tone}>{STATUS[item.status].label}</StatusPill>
-                                                </TD>
-                                                <TD onClick={(event) => event.stopPropagation()} className="text-right">
-                                                    {menu(item)}
-                                                </TD>
-                                            </TR>
-                                        );
-                                    })
+                                    visible.map((item) => (
+                                        <DeliveryTableRow key={item.id} item={item} href={`${base}/${item.id}`} isRequest={isRequest} actions={menu(item)} />
+                                    ))
                                 )}
                             </TBody>
                         </Table>
@@ -322,34 +220,13 @@ export function DeliveryList({ kind }: { kind: DeliveryKind }) {
                                         </Card>
                                     </li>
                                 )
-                              : visible.map((item) => {
-                                    const last = lastActivity(item);
-                                    return (
-                                        <li key={item.id}>
-                                            <Card className="relative flex items-start gap-3 transition-colors hover:border-strong">
-                                                <div className="min-w-0 flex-1">
-                                                    <Link href={`${base}/${item.id}`} className="block truncate rounded-sm text-body font-medium text-strong focus-ring after:absolute after:inset-0">
-                                                        {item.title}
-                                                    </Link>
-                                                    <p className="mt-1 text-caption text-secondary">
-                                                        {[
-                                                            !isRequest ? plural(item.fileCount, 'file') : null,
-                                                            plural(item.recipientCount, 'person', 'people'),
-                                                            plural(item.opens, 'open'),
-                                                        ]
-                                                            .filter(Boolean)
-                                                            .join(' · ')}
-                                                    </p>
-                                                    <div className="mt-2 flex items-center gap-2">
-                                                        <StatusPill tone={STATUS[item.status].tone}>{STATUS[item.status].label}</StatusPill>
-                                                        <span className="text-caption text-tertiary">{capitalize(last.text)}</span>
-                                                    </div>
-                                                </div>
-                                                <div className="relative z-10 -mr-1.5 -mt-1">{menu(item)}</div>
-                                            </Card>
-                                        </li>
-                                    );
-                                })}
+                              : visible.map((item) => (
+                                    <li key={item.id}>
+                                        <Card className="relative flex items-start gap-3 transition-colors hover:border-strong">
+                                            <DeliverySummary item={item} href={`${base}/${item.id}`} isRequest={isRequest} actions={menu(item)} />
+                                        </Card>
+                                    </li>
+                                ))}
                     </ul>
 
                     {items && items.length < total && (
