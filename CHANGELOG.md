@@ -23,6 +23,11 @@ Gatekeep becomes **secure file delivery with receipts** ([docs/PRODUCT.md](docs/
 - **Requests:** recipients see what was asked for, drop or choose files, watch each upload, retry failures, and get a "Sent 3 files to …" confirmation.
 - **Clear endings:** dedicated pages for ended access and removed access (the open page switches the moment access is removed), a download-limit notice that keeps previews working, and calm 404 and error pages.
 
+### v2: website and homepage
+- **Product page** at `/`, rebuilt in Gatekeep Mono: what Gatekeep is and who it's for, named recipients vs bearer links, how it works with real screenshots, "Email code or password?" with the interactive helper (also in the FAQ), security, self-hosting and an FAQ.
+- **Branded homepage:** Settings → Branding → Homepage switches `/` to a simple welcome with your name and logo that points visitors back to their link. A fresh install shows the product page until settings are saved.
+- **README and screenshots** for v2; `npm run screenshots` now creates realistic demo deliveries and captures the v2 screens.
+
 ### Security
 - **The dashboard and admin APIs are owner-only.** Previously any signed-in Supabase account could use them, so an instance with sign-ups enabled let strangers upload into its storage. Set `OWNER_EMAILS` or run `npm run create-admin` before upgrading.
 - The unlock page gives one answer for unknown recipients and wrong passwords (with equal timing), so it can't be used to discover who has access. End dates and download limits are only revealed after the password is accepted.
