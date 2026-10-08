@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Badge, Skeleton, ConfirmDialog, useToast } from '@/components/ui';
+import { useState, useEffect, useCallback } from 'react';
+import { Skeleton, ConfirmDialog, useToast } from '@/components/ui';
 import { formatDateTime } from '@/lib/utils/date';
 import Link from 'next/link';
 
@@ -42,11 +42,7 @@ export default function ShareList({ limit, showViewAll = false, viewAllHref = '/
     });
     const toast = useToast();
 
-    useEffect(() => {
-        fetchShares();
-    }, [limit]);
-
-    const fetchShares = async () => {
+    const fetchShares = useCallback(async () => {
         try {
             const url = limit ? `/api/access?limit=${limit}` : '/api/access';
             const response = await fetch(url);
@@ -55,12 +51,16 @@ export default function ShareList({ limit, showViewAll = false, viewAllHref = '/
                 setShares(data.access || []);
                 setTotalCount(data.totalCount || data.access?.length || 0);
             }
-        } catch (error) {
+        } catch {
             // Error handled silently
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [limit]);
+
+    useEffect(() => {
+        fetchShares();
+    }, [fetchShares]);
 
     const handleRevoke = async (shareId: string) => {
         try {
@@ -75,7 +75,7 @@ export default function ShareList({ limit, showViewAll = false, viewAllHref = '/
             } else {
                 toast.error('Failed to revoke access');
             }
-        } catch (error) {
+        } catch {
             toast.error('Failed to revoke access');
         } finally {
             setRevokeConfirm({ isOpen: false, shareId: null, userName: '' });

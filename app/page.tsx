@@ -19,7 +19,6 @@ import {
     FileCode,
     FileText,
     FolderTree,
-    Github,
     Globe,
     HeartPulse,
     KeyRound,
@@ -35,6 +34,7 @@ import {
     Users,
 } from 'lucide-react';
 import { Logo } from '@/components/brand/Logo';
+import { GitHubIcon } from '@/components/brand/GitHubIcon';
 import { CopyCommand } from '@/components/brand/CopyCommand';
 
 export const metadata: Metadata = {
@@ -364,7 +364,7 @@ export default function Home() {
                             aria-label="Gatekeep on GitHub"
                             className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-zinc-300 transition hover:text-white"
                         >
-                            <Github className="h-4 w-4" />
+                            <GitHubIcon className="h-4 w-4" />
                             <span className="hidden sm:inline">GitHub</span>
                         </a>
                         <Link
@@ -920,7 +920,7 @@ export default function Home() {
                             MIT License
                         </a>
                         <a href={GITHUB_URL} className="inline-flex items-center gap-1.5 transition hover:text-zinc-300">
-                            <Github className="h-3.5 w-3.5" /> GitHub
+                            <GitHubIcon className="h-3.5 w-3.5" /> GitHub
                         </a>
                         <a href={DOCS_URL} className="transition hover:text-zinc-300">
                             Docs

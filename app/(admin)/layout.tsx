@@ -1,6 +1,13 @@
+import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import SignOutButton from '@/components/admin/SignOutButton';
+import AdminNav from '@/components/admin/AdminNav';
+
+export const metadata: Metadata = {
+    title: { default: 'Overview — Gatekeep', template: '%s — Gatekeep' },
+    robots: { index: false, follow: false },
+};
 
 export default async function AdminLayout({
     children,
@@ -29,7 +36,7 @@ export default async function AdminLayout({
                 <div style={{
                     maxWidth: '1400px',
                     margin: '0 auto',
-                    padding: '1rem clamp(1rem, 3vw, 2rem)',
+                    padding: '1rem clamp(1rem, 3vw, 2rem) 0',
                 }}>
                     <div style={{
                         display: 'flex',
@@ -110,6 +117,9 @@ export default async function AdminLayout({
                             </div>
                             <SignOutButton />
                         </div>
+                    </div>
+                    <div style={{ marginTop: '0.75rem' }}>
+                        <AdminNav />
                     </div>
                 </div>
             </header>
