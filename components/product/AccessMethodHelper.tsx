@@ -172,7 +172,8 @@ function HelperFlow({ emailConfigured, onApply, className }: Pick<AccessMethodHe
                 </div>
             )}
 
-            <div aria-live="polite">
+            {/* Kept mounted so the recommendation is announced; out of the layout until there is one */}
+            <div aria-live="polite" className={cn(!result && 'sr-only')}>
                 {result && (
                     <div className="ds-pop-in flex flex-col gap-3 rounded-lg border border-strong bg-raised p-4" data-testid="access-method-result">
                         <div className="flex items-start gap-3">
