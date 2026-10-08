@@ -1,7 +1,13 @@
+import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import SignOutButton from '@/components/admin/SignOutButton';
 import AdminNav from '@/components/admin/AdminNav';
+
+export const metadata: Metadata = {
+    title: { default: 'Overview — Gatekeep', template: '%s — Gatekeep' },
+    robots: { index: false, follow: false },
+};
 
 export default async function AdminLayout({
     children,

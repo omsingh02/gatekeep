@@ -1,4 +1,7 @@
+import type { Metadata } from 'next';
 import FileList from '@/components/admin/FileList';
+
+export const metadata: Metadata = { title: 'Files' };
 
 export default function AllFilesPage() {
     return (
