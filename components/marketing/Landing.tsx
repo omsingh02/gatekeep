@@ -500,7 +500,7 @@ const SECURITY: { icon: LucideIcon; title: string; body: string }[] = [
     {
         icon: Timer,
         title: 'Signed, short-lived URLs',
-        body: 'Files sit in a private bucket. Each preview or download gets a link that lasts 60 seconds, after access is checked again.',
+        body: 'Files sit in a private bucket. Each download gets a link that lasts 60 seconds, issued only after access is checked again.',
     },
     {
         icon: Database,

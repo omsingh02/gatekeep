@@ -162,9 +162,10 @@ Sign in and open **Settings → System status**: it checks email, the daily job,
 migrations, and says what to change. Point an uptime monitor at `https://<your-domain>/api/health`
 (`200` when the app can reach its database, `503` when it can't).
 
-**Upgrading from 1.x?** Set `OWNER_EMAILS` or run `npm run create-admin` with your existing email, then
-`npx supabase db push`. Every v1 link becomes a delivery with the same address, recipients keep their
-passwords, and the access log carries over into Activity. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#upgrading-an-existing-deployment).
+**Upgrading from 1.x?** Back up, make yourself the owner (`OWNER_EMAILS` or `npm run create-admin`), and run
+the three new migrations *before* deploying 2.0. Every 1.x link becomes a delivery with the same address,
+recipients keep their passwords, and the access log carries over into Activity. Follow
+[Upgrading from 1.x to 2.0](docs/DEPLOYMENT.md#upgrading-from-1x-to-20) step by step.
 
 ## How it works
 
@@ -192,7 +193,7 @@ sequenceDiagram
     App-->>Recipient: httpOnly session cookie, then the files
     Recipient->>App: Preview, download or Download all
     App->>DB: Re-check access, end date and limit, record the event
-    App->>Files: Signed URL that lasts 60 seconds
+    App->>Files: Short-lived signed URL, 60 seconds for a download
     Files-->>Recipient: File
     App->>Mail: Owner notification
     Owner->>App: Remove access
@@ -215,8 +216,9 @@ More in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
   not the person is on the delivery. "Forgot password" answers the same way for any email address.
 - **Throttling** counted in the database, so it holds across serverless instances: 20 failed attempts per IP and
   100 per delivery every 15 minutes, and 10 code requests per IP every 10 minutes.
-- **Private storage.** Files are served only through signed URLs (60 seconds per file, 5 minutes for Download
-  all) after access is checked again. Request uploads are checked for type, size and count.
+- **Private storage.** Files are served only through signed URLs, issued after access is checked again: 60
+  seconds for downloads and most previews, 15 minutes for video and audio previews (which stream in ranges),
+  5 minutes for Download all. Request uploads are checked for type, size and count.
 - **Row-level security** on every table; the service-role key never leaves the server. Strict CSP, HSTS,
   `X-Frame-Options: DENY` and nosniff headers.
 

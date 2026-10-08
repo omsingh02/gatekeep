@@ -54,11 +54,11 @@ the dashboard is now owner-only and three database migrations must run before th
   ([docs/VOICE.md](docs/VOICE.md)), a new logo, icons and social images, and one light email template (with a
   text version) for invites, codes, notifications, access ending and password resets. Emails appear as
   "{your name} via Gatekeep", and replies go to you.
-
-### v2: website and homepage
-- **Product page** at `/`, rebuilt in Gatekeep Mono: what Gatekeep is and who it's for, named recipients vs bearer links, how it works with real screenshots, "Email code or password?" with the interactive helper (also in the FAQ), security, self-hosting and an FAQ.
-- **Branded homepage:** Settings → Branding → Homepage switches `/` to a simple welcome with your name and logo that points visitors back to their link. A fresh install shows the product page until settings are saved.
-- **README and screenshots** for v2; `npm run screenshots` now creates realistic demo deliveries and captures the v2 screens.
+- **A product page, or your own homepage.** `/` explains Gatekeep to anyone who finds your instance: who it's
+  for, named recipients vs bearer links, how it works with real screenshots, "Email code or password?" with
+  the helper (also in the FAQ), security, self-hosting and an FAQ. Settings → Branding → **Homepage** switches
+  it to a simple welcome with your name and logo that points visitors back to their link. A fresh install
+  shows the product page until settings are saved.
 
 ### Security
 
@@ -129,7 +129,8 @@ These change how an existing 1.x instance behaves; see the upgrade notes below.
 - `GET /api/status` (shown in Settings → System status).
 - Page titles per dashboard section, `robots.txt` and a sitemap.
 - A local demo (`npm run seed:demo`, seeded in the 1.x shape so it exercises the upgrade) and reproducible
-  screenshots (`npm run screenshots`).
+  screenshots of the v2 screens (`npm run screenshots`, which first creates realistic deliveries and
+  recipient activity).
 - A Playwright end-to-end suite against a local Supabase, run in CI alongside a job that applies every
   migration to a fresh database.
 - Issue forms, a pull-request template, Dependabot and a Code of Conduct.
