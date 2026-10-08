@@ -38,8 +38,10 @@ import { ActivityFeed } from './ActivityFeed';
 import { AddFilesDialog, AddPeopleDialog, ChangeAccessDialog, ChangePasswordDialog, EditDetailsDialog } from './DetailDialogs';
 import { FileIcon, fileTypeLabel } from './FileIcon';
 import {
+    DELIVERY_STATUS,
     METHOD_LABELS,
     dateTime,
+    deliveryStatus,
     downloadsLabel,
     endsShort,
     formatSize,
@@ -69,11 +71,13 @@ function RecipientsPanel({
     delivery,
     emailConfigured,
     onAdd,
+    onChangeAccess,
     onChanged,
 }: {
     delivery: DeliveryDetail;
     emailConfigured: boolean | undefined;
     onAdd: () => void;
+    onChangeAccess: (recipient: Recipient) => void;
     onChanged: () => void;
 }) {
     const toast = useToast();
@@ -81,7 +85,6 @@ function RecipientsPanel({
     const [removing, setRemoving] = useState<Recipient | null>(null);
     const [notify, setNotify] = useState(false);
     const [passwordFor, setPasswordFor] = useState<Recipient | null>(null);
-    const [accessFor, setAccessFor] = useState<Recipient | null>(null);
 
     // Active people first, removed ones last (kept for the record)
     const rows = [...delivery.recipients].sort((a, b) => Number(Boolean(a.removedAt)) - Number(Boolean(b.removedAt)));
@@ -117,7 +120,7 @@ function RecipientsPanel({
         items.push({
             label: isRequest ? 'Change end date' : 'Change end date or limit',
             icon: <CalendarClock {...ICON} />,
-            onSelect: () => setAccessFor(r),
+            onSelect: () => onChangeAccess(r),
         });
         items.push({ type: 'separator' });
         items.push({
@@ -265,7 +268,6 @@ function RecipientsPanel({
                 </div>
             </ConfirmDialog>
             <ChangePasswordDialog deliveryId={delivery.id} recipient={passwordFor} onClose={() => setPasswordFor(null)} onChanged={onChanged} />
-            <ChangeAccessDialog deliveryId={delivery.id} kind={delivery.kind} recipient={accessFor} onClose={() => setAccessFor(null)} onChanged={onChanged} />
         </Card>
     );
 }
@@ -455,6 +457,52 @@ function ReceivedPanel({ delivery }: { delivery: DeliveryDetail }) {
 }
 
 /* ------------------------------------------------------------------------------------------ */
+/* No one has access                                                                           */
+/* ------------------------------------------------------------------------------------------ */
+
+/**
+ * Under the header when every recipient's access has ended or been removed: says so, and offers
+ * the ways back (a new end date for the person whose access ended, or adding people).
+ */
+function NoAccessCallout({
+    delivery,
+    onAdd,
+    onChangeAccess,
+}: {
+    delivery: DeliveryDetail;
+    onAdd: () => void;
+    onChangeAccess: (recipient: Recipient) => void;
+}) {
+    const ended = delivery.recipients.filter((r) => r.status === 'ended');
+    const one = ended.length === 1 ? ended[0] : null;
+    let text: string;
+    if (ended.length === 0) {
+        text = "You removed everyone's access. Add people to give access again.";
+    } else if (one) {
+        const whose = one.kind === 'anyone' ? 'Access for anyone with the password' : `${possessive(one.label)} access`;
+        text = `${whose} ended ${shortDate(one.endsAt ?? one.createdAt)}. Change the end date to give ${one.kind === 'anyone' ? 'it' : 'them'} more time, or add people.`;
+    } else {
+        text = "Everyone's access has ended. To give someone more time, change their end date from the menu next to their name, or add people.";
+    }
+
+    return (
+        <Callout title={delivery.kind === 'request' ? 'No one can upload to this request' : 'No one can open this delivery'}>
+            <p>{text}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+                {one && (
+                    <Button size="sm" icon={<CalendarClock {...ICON} />} onClick={() => onChangeAccess(one)}>
+                        Change end date
+                    </Button>
+                )}
+                <Button size="sm" icon={<UserPlus {...ICON} />} onClick={onAdd}>
+                    Add people
+                </Button>
+            </div>
+        </Callout>
+    );
+}
+
+/* ------------------------------------------------------------------------------------------ */
 /* Page                                                                                        */
 /* ------------------------------------------------------------------------------------------ */
 
@@ -503,6 +551,7 @@ export function DeliveryDetailView({ id, kind }: { id: string; kind: DeliveryKin
     const [tab, setTab] = useState<Tab>('recipients');
     const [version, setVersion] = useState(0);
     const [adding, setAdding] = useState(false);
+    const [accessFor, setAccessFor] = useState<Recipient | null>(null);
     const [editing, setEditing] = useState(false);
     const [deleting, setDeleting] = useState(false);
 
@@ -559,11 +608,14 @@ export function DeliveryDetailView({ id, kind }: { id: string; kind: DeliveryKin
     const activeNow = delivery.recipients.filter((r) => r.status === 'active').length;
     const people = active.filter((r) => r.kind === 'person').length;
     const anyone = active.some((r) => r.kind === 'anyone');
+    const status = deliveryStatus(delivery.recipients);
     const meta = [
         isRequest ? `Saves to ${delivery.requestFolder?.name ?? 'All files'}` : plural(delivery.files.length, 'file'),
         `${plural(people, isRequest ? 'person' : 'recipient', isRequest ? 'people' : 'recipients')}${anyone ? ' + anyone with the password' : ''}`,
         `created ${shortDate(delivery.createdAt)}`,
     ].join(' · ');
+    const recipientsDetail =
+        active.length === 0 ? (delivery.recipients.length ? 'All removed' : 'No one yet') : activeNow === active.length ? 'All active' : `${activeNow} active`;
 
     const remove = async () => {
         try {
@@ -588,7 +640,12 @@ export function DeliveryDetailView({ id, kind }: { id: string; kind: DeliveryKin
             <PageHeader
                 breadcrumb={<Breadcrumb items={[{ label: isRequest ? 'Requests' : 'Deliveries', href: listHref }, { label: delivery.title }]} />}
                 title={<span className="break-words">{delivery.title}</span>}
-                description={meta}
+                description={
+                    <span className="inline-flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                        <StatusPill tone={DELIVERY_STATUS[status].tone}>{DELIVERY_STATUS[status].label}</StatusPill>
+                        <span>{meta}</span>
+                    </span>
+                }
                 actions={
                     <>
                         <Button variant="secondary" icon={<Link2 {...ICON} />} onClick={() => copy(delivery.link, 'Link copied')}>
@@ -619,6 +676,8 @@ export function DeliveryDetailView({ id, kind }: { id: string; kind: DeliveryKin
                 <p className="-mt-2 max-w-3xl whitespace-pre-line border-l-2 border-default pl-3 text-body-sm text-secondary">{delivery.message}</p>
             )}
 
+            {status === 'ended' && <NoAccessCallout delivery={delivery} onAdd={() => setAdding(true)} onChangeAccess={setAccessFor} />}
+
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                 <StatCard
                     label="Opens"
@@ -643,7 +702,7 @@ export function DeliveryDetailView({ id, kind }: { id: string; kind: DeliveryKin
                 <StatCard
                     label={isRequest ? 'People' : 'Recipients'}
                     value={active.length}
-                    detail={activeNow === active.length ? (active.length ? 'All active' : 'No one yet') : `${activeNow} active`}
+                    detail={recipientsDetail}
                 />
             </div>
 
@@ -651,7 +710,13 @@ export function DeliveryDetailView({ id, kind }: { id: string; kind: DeliveryKin
                 <Tabs label={isRequest ? 'Request sections' : 'Delivery sections'} value={tab} onChange={setTab} items={tabs} />
                 <div role="tabpanel" id={`${tab}-panel`} aria-labelledby={`${tab}-tab`}>
                     {tab === 'recipients' && (
-                        <RecipientsPanel delivery={delivery} emailConfigured={defaults.emailConfigured} onAdd={() => setAdding(true)} onChanged={refresh} />
+                        <RecipientsPanel
+                            delivery={delivery}
+                            emailConfigured={defaults.emailConfigured}
+                            onAdd={() => setAdding(true)}
+                            onChangeAccess={setAccessFor}
+                            onChanged={refresh}
+                        />
                     )}
                     {tab === 'files' && (isRequest ? <ReceivedPanel delivery={delivery} /> : <FilesPanel delivery={delivery} onChanged={refresh} />)}
                     {tab === 'activity' && <ActivityFeed deliveryId={delivery.id} kind={delivery.kind} version={version} />}
@@ -666,6 +731,7 @@ export function DeliveryDetailView({ id, kind }: { id: string; kind: DeliveryKin
                 defaultMethod={defaults.defaultMethod}
                 onAdded={refresh}
             />
+            <ChangeAccessDialog deliveryId={delivery.id} kind={delivery.kind} recipient={accessFor} onClose={() => setAccessFor(null)} onChanged={refresh} />
             <EditDetailsDialog open={editing} onClose={() => setEditing(false)} delivery={delivery} onSaved={refresh} />
             <ConfirmDialog
                 open={deleting}
