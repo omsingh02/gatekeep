@@ -53,6 +53,8 @@ export async function proxy(request: NextRequest) {
     return response;
 }
 
+// /forgot-password and /reset-password are deliberately not matched: they must work signed out,
+// and a reset link signs the owner in on /reset-password, which must not bounce them elsewhere.
 export const config = {
     matcher: [
         '/admin/:path*',

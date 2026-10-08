@@ -4,9 +4,9 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { env } from '@/lib/env';
 import { rateLimit } from '@/lib/utils/ratelimit';
 import { jsonError, readJson, requireOwner, serverError } from '@/lib/deliveries/http';
+import { OWNER_PASSWORD_MIN } from '@/lib/utils/passwordStrength';
 
 const ROUTE = '/api/account/password';
-const OWNER_PASSWORD_MIN = 10;
 
 /** POST { currentPassword, newPassword }: change the owner's password after confirming the current one. */
 export async function POST(request: NextRequest) {

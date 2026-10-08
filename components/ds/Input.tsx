@@ -9,7 +9,10 @@ export type ControlSize = 'md' | 'lg';
 export const controlBase =
     'w-full rounded-md border bg-raised text-primary placeholder:text-tertiary transition-colors duration-100 ' +
     'hover:border-strong focus:outline-none focus-visible:outline-none focus:border-gray-8 focus:ring-2 focus:ring-white/15 ' +
-    'disabled:cursor-not-allowed disabled:opacity-50 read-only:bg-inset';
+    'disabled:cursor-not-allowed disabled:opacity-50';
+
+/** Read-only text fields sit in an inset well. Not on selects: CSS treats every <select> as :read-only. */
+const readOnlyInset = 'read-only:bg-inset';
 
 export function controlState(invalid?: boolean) {
     return invalid ? 'border-danger-border focus:border-danger focus:ring-danger-bg' : 'border-default';
@@ -45,6 +48,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
             aria-required={field?.required || undefined}
             className={cn(
                 controlBase,
+                readOnlyInset,
                 controlState(isInvalid),
                 heights[size],
                 mono && 'font-mono',
@@ -85,7 +89,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
             rows={rows}
             aria-invalid={isInvalid || undefined}
             aria-describedby={field?.describedBy}
-            className={cn(controlBase, controlState(isInvalid), 'min-h-16 px-2.5 py-2 text-body leading-5', mono && 'font-mono', className)}
+            className={cn(controlBase, readOnlyInset, controlState(isInvalid), 'min-h-16 px-2.5 py-2 text-body leading-5', mono && 'font-mono', className)}
             {...props}
         />
     );
