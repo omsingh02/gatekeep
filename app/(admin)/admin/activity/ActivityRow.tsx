@@ -1,39 +1,13 @@
 'use client';
 
 import { useId, type ReactNode } from 'react';
-import {
-    Ban,
-    ChevronDown,
-    Download,
-    Eye,
-    FolderDown,
-    KeyRound,
-    LogIn,
-    Send,
-    Upload,
-    UserMinus,
-    UserPlus,
-    type LucideIcon,
-} from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { Button, cn } from '@/components/ds';
+import { ActivityIcon } from '@/components/product/deliveries/ActivityIcon';
 import type { ActivityItem } from '@/lib/deliveries/activity-query';
-import type { ActivityType } from '@/lib/types';
 
 /** Same label the API uses for the "Anyone with the password" recipient (lib/deliveries/labels.ts). */
 const ANYONE = 'Anyone with the password';
-
-const ICONS: Record<ActivityType, LucideIcon> = {
-    opened: LogIn,
-    previewed: Eye,
-    downloaded: Download,
-    downloaded_all: FolderDown,
-    denied: Ban,
-    code_sent: KeyRound,
-    invite_sent: Send,
-    uploaded: Upload,
-    access_given: UserPlus,
-    access_removed: UserMinus,
-};
 
 function Strong({ children }: { children: ReactNode }) {
     return <span className="font-medium text-strong">{children}</span>;
@@ -113,8 +87,6 @@ export interface ActivityRowProps {
 
 export function ActivityRow({ item, expanded, onToggle, onFilterDelivery, onFilterPerson }: ActivityRowProps) {
     const detailsId = useId();
-    const Icon = ICONS[item.type] ?? LogIn;
-    const denied = item.type === 'denied';
     const created = new Date(item.createdAt);
 
     return (
@@ -126,15 +98,7 @@ export function ActivityRow({ item, expanded, onToggle, onFilterDelivery, onFilt
                 onClick={onToggle}
                 className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-raised focus-ring sm:px-5"
             >
-                <span
-                    className={cn(
-                        'mt-px flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-default bg-raised',
-                        denied ? 'text-danger' : 'text-secondary'
-                    )}
-                >
-                    <Icon aria-hidden strokeWidth={1.75} className="h-3.5 w-3.5" />
-                    <span className="sr-only">{item.typeLabel}</span>
-                </span>
+                <ActivityIcon type={item.type} label={item.typeLabel} />
                 <span className="min-w-0 flex-1 break-words pt-1 text-body-sm text-primary">{activitySentence(item)}</span>
                 <span className="flex shrink-0 items-center gap-1.5 pt-1">
                     <time dateTime={item.createdAt} className="text-caption tabular-nums text-tertiary">

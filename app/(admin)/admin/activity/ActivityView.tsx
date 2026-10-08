@@ -465,7 +465,7 @@ export default function ActivityView() {
                     {feed?.nextCursor ? (
                         <div className="flex justify-center">
                             <Button onClick={loadMore} loading={loadingMore}>
-                                {loadingMore ? 'Loading…' : 'Load more'}
+                                Show older activity
                             </Button>
                         </div>
                     ) : (
