@@ -58,3 +58,31 @@ jobs:
             psql -U postgres -d postgres -v ON_ERROR_STOP=1 -1 -f "$f"
             echo "::endgroup::"
           done
+
+  e2e:
+    # Real browser against the real app and a local Supabase (auth, storage, database)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - run: npm ci
+      - name: Start local Supabase
+        run: supabase start -x studio,imgproxy,edge-runtime,logflare,vector,mailpit,postgres-meta,supavisor
+      - run: npx playwright install --with-deps chromium
+      - name: Run end-to-end tests (seeds demo data, builds and starts the app)
+        run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
