@@ -112,29 +112,9 @@
   }
 }
 
-/* Font loaded via next/font in layout.tsx for better performance */
-
+/* Font loaded via next/font in layout.tsx. The UI is dark-only (Gatekeep Mono). */
 :root {
-  /* Brand */
-  --brand-indigo: #6366f1;
-  --brand-cyan: #22d3ee;
-  --brand-ink: #07080c;
-
-  /* Professional Color Palette */
-  --primary: #6366f1;
-  --primary-hover: #4f46e5;
-  --success: #059669;
-  --error: #dc2626;
-  --warning: #d97706;
-
-  /* The whole UI is dark (dashboard components hard-code light text), so tokens are dark-only */
   color-scheme: dark;
-  --background: #07080c;
-  --surface: #12141c;
-  --border: #23263a;
-  --text: #e4e4e7;
-  --text-secondary: #a1a1aa;
-  --text-muted: #71717a;
 }
 
 /*
@@ -145,8 +125,8 @@
 @layer base {
   body {
     font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    background: var(--background);
-    color: var(--text);
+    background: var(--color-canvas);
+    color: var(--color-gray-9);
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -158,16 +138,16 @@
   }
 
   ::-webkit-scrollbar-track {
-    background: var(--background);
+    background: var(--color-canvas);
   }
 
   ::-webkit-scrollbar-thumb {
-    background: var(--border);
+    background: var(--color-gray-5);
     border-radius: 5px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: var(--text-muted);
+    background: var(--color-gray-7);
   }
 
   /* Neutral focus ring everywhere (Gatekeep Mono); never colour-only */

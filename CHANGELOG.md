@@ -16,6 +16,13 @@ Gatekeep becomes **secure file delivery with receipts** ([docs/PRODUCT.md](docs/
 - **Screens:** Activity (the receipts feed: filters by delivery, event and period, period totals, details per event, CSV export), Settings (profile, branding with a live preview, sharing defaults, notifications, account, system status), and the owner's sign-in, forgot password and reset password pages.
 - **Upgrade:** every v1 link becomes a delivery with the same code. v1 grants and the access log are carried over; recipients unlock once more.
 
+### v2: the delivery page (what recipients see)
+- **Sign in as a guest:** the page names the sender (with their logo) and adapts to how they were invited: an email code (paste-friendly, resend with a cooldown, never says whether an address is on the delivery), their own password, or the delivery's shared password.
+- **The delivery:** title, message, when access ends and downloads left, then every file with **Preview** and **Download**, and **Download all** as one zip built in the browser (counted as one download, with progress; very large deliveries download file by file).
+- **Previews** on a full-screen stage for images, video, audio, PDFs, text and code, and Office files (through Microsoft's viewer, only after the recipient chooses it); arrow keys move between files.
+- **Requests:** recipients see what was asked for, drop or choose files, watch each upload, retry failures, and get a "Sent 3 files to …" confirmation.
+- **Clear endings:** dedicated pages for ended access and removed access (the open page switches the moment access is removed), a download-limit notice that keeps previews working, and calm 404 and error pages.
+
 ### Security
 - **The dashboard and admin APIs are owner-only.** Previously any signed-in Supabase account could use them, so an instance with sign-ups enabled let strangers upload into its storage. Set `OWNER_EMAILS` or run `npm run create-admin` before upgrading.
 - The unlock page gives one answer for unknown recipients and wrong passwords (with equal timing), so it can't be used to discover who has access. End dates and download limits are only revealed after the password is accepted.

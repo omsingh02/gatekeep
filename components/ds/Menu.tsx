@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { MoreHorizontal } from 'lucide-react';
 import { cn } from './cn';
 
@@ -15,29 +15,61 @@ export interface MenuProps {
     /** Custom trigger content; defaults to a "…" icon button */
     trigger?: ReactNode;
     align?: 'start' | 'end';
+    /** Non-interactive context above the items, e.g. the signed-in account's email */
+    header?: ReactNode;
     className?: string;
 }
 
 /** Dropdown of actions. Arrow keys move, Enter selects, Escape closes and returns focus. */
-export function Menu({ items, label, trigger, align = 'end', className }: MenuProps) {
+export function Menu({ items, label, trigger, align = 'end', header, className }: MenuProps) {
     const [open, setOpen] = useState(false);
     const [active, setActive] = useState(0);
     const menuId = useId();
     const triggerRef = useRef<HTMLButtonElement>(null);
     const listRef = useRef<HTMLDivElement>(null);
     const actionable = items.map((item, i) => ({ item, i })).filter(({ item }) => item.type !== 'separator' && !item.disabled);
+    // Viewport position of the list. The list is `fixed` so a scroll container (e.g. a Table, which
+    // must scroll sideways) can't clip it; it opens upwards when there's no room below.
+    const [position, setPosition] = useState<CSSProperties>({});
+
+    const openMenu = (index: number) => {
+        const rect = triggerRef.current?.getBoundingClientRect();
+        if (rect) {
+            const estimate = items.reduce((h, item) => h + (item.type === 'separator' ? 9 : 32), header ? 64 : 10);
+            const below = window.innerHeight - rect.bottom;
+            const up = below < estimate + 8 && rect.top > below;
+            setPosition({
+                ...(up ? { bottom: window.innerHeight - rect.top + 4 } : { top: rect.bottom + 4 }),
+                // clientWidth excludes the page scrollbar, which `fixed` offsets don't include either
+                ...(align === 'end' ? { right: document.documentElement.clientWidth - rect.right } : { left: rect.left }),
+            });
+        }
+        setActive(index);
+        setOpen(true);
+    };
 
     useEffect(() => {
         if (!open) return;
         const onPointer = (event: MouseEvent) => {
             if (!listRef.current?.contains(event.target as Node) && !triggerRef.current?.contains(event.target as Node)) setOpen(false);
         };
+        // A fixed list would drift away from its trigger on scroll or resize, so close instead
+        const onMove = (event: Event) => {
+            if (!listRef.current?.contains(event.target as Node)) setOpen(false);
+        };
         document.addEventListener('mousedown', onPointer);
-        return () => document.removeEventListener('mousedown', onPointer);
+        window.addEventListener('scroll', onMove, true);
+        window.addEventListener('resize', onMove);
+        return () => {
+            document.removeEventListener('mousedown', onPointer);
+            window.removeEventListener('scroll', onMove, true);
+            window.removeEventListener('resize', onMove);
+        };
     }, [open]);
 
     useEffect(() => {
-        if (open) listRef.current?.querySelector<HTMLElement>(`[data-index="${actionable[active]?.i}"]`)?.focus();
+        // preventScroll: focusing inside the fixed list must not scroll the page or a table, which would close it
+        if (open) listRef.current?.querySelector<HTMLElement>(`[data-index="${actionable[active]?.i}"]`)?.focus({ preventScroll: true });
     }, [open, active, actionable]);
 
     const close = (refocus = true) => {
@@ -48,12 +80,10 @@ export function Menu({ items, label, trigger, align = 'end', className }: MenuPr
     const onTriggerKey = (event: KeyboardEvent) => {
         if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
-            setActive(0);
-            setOpen(true);
+            openMenu(0);
         } else if (event.key === 'ArrowUp') {
             event.preventDefault();
-            setActive(actionable.length - 1);
-            setOpen(true);
+            openMenu(actionable.length - 1);
         }
     };
 
@@ -88,10 +118,7 @@ export function Menu({ items, label, trigger, align = 'end', className }: MenuPr
                 aria-controls={open ? menuId : undefined}
                 aria-label={trigger ? undefined : label}
                 title={trigger ? undefined : label}
-                onClick={() => {
-                    setActive(0);
-                    setOpen((o) => !o);
-                }}
+                onClick={() => (open ? setOpen(false) : openMenu(0))}
                 onKeyDown={onTriggerKey}
                 className={cn(
                     'inline-flex items-center justify-center rounded-md text-secondary transition-colors hover:bg-raised hover:text-primary focus-ring',
@@ -108,11 +135,16 @@ export function Menu({ items, label, trigger, align = 'end', className }: MenuPr
                     role="menu"
                     aria-label={label}
                     onKeyDown={onListKey}
-                    className={cn(
-                        'ds-pop-in absolute top-full z-40 mt-1 min-w-44 rounded-lg border border-default bg-raised p-1 shadow-overlay',
-                        align === 'end' ? 'right-0' : 'left-0'
-                    )}
+                    // Computed viewport coordinates (positioning only, not a design value)
+                    style={position}
+                    className="ds-pop-in fixed z-40 min-w-44 rounded-lg border border-default bg-raised p-1 shadow-overlay"
                 >
+                    {header && (
+                        <>
+                            <div className="px-2 pb-1.5 pt-1 text-body-sm text-secondary">{header}</div>
+                            <div role="separator" className="my-1 h-px bg-gray-4" />
+                        </>
+                    )}
                     {items.map((item, i) =>
                         item.type === 'separator' ? (
                             <div key={i} role="separator" className="my-1 h-px bg-gray-4" />

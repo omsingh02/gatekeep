@@ -1,13 +1,8 @@
 'use client';
 
-import { ToastProvider as LegacyToastProvider } from '@/components/ui';
 import { ToastProvider } from '@/components/ds';
 
-// The legacy provider stays until every screen uses components/ds (v2 Phase B)
+// One toast system for the whole app (dashboard, recipient and sign-in pages)
 export function Providers({ children }: { children: React.ReactNode }) {
-    return (
-        <LegacyToastProvider>
-            <ToastProvider>{children}</ToastProvider>
-        </LegacyToastProvider>
-    );
+    return <ToastProvider>{children}</ToastProvider>;
 }

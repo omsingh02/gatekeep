@@ -21,6 +21,11 @@ export async function GET(request: NextRequest) {
         const dateFilter = searchParams.get('dateFilter');
         const folderId = searchParams.get('folderId');
         const showAll = searchParams.get('showAll') === 'true'; // For recent files view
+        // Sort: name | size | modified (default); order: asc | desc (default)
+        const sortColumns = { name: 'original_filename', size: 'file_size', modified: 'updated_at' } as const;
+        const sortKey = searchParams.get('sort');
+        const sortColumn = sortKey && sortKey in sortColumns ? sortColumns[sortKey as keyof typeof sortColumns] : 'updated_at';
+        const ascending = searchParams.get('order') === 'asc';
         const limitNum = Math.min(Math.max(parseInt(limit || '', 10) || 20, 1), 100); // Bounded 1-100, default 20
         const pageNum = Math.max(parseInt(page || '', 10) || 1, 1); // Minimum 1
 
@@ -138,7 +143,9 @@ export async function GET(request: NextRequest) {
         }
 
         query = query
-            .order('created_at', { ascending: false })
+            .order(sortColumn, { ascending })
+            // Tie-breaker so equal values never shuffle between pages
+            .order('id', { ascending })
             .range(offset, offset + limitNum - 1);
         
         const { data: files, count: totalCount, error } = await query;
