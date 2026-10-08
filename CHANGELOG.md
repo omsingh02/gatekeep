@@ -22,7 +22,8 @@ the dashboard is now owner-only and three database migrations must run before th
   date and download limit, so you can remove one person without affecting anyone else, and an open page
   closes the moment their access is removed. Deliveries has a searchable list with status filters, a compose
   page with a review panel, a sent panel (invite status per person, passwords shown once, ready-to-paste
-  invite text), and a detail page with people, files, activity and **Add people**.
+  invite text), and a detail page with its status, people, files, activity and **Add people**. When
+  everyone's access has ended or been removed, the page says so and offers a new end date or **Add people**.
 - **Email codes.** Recipients prove who they are with a 6-digit code sent to their inbox (valid 10 minutes,
   5 attempts, resend with a cooldown), or with their own password. Email codes are the default whenever
   email is set up, and a "Which should I use?" helper explains the choice ([docs/ACCESS-METHODS.md](docs/ACCESS-METHODS.md)).
@@ -39,7 +40,8 @@ the dashboard is now owner-only and three database migrations must run before th
   of denied attempts, and when someone uploads to a request. Recipients get an "access ends soon" reminder.
 - **Requests.** A request link collects files *from* people into a folder you choose, with the same access
   controls plus file-count and size limits. Recipients drop or choose files, watch each upload, retry
-  failures, and get a confirmation; you get one email per batch.
+  failures, and get a confirmation; you get one email per batch. The request's **Files received** lists each
+  file with its size and who sent it, with **Preview** and **Download**.
 - **Settings and branding.** **Profile** (your name and organization, shown to recipients instead of
   "someone"), **Branding** (logo, message to recipients, live preview), **Sharing defaults** (access method,
   end date, download limit), **Notifications**, **Account** (change password, forgot and reset password,
@@ -48,7 +50,7 @@ the dashboard is now owner-only and three database migrations must run before th
 - **Files and Overview, rebuilt.** Files has folders, search, type filter, sorting, table and grid views,
   bulk **Send**, **Move** and **Delete**, drag-and-drop and folder uploads with per-file progress, cancel and
   retry, and a preview with **Send** and **Download**. Overview shows your files, storage, deliveries and
-  opens, a first-run guide and recent files.
+  opens, a first-run guide, and your recent deliveries, activity and files.
 - **A new design system: Gatekeep Mono.** One monochrome set of tokens and accessible components for the
   dashboard, the delivery page and emails ([docs/DESIGN.md](docs/DESIGN.md)), one vocabulary
   ([docs/VOICE.md](docs/VOICE.md)), a new logo, icons and social images, and one light email template (with a

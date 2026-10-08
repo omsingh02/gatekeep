@@ -57,11 +57,11 @@ instead of localhost (set `SCREENSHOT_URL` to change it).
 
 | File | Size | Shows |
 |---|---|---|
-| `overview.png` | 1440×900 | Overview: stats and recent files |
+| `overview.png` | 1440×900 | Overview: stats, recent deliveries, and the start of recent activity and recent files |
 | `files.png` | 1440×900 | Files: folders and files under All files |
 | `new-delivery.png` | 1440×900 | New delivery, filled in: a file, an email-code and a password recipient, review panel |
 | `sent.png` | 1440×900 | The Sent panel right after sending: link, invite sent, the password shown once |
-| `delivery.png` | 1440×820 | Delivery detail of Q3 board pack: stats and recipients with status, last opened, downloads |
+| `delivery.png` | 1440×820 | Delivery detail of Q3 board pack: its status, stats and recipients with status, last opened, downloads |
 | `activity.png` | 1440×900 | Activity: totals and the feed (opened, code sent, downloaded all, denied with reason and IP) |
 | `settings.png` | 1440×900 | Settings → Branding: logo, message to recipients and its preview |
 | `recipient-sign-in.png` | 800×600 | Recipient sign-in on the code step, after entering their email |
