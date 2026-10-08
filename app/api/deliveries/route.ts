@@ -6,6 +6,7 @@ import { serializeDeliverySummary } from '@/lib/deliveries/deliveries';
 import { isUuid, jsonError, readJson, requireOwner, serverError } from '@/lib/deliveries/http';
 import { addRecipients, deliveryDetail, ownedFileIds, replaceDeliveryFiles } from '@/lib/deliveries/owner';
 import { getOwnerSettings, getSender } from '@/lib/deliveries/settings';
+import { ANYONE_LABEL } from '@/lib/deliveries/labels';
 import type { Database } from '@/lib/types';
 
 const ROUTE = '/api/deliveries';
@@ -42,7 +43,8 @@ export async function GET(request: NextRequest) {
             ids.length
                 ? admin
                       .from('delivery_recipients')
-                      .select('delivery_id, removed_at, ends_at, open_count, download_count, last_opened_at')
+                      .select('delivery_id, kind, identifier, removed_at, ends_at, open_count, download_count, last_opened_at, created_at')
+                      .order('created_at', { ascending: true })
                       .in('delivery_id', ids)
                 : Promise.resolve({ data: [] as never[] }),
             ids.length
@@ -62,6 +64,11 @@ export async function GET(request: NextRequest) {
                 opens: rows.reduce((sum, r) => sum + r.open_count, 0),
                 downloads: rows.reduce((sum, r) => sum + r.download_count, 0),
                 lastOpenedAt: rows.map((r) => r.last_opened_at).filter(Boolean).sort().pop() ?? null,
+                // First few people, for avatars in the list ("Anyone with the password" included)
+                recipientPreview: rows
+                    .filter((r) => !r.removed_at)
+                    .slice(0, 3)
+                    .map((r) => (r.kind === 'anyone' ? ANYONE_LABEL : (r.identifier ?? ''))),
                 status: active.length > 0 ? 'active' : rows.length > 0 ? 'ended' : 'no_recipients',
             };
         });
