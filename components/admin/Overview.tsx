@@ -22,7 +22,7 @@ import {
 import type { FileMetadata } from '@/lib/types';
 import FilePreviewDialog from './files/FilePreviewDialog';
 import { FileTypeIcon } from './files/FileTypeIcon';
-import { requestJson } from './files/api';
+import { ApiError, requestJson } from './files/api';
 import { formatFullDate, formatShortDate, formatSize, sendHref } from './files/format';
 
 const ICON = { 'aria-hidden': true, strokeWidth: 1.75, className: 'h-4 w-4' } as const;
@@ -40,7 +40,7 @@ interface OverviewData {
 export default function Overview() {
     const router = useRouter();
     const [data, setData] = useState<OverviewData | null>(null);
-    const [failed, setFailed] = useState(false);
+    const [failed, setFailed] = useState<false | 'error' | 'signed-out'>(false);
     const [attempt, setAttempt] = useState(0);
     const [preview, setPreview] = useState<{ file: FileMetadata; key: number } | null>(null);
 
@@ -71,8 +71,8 @@ export default function Overview() {
                     },
                 });
             })
-            .catch(() => {
-                if (!signal.aborted) setFailed(true);
+            .catch((error) => {
+                if (!signal.aborted) setFailed(error instanceof ApiError && error.status === 401 ? 'signed-out' : 'error');
             });
         return () => controller.abort();
     }, [attempt]);
@@ -93,7 +93,12 @@ export default function Overview() {
                 }
             />
 
-            {failed && (
+            {failed === 'signed-out' && (
+                <Callout tone="warning" action={<Button size="sm" onClick={() => router.push('/login')}>Sign in</Button>}>
+                    You were signed out. Sign in again to see your overview.
+                </Callout>
+            )}
+            {failed === 'error' && (
                 <Callout tone="danger" action={<Button size="sm" onClick={() => setAttempt((a) => a + 1)}>Try again</Button>}>
                     We couldn&apos;t load your overview. Check your connection and try again.
                 </Callout>

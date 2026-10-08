@@ -14,6 +14,7 @@ import {
     FolderX,
     LayoutGrid,
     List,
+    LogIn,
     Pencil,
     Search,
     SearchX,
@@ -218,7 +219,7 @@ type DialogState =
 
 type Result =
     | { key: string; status: 'ready'; files: FileMetadata[]; folders: Folder[]; total: number; totalPages: number }
-    | { key: string; status: 'error' };
+    | { key: string; status: 'error'; signedOut: boolean };
 
 interface FolderBrowserProps {
     folderId: string | null;
@@ -262,8 +263,8 @@ function FolderBrowser({ folderId, location, target, view, sort, onSort, reloadK
             .then(([files, folders]) =>
                 setResult({ key: queryKey, status: 'ready', files: files.files, folders: folders.folders, total: files.totalCount, totalPages: files.totalPages })
             )
-            .catch(() => {
-                if (!controller.signal.aborted) setResult({ key: queryKey, status: 'error' });
+            .catch((error) => {
+                if (!controller.signal.aborted) setResult({ key: queryKey, status: 'error', signedOut: error instanceof ApiError && error.status === 401 });
             });
         return () => controller.abort();
     }, [folderId, query, type, sort.key, sort.dir, page, queryKey, reloadKey]);
@@ -450,6 +451,17 @@ function FolderBrowser({ folderId, location, target, view, sort, onSort, reloadK
                             Go to All files
                         </Button>
                     }
+                />
+            </Card>
+        );
+    } else if (result?.status === 'error' && !stale && result.signedOut) {
+        content = (
+            <Card flush>
+                <EmptyState
+                    icon={LogIn}
+                    title="You were signed out"
+                    description="Sign in again to see your files."
+                    action={<Button onClick={() => router.push('/login')}>Sign in</Button>}
                 />
             </Card>
         );
