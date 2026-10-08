@@ -8,9 +8,9 @@
 
 ## End-to-end tests
 
-`e2e/` drives a real browser through the whole product — sign in, upload, grant access, unlock as a
-recipient, preview, download, return with a session, revoke — against the real app and a **local**
-Supabase. Docker is required.
+`e2e/` drives a real browser through the whole product — sign in, upload, send a delivery, sign in as a
+recipient (email code or password), preview, download, return with a session, remove access, requests,
+activity and settings — against the real app and a **local** Supabase. Docker is required.
 
 ```bash
 npx supabase start -x studio,imgproxy,edge-runtime,logflare,vector,mailpit,postgres-meta,supavisor

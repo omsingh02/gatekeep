@@ -63,34 +63,3 @@ export function validateRequiredFields(
 
     return null;
 }
-
-/**
- * Validate and sanitize a value using a sanitizer function
- * Returns the sanitized value, or a 400 NextResponse if invalid
- * 
- * Usage:
- *   const result = validateAndSanitize(input, sanitizeShortCode, '/api/route', 'short_code');
- *   if (result instanceof NextResponse) return result;
- *   const sanitized = result;
- */
-export function validateAndSanitize(
-    input: string | undefined,
-    sanitizer: (input: string) => string,
-    route: string,
-    fieldName: string
-): string | NextResponse {
-    if (!input) {
-        logWarning(route, 'validation-failed', `Missing ${fieldName}`);
-        return NextResponse.json({ error: `Missing ${fieldName}`, code: 'ERR_INVALID_INPUT' }, { status: 400 });
-    }
-
-    const sanitized = sanitizer(input);
-    if (!sanitized) {
-        logWarning(route, 'sanitization-failed', `Invalid ${fieldName}`, {
-            inputLength: input.length,
-        });
-        return NextResponse.json({ error: `Invalid ${fieldName}`, code: 'ERR_INVALID_INPUT' }, { status: 400 });
-    }
-
-    return sanitized;
-}

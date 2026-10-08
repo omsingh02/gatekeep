@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom';
 import { ChevronLeft, ChevronRight, CircleAlert, Download, ExternalLink, RotateCw, X } from 'lucide-react';
 import { Button, Callout, IconButton, Skeleton } from '@/components/ds';
+import { ResumableMedia } from '@/components/product/ResumableMedia';
 import { recipientApi, type DeliveryFile, type Failure } from './api';
 import { FileTile, fileMeta, previewKind } from './format';
 
@@ -146,6 +147,20 @@ export function PreviewStage({ code, files, index, onIndexChange, onClose, onDow
         };
     }, [code, file.id, kind, officeAllowed, attempt]);
 
+    // Video and audio stream from their URL while they play: when it expires mid-way, get a fresh one
+    const refreshMediaUrl = useCallback(async () => {
+        const signed = await recipientApi.fileUrl(code, file.id, 'preview');
+        if ('failure' in signed) {
+            if (['removed', 'ended', 'signed-out'].includes(signed.failure.kind)) onFailureRef.current(signed.failure);
+            return null;
+        }
+        return signed.data.url;
+    }, [code, file.id]);
+    const mediaFailed = useCallback(
+        () => setLoaded({ key: loadKey, status: 'error', message: "We couldn't play this file. Try again, or download it." }),
+        [loadKey],
+    );
+
     const downloading = downloadingId === file.id;
 
     const failed = (message: string) => (
@@ -222,9 +237,12 @@ export function PreviewStage({ code, files, index, onIndexChange, onClose, onDow
         );
     } else if (kind === 'video') {
         content = (
-            <video
+            <ResumableMedia
+                kind="video"
                 key={loaded.url}
                 src={loaded.url}
+                refresh={refreshMediaUrl}
+                onFail={mediaFailed}
                 controls
                 controlsList="nodownload noplaybackrate"
                 disablePictureInPicture
@@ -233,16 +251,19 @@ export function PreviewStage({ code, files, index, onIndexChange, onClose, onDow
                 className="max-h-full max-w-full rounded-md bg-inset"
             >
                 Your browser can&apos;t play this video. Download it to watch it.
-            </video>
+            </ResumableMedia>
         );
     } else if (kind === 'audio') {
         content = (
             <div className="flex w-full max-w-lg flex-col items-center gap-5 rounded-lg border border-default bg-surface p-6 text-center">
                 <FileTile mimeType={file.mimeType} size="lg" />
                 <p className="max-w-full truncate text-h3 text-strong">{file.name}</p>
-                <audio
+                <ResumableMedia
+                    kind="audio"
                     key={loaded.url}
                     src={loaded.url}
+                    refresh={refreshMediaUrl}
+                    onFail={mediaFailed}
                     controls
                     controlsList="nodownload noplaybackrate"
                     preload="metadata"
@@ -250,7 +271,7 @@ export function PreviewStage({ code, files, index, onIndexChange, onClose, onDow
                     className="w-full"
                 >
                     Your browser can&apos;t play this audio. Download it to listen.
-                </audio>
+                </ResumableMedia>
             </div>
         );
     } else if (kind === 'text') {

@@ -4,15 +4,15 @@ import { recordActivity } from '@/lib/deliveries/activity';
 import { RECIPIENT_MESSAGES } from '@/lib/deliveries/labels';
 import { isUuid, readJson, serverError } from '@/lib/deliveries/http';
 import { requireRecipient, resolveDelivery } from '@/lib/deliveries/recipient-api';
+import { signedUrlSeconds } from '@/lib/utils/signedUrls';
 
 type Params = { params: Promise<{ code: string; fileId: string }> };
 
-/** Signed URLs live for a minute: long enough to start loading, too short to pass around. */
-const URL_SECONDS = 60;
-
 /**
  * POST /api/d/{code}/files/{fileId}  { action: 'preview' | 'download' }
- * Returns a short-lived URL. Only downloads count toward the recipient's download limit.
+ * Returns a short-lived URL: a minute, or 15 minutes to preview video and audio (they stream in
+ * ranges as they play and seek; see lib/utils/signedUrls.ts). Only downloads count toward the
+ * recipient's download limit.
  */
 export async function POST(request: NextRequest, { params }: Params) {
     try {
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest, { params }: Params) {
         const { data: link } = isUuid(fileId)
             ? await admin
                   .from('delivery_files')
-                  .select('files!inner(id, filename, original_filename, deleted_at)')
+                  .select('files!inner(id, filename, original_filename, mime_type, deleted_at)')
                   .eq('delivery_id', delivery.id)
                   .eq('file_id', fileId)
                   .is('files.deleted_at', null)
@@ -64,9 +64,10 @@ export async function POST(request: NextRequest, { params }: Params) {
             downloadCount = counted;
         }
 
+        const seconds = signedUrlSeconds(isDownload ? 'download' : 'preview', file.mime_type);
         const { data: signed, error } = await admin.storage
             .from('files')
-            .createSignedUrl(file.filename, URL_SECONDS, isDownload ? { download: file.original_filename } : undefined);
+            .createSignedUrl(file.filename, seconds, isDownload ? { download: file.original_filename } : undefined);
         if (error || !signed) {
             return NextResponse.json({ error: RECIPIENT_MESSAGES.unavailable, code: 'ERR_STORAGE' }, { status: 502 });
         }
@@ -83,7 +84,7 @@ export async function POST(request: NextRequest, { params }: Params) {
 
         return NextResponse.json({
             url: signed.signedUrl,
-            expiresInSeconds: URL_SECONDS,
+            expiresInSeconds: seconds,
             downloadCount,
             downloadsLeft: recipient.download_limit === null ? null : Math.max(recipient.download_limit - downloadCount, 0),
         });

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Download, EyeOff, RotateCw, Send } from 'lucide-react';
 import { Button, Callout, Dialog, EmptyState, Skeleton, useToast } from '@/components/ds';
+import { ResumableMedia } from '@/components/product/ResumableMedia';
 import { downloadFile, fileUrl, reason } from './api';
 import { FileTypeIcon, fileKind, fileKindLabel } from './FileTypeIcon';
 import { formatFullDate, formatSize, sendHref } from './format';
@@ -24,7 +25,7 @@ type Loaded = { attempt: number } & ({ status: 'ready'; url: string; text?: stri
 /**
  * The owner's own file: preview (image, video, audio, PDF, text) with Send and Download.
  * Mount it when a file is picked (with a fresh `key` each time) and unmount it on close, so every
- * opening gets a fresh 60-second URL.
+ * opening gets a fresh signed URL. Video and audio ask for another one if theirs expires mid-play.
  */
 export default function FilePreviewDialog({ file, onClose }: { file: PreviewableFile; onClose: () => void }) {
     const router = useRouter();
@@ -78,6 +79,7 @@ export default function FilePreviewDialog({ file, onClose }: { file: Previewable
         setAttempt((a) => a + 1);
     };
     const onMediaError = () => setMediaFailed(attempt);
+    const refreshMediaUrl = () => fileUrl(file.id, 'preview').catch(() => null);
 
     return (
         <Dialog
@@ -134,13 +136,31 @@ export default function FilePreviewDialog({ file, onClose }: { file: Previewable
                     // eslint-disable-next-line @next/next/no-img-element -- short-lived signed URL, not a static asset
                     <img src={current.url} alt={file.originalFilename} onError={onMediaError} className="max-h-[60vh] w-auto max-w-full object-contain" />
                 ) : current.status === 'ready' && kind === 'video' ? (
-                    <video src={current.url} controls preload="metadata" onError={onMediaError} className="max-h-[60vh] w-full bg-black">
+                    <ResumableMedia
+                        kind="video"
+                        key={current.url}
+                        src={current.url}
+                        refresh={refreshMediaUrl}
+                        onFail={onMediaError}
+                        controls
+                        preload="metadata"
+                        className="max-h-[60vh] w-full bg-black"
+                    >
                         <track kind="captions" />
-                    </video>
+                    </ResumableMedia>
                 ) : current.status === 'ready' && kind === 'audio' ? (
                     <div className="flex w-full flex-col items-center gap-4 p-6">
                         <FileTypeIcon mimeType={file.mimeType} name={file.originalFilename} className="h-8 w-8 text-tertiary" />
-                        <audio src={current.url} controls preload="metadata" onError={onMediaError} className="w-full" />
+                        <ResumableMedia
+                            kind="audio"
+                            key={current.url}
+                            src={current.url}
+                            refresh={refreshMediaUrl}
+                            onFail={onMediaError}
+                            controls
+                            preload="metadata"
+                            className="w-full"
+                        />
                     </div>
                 ) : current.status === 'ready' ? (
                     <iframe src={current.url} title={file.originalFilename} className="h-[60vh] w-full bg-white" />
