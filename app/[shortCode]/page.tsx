@@ -4,7 +4,6 @@ import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sanitizeShortCode } from '@/lib/utils/sanitization';
-import { loadDeliveryByCode } from '@/lib/deliveries/deliveries';
 import { SIGNED_OUT_NOTICE } from '@/components/recipient/api';
 import { publicSender } from '@/lib/deliveries/recipient-api';
 import { recipientFromSession, sessionCookieName } from '@/lib/deliveries/session';
@@ -22,16 +21,32 @@ const findDelivery = cache(async (shortCode: string) => {
     const code = sanitizeShortCode(shortCode);
     if (!code || code !== shortCode) return null;
 
-    const { data, error } = await createAdminClient()
-        .from('deliveries')
-        .select('*')
-        .eq('short_code', code)
-        .is('deleted_at', null)
-        .maybeSingle();
+    const admin = createAdminClient();
+    // Next memoizes identical GET fetches during a render; a signal opts out, so the re-read after
+    // converting a v1 link sees the new delivery instead of the first, empty answer
+    const find = () =>
+        admin.from('deliveries').select('*').eq('short_code', code).is('deleted_at', null).abortSignal(new AbortController().signal).maybeSingle();
+
+    let { data: delivery, error } = await find();
     if (error) throw new Error(`Delivery lookup failed: ${error.message}`);
-    // Not found: maybe a v1 link made after the upgrade, which is converted on first use
-    const delivery = data ?? (await loadDeliveryByCode(code));
-    if (!delivery) return null;
+
+    if (!delivery) {
+        // Maybe a v1 link made after the upgrade: convert it on first use (as loadDeliveryByCode does)
+        const legacy = await admin
+            .from('files')
+            .select('id')
+            .eq('short_code', code)
+            .is('deleted_at', null)
+            .abortSignal(new AbortController().signal)
+            .maybeSingle();
+        if (legacy.error) throw new Error(`Link lookup failed: ${legacy.error.message}`);
+        if (!legacy.data) return null;
+        const migrated = await admin.rpc('migrate_v1_to_v2');
+        if (migrated.error) throw new Error(`Link conversion failed: ${migrated.error.message}`);
+        ({ data: delivery, error } = await find());
+        if (error) throw new Error(`Delivery lookup failed: ${error.message}`);
+        if (!delivery) return null;
+    }
     return { delivery, sender: await getSender(delivery.owner_id) };
 });
 

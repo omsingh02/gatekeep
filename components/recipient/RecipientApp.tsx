@@ -36,6 +36,7 @@ export function RecipientApp({ code, kind, sender: initialSender, access, initia
         initial === 'load' ? { name: 'loading' } : initial === 'sign-in' ? { name: 'sign-in', notice } : { name: initial },
     );
     const [sender, setSender] = useState(initialSender);
+    const [streamAttempt, setStreamAttempt] = useState(0);
 
     /** Move to the screen that matches a failed call. */
     const fail = useCallback((failure: Failure) => {
@@ -98,12 +99,20 @@ export function RecipientApp({ code, kind, sender: initialSender, access, initia
             else if (data.reason === 'ended') setScreen({ name: 'ended' });
             else setScreen({ name: 'sign-in', notice: SIGNED_OUT_NOTICE });
         };
+        let retry: ReturnType<typeof setTimeout> | undefined;
         source.onerror = () => {
-            // The server refused the stream (signed out, removed): find out why
-            if (source.readyState === EventSource.CLOSED) void load();
+            // The browser retries dropped connections itself; CLOSED means the server refused the stream
+            if (source.readyState !== EventSource.CLOSED) return;
+            // Find out why (signed out, removed); if they're still in, listen again shortly
+            void load().then(() => {
+                retry = setTimeout(() => setStreamAttempt((n) => n + 1), 5000);
+            });
         };
-        return () => source.close();
-    }, [viewing, code, load]);
+        return () => {
+            source.close();
+            clearTimeout(retry);
+        };
+    }, [viewing, code, load, streamAttempt]);
 
     const signIn = () => setScreen({ name: 'sign-in', notice: null });
 
