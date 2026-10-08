@@ -25,22 +25,10 @@ export async function GET() {
         }
 
         const totalSize = (files || []).reduce((sum, file) => sum + (file.file_size || 0), 0);
-        const fileIds = (files || []).map((f) => f.id);
-
-        // Get total access grants (only if user has files)
-        let totalAccess = 0;
-        if (fileIds.length > 0) {
-            const { count, error: accessError } = await adminClient
-                .from('file_access')
-                .select('*', { count: 'exact', head: true })
-                .in('file_id', fileIds);
-            if (!accessError) totalAccess = count || 0;
-        }
 
         return NextResponse.json({
             totalFiles: totalFiles || 0,
             totalSize,
-            totalAccess,
         });
     } catch {
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

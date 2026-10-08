@@ -4,7 +4,7 @@
  * 
  * Usage:
  *   const reqId = generateRequestId();
- *   logInfo('/api/verify', 'access-attempt', { requestId: reqId, shortCode: 'abc123' });
+ *   logInfo('/api/d/[code]/session', 'sign-in', { requestId: reqId, code: 'abc123' });
  *   logError('/api/presign', userId, 'generate-upload-url', error, { requestId: reqId });
  * 
  * Logs to console in JSON format for easy parsing in production logs.

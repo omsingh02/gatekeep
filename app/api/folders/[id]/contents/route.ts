@@ -127,7 +127,6 @@ export async function GET(
             filePath: file.file_path,
             fileSize: file.file_size,
             mimeType: file.mime_type,
-            shortCode: file.short_code,
             uploadedBy: file.uploaded_by,
             createdAt: file.created_at,
             updatedAt: file.updated_at,

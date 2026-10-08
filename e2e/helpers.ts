@@ -14,8 +14,8 @@ let ipCounter = 0;
 
 /**
  * A fresh browser context whose app API calls carry their own client IP.
- * /api/verify rate-limits per IP (5/min), so each simulated person gets an
- * address of their own, the way separate visitors would in production. Only
+ * Recipient sign-in (/api/d/{code}/session) is rate-limited and throttled per IP, so each
+ * simulated person gets an address of their own, the way separate visitors would in production. Only
  * same-origin /api/* requests are rewritten; calls to Supabase are untouched.
  */
 export async function newVisitor(browser: Browser, baseURL: string): Promise<BrowserContext> {

@@ -22,7 +22,8 @@ export async function loadDeliveryByCode(code: string): Promise<Delivery | null>
     const { data } = await find();
     if (data) return data;
 
-    // A link created by the v1 dashboard after the upgrade migration ran: convert it now.
+    // A link the 1.x dashboard created after the upgrade migration ran (before 2.0 was deployed):
+    // convert it now. Only v1 files have a short code; files uploaded since 2.0 don't.
     const { data: legacyFile } = await admin
         .from('files')
         .select('id')

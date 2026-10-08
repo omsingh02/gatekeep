@@ -1,1 +1,0 @@
-export { sendAccessGrantEmail } from './legacy';
