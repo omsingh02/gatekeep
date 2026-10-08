@@ -44,6 +44,8 @@ export default function LoginPage({ searchParams }: { searchParams: Promise<{ re
             router.refresh();
         } catch (err) {
             setError(signInError(err));
+        } finally {
+            // A non-owner account comes straight back here (?reason=not-owner), so never stay "Signing in…"
             setIsLoading(false);
         }
     };

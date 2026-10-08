@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Bell, ImageIcon, KeyRound, Server, SlidersHorizontal, UserRound } from 'lucide-react';
 import { Button, Callout, Card, CardHeader, ConfirmDialog, PageHeader, Skeleton, TabNav } from '@/components/ds';
@@ -22,6 +22,13 @@ function Shell({ children }: { children: ReactNode }) {
     const router = useRouter();
     const { isDirty, clearDirty } = useSettings();
     const [pending, setPending] = useState<string | null>(null);
+    const mobileNav = useRef<HTMLDivElement>(null);
+
+    // On phones the section tabs scroll sideways: keep the current one in view
+    useEffect(() => {
+        const active = mobileNav.current?.querySelector<HTMLElement>('[aria-current="page"]');
+        active?.scrollIntoView({ block: 'nearest', inline: 'center' });
+    }, [pathname]);
 
     const items = SECTIONS.map((s) => ({ ...s, active: pathname === s.href || pathname.startsWith(`${s.href}/`) }));
     const onNavigate = (event: React.MouseEvent<HTMLAnchorElement>, href: string) => {
@@ -34,12 +41,9 @@ function Shell({ children }: { children: ReactNode }) {
         <div className="flex flex-col gap-6">
             <PageHeader title="Settings" description="How you appear to recipients, your defaults and how this Gatekeep is set up." />
             <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
-                <TabNav
-                    label="Settings sections"
-                    items={items}
-                    onNavigate={onNavigate}
-                    className="-mx-1 border-b border-subtle px-1 lg:hidden"
-                />
+                <div ref={mobileNav} className="lg:hidden">
+                    <TabNav label="Settings sections" items={items} onNavigate={onNavigate} className="-mx-1 border-b border-subtle px-1" />
+                </div>
                 <TabNav
                     label="Settings sections"
                     orientation="vertical"

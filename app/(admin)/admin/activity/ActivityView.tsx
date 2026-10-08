@@ -266,7 +266,7 @@ export default function ActivityView() {
     const sends = deliveries?.filter((d) => d.kind !== 'request') ?? [];
     const requests = deliveries?.filter((d) => d.kind === 'request') ?? [];
     const statValue = (value: number | undefined | null) =>
-        summaryData === undefined ? <Skeleton className="mt-1 h-6 w-12" /> : value == null ? '—' : number.format(value);
+        summaryData === undefined ? <Skeleton className="my-1 h-6 w-12" /> : value == null ? '—' : number.format(value);
 
     return (
         <div className="flex flex-col gap-6">
