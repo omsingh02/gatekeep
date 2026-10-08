@@ -1,8 +1,10 @@
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
-import { RUN_ID, newVisitor, signInAsAdmin, unlock } from './helpers';
+import { RUN_ID, SIGN_IN_HEADING, newVisitor, signInAsAdmin, unlock } from './helpers';
 
-// One owner shares one file with one recipient, end to end. The steps depend on each
-// other (the grant needs the upload, the revisit needs the unlock), so they run in order.
+// One owner shares one file with one recipient, end to end: the file is uploaded on the Files page,
+// access is given the v1 way (through the API: the v1 "Manage access" dialog is gone, Files now sends
+// through deliveries), and the link opens the v2 delivery page (converted to a delivery on first visit).
+// The steps depend on each other (the grant needs the upload, the revisit needs the unlock), so they run in order.
 test.describe.configure({ mode: 'serial' });
 
 const fileName = `e2e-${RUN_ID}.txt`;
@@ -28,15 +30,6 @@ test.afterAll(async () => {
     await visitor?.close();
 });
 
-async function openAccessManager() {
-    // /admin/files rather than /admin: the dashboard's Recent Shares list (behind the modal)
-    // also shows this recipient with a Revoke button
-    await ownerPage.goto('/admin/files');
-    const row = ownerPage.locator('tr', { hasText: fileName });
-    await row.getByTitle('Manage access').click();
-    await expect(ownerPage.getByRole('heading', { name: 'Manage File Access' })).toBeVisible();
-}
-
 test('owner uploads a file from the Files page', async () => {
     await ownerPage.goto('/admin/files');
     await ownerPage.getByRole('button', { name: 'Upload', exact: true }).click();
@@ -53,59 +46,58 @@ test('owner uploads a file from the Files page', async () => {
     await expect(ownerPage.locator('tr', { hasText: fileName })).toBeVisible();
 });
 
-// The v1 "Manage access" dialog is gone from the Files page: files are shared by creating a delivery
-// (Send → /admin/deliveries/new). These steps are rewritten with the deliveries flow.
-
-test.fixme('owner grants access and gets a ready-to-send invite', async () => {
-    await openAccessManager();
-    await ownerPage.getByPlaceholder('Enter username').fill(recipient.username);
-    await ownerPage.getByPlaceholder('Enter password').first().fill(recipient.password);
-    await ownerPage.getByRole('button', { name: 'Grant Access', exact: true }).click();
-
-    await expect(ownerPage.getByText('Access granted — send them this invite')).toBeVisible();
-    const invite = ownerPage.locator('pre', { hasText: 'Password:' });
-    await expect(invite).toContainText(`I've shared "${fileName}" with you.`);
-    await expect(invite).toContainText(`Username: ${recipient.username}`);
-    await expect(invite).toContainText(`Password: ${recipient.password}`);
-
-    const link = (await invite.textContent())?.match(/Link: (\S+)/)?.[1];
-    expect(link).toMatch(/\/[A-Za-z0-9]{6}$/);
-    shareUrl = link!;
+test('owner gives a person access to the file (v1 API)', async ({ baseURL }) => {
+    const list = await (await ownerPage.request.get(`/api/files?search=${encodeURIComponent(fileName)}&showAll=true`)).json();
+    const file = list.files.find((f: { originalFilename: string }) => f.originalFilename === fileName);
+    expect(file?.shortCode).toMatch(/^[A-Za-z0-9]{6,}$/);
+    const grant = await ownerPage.request.post('/api/access', {
+        data: { fileId: file.id, userIdentifier: recipient.username, identifierType: 'username', password: recipient.password },
+    });
+    expect(grant.ok()).toBeTruthy();
+    shareUrl = `${baseURL}/${file.shortCode}`;
 });
 
-test.fixme('recipient unlocks, previews and downloads the file', async () => {
+test('recipient unlocks, previews and downloads the file', async () => {
     await visitorPage.goto(shareUrl);
     await unlock(visitorPage, recipient.username, recipient.password);
 
-    await expect(visitorPage.getByText('Unlocked', { exact: true })).toBeVisible();
     await expect(visitorPage.getByRole('heading', { level: 1, name: fileName })).toBeVisible();
+    await expect(visitorPage.getByText('1 file ·')).toBeVisible();
 
-    await visitorPage.getByRole('button', { name: 'Show preview' }).click();
-    await expect(visitorPage.locator('pre', { hasText: fileBody })).toBeVisible();
+    await visitorPage.getByRole('button', { name: `Preview ${fileName}` }).click();
+    const stage = visitorPage.getByRole('dialog', { name: fileName });
+    await expect(stage.locator('pre', { hasText: fileBody })).toBeVisible();
+    await visitorPage.keyboard.press('Escape');
+    await expect(stage).toHaveCount(0);
 
     const download = visitorPage.waitForEvent('download');
-    const tracked = visitorPage.waitForResponse((r) => r.url().endsWith('/api/access/download'));
-    await visitorPage.getByRole('button', { name: 'Download' }).click();
+    const tracked = visitorPage.waitForResponse((r) => /\/api\/d\/[^/]+\/files\//.test(r.url()) && r.request().method() === 'POST');
+    await visitorPage.getByRole('button', { name: `Download ${fileName}` }).click();
     expect((await tracked).status()).toBe(200);
     expect((await download).suggestedFilename()).toBe(fileName);
 });
 
-test.fixme('returning recipient is let straight back in by their session', async () => {
+test('returning recipient is let straight back in by their sign-in', async () => {
     await visitorPage.reload();
     await expect(visitorPage.getByRole('heading', { level: 1, name: fileName })).toBeVisible();
-    await expect(visitorPage.getByRole('heading', { name: 'This file is protected' })).toHaveCount(0);
+    await expect(visitorPage.getByRole('heading', { level: 1, name: SIGN_IN_HEADING })).toHaveCount(0);
 });
 
-test.fixme('revoking the grant ends the recipient\'s access', async () => {
-    await openAccessManager();
-    const grant = ownerPage.locator('div', { hasText: recipient.username }).filter({ has: ownerPage.getByRole('button', { name: 'Revoke' }) }).last();
-    await grant.getByRole('button', { name: 'Revoke' }).click();
-    // The confirmation renders after the grants list, so its button is the last "Revoke"
-    await expect(ownerPage.getByRole('heading', { name: 'Revoke Access' })).toBeVisible();
-    await ownerPage.getByRole('button', { name: 'Revoke', exact: true }).last().click();
-    await expect(ownerPage.getByText(recipient.username, { exact: true })).toHaveCount(0);
+test("removing the recipient's access ends their open page at once", async () => {
+    // The v1 grant became a recipient of the delivery behind the link; remove it the v2 way
+    const code = new URL(shareUrl).pathname.slice(1);
+    const list = await (await ownerPage.request.get(`/api/deliveries?q=${encodeURIComponent(fileName)}`)).json();
+    const delivery = list.deliveries.find((d: { shortCode: string }) => d.shortCode === code);
+    expect(delivery).toBeTruthy();
+    const detail = await (await ownerPage.request.get(`/api/deliveries/${delivery.id}`)).json();
+    const person = detail.delivery.recipients.find((r: { label: string }) => r.label === recipient.username);
+    expect((await ownerPage.request.delete(`/api/deliveries/${delivery.id}/recipients/${person.id}`)).ok()).toBeTruthy();
 
-    await visitorPage.reload();
-    await expect(visitorPage.getByRole('heading', { name: 'This file is protected' })).toBeVisible();
+    // No reload: the open page is told
+    await expect(visitorPage.getByRole('heading', { name: 'Your access was removed' })).toBeVisible();
     await expect(visitorPage.getByRole('heading', { level: 1, name: fileName })).toHaveCount(0);
+
+    // And stays that way
+    await visitorPage.reload();
+    await expect(visitorPage.getByRole('heading', { name: 'Your access was removed' })).toBeVisible();
 });

@@ -86,7 +86,8 @@ export function recipientPill(recipient: Pick<Recipient, 'status' | 'endsAt'>, n
             if (recipient.endsAt) {
                 const ms = new Date(recipient.endsAt).getTime() - now;
                 if (ms < DAY) return { tone: 'warning', label: 'Ends today' };
-                if (ms < 7 * DAY) {
+                // Amber means "ending soon", not "has an end date": only the last 3 days
+                if (ms < 3 * DAY) {
                     const days = Math.ceil(ms / DAY);
                     return { tone: 'warning', label: days === 1 ? 'Ends tomorrow' : `Ends in ${days} days` };
                 }

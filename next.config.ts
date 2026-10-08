@@ -43,6 +43,7 @@ const nextConfig: NextConfig = {
               "img-src 'self' data: blob: https:", // Allow images from data URLs, blob, and HTTPS
               "font-src 'self' data: https://fonts.gstatic.com", // Allow Google Fonts
               "connect-src 'self' https://*.supabase.co wss://*.supabase.co", // Supabase API/Realtime
+              "media-src 'self' blob: https://*.supabase.co", // Video and audio previews (signed Storage URLs)
               "frame-src 'self' https://*.supabase.co https://view.officeapps.live.com", // Allow Supabase frames and Office viewer
               "media-src 'self' blob: https://*.supabase.co", // Video and audio previews stream from signed Supabase URLs
               "frame-ancestors 'none'", // Equivalent to X-Frame-Options: DENY
