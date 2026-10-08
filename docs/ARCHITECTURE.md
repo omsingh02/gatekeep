@@ -109,4 +109,4 @@ Sessions aren't carried over, so recipients unlock once more. A link created by 
 
 ## v1 routes during the transition
 
-The v1 dashboard and recipient page (`/api/access`, `/api/verify`, `/api/access/download|stream`, `/api/analytics`, `app/[shortCode]/ShareView.tsx`) still work on top of the v1 tables (`file_access`, `access_log`). They're replaced by the v2 screens and removed, together with those tables, in v2.1.
+The recipient page at `/{code}` is the v2 delivery page (`app/[shortCode]/page.tsx` + `components/recipient/`), for v1 links too. The v1 dashboard and its routes (`/api/access`, `/api/verify`, `/api/access/download|stream`, `/api/analytics`) still work on top of the v1 tables (`file_access`, `access_log`). They're replaced by the v2 screens and removed, together with those tables, in v2.1. Until then, a grant changed in the v1 dashboard after its link was converted isn't reflected on the delivery: change access on the delivery instead.

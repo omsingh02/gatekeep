@@ -1,47 +1,35 @@
 'use client';
 
-import Link from 'next/link';
-import { CloudOff, RotateCw } from 'lucide-react';
-import { Logo } from '@/components/brand/Logo';
+import { RotateCw, WifiOff } from 'lucide-react';
+import { Button, Card, Logo } from '@/components/ds';
 
-export default function ShareError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
+/** A lookup failed (not a missing link): the link is probably fine, so offer a retry. */
+export default function DeliveryError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
     return (
-        <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#07080c] px-4 text-center text-zinc-100">
-            <div
-                aria-hidden
-                className="pointer-events-none absolute left-1/2 top-[22%] h-[380px] w-[680px] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,rgba(245,158,11,0.14),transparent)]"
-            />
-            <Link href="/" className="absolute left-1/2 top-8 -translate-x-1/2 text-white" aria-label="Gatekeep home">
+        <div className="flex min-h-dvh flex-col bg-canvas px-4 py-10 sm:py-16">
+            <main className="m-auto flex w-full max-w-card flex-col items-center gap-6">
                 <Logo size={28} />
-            </Link>
-
-            <div className="relative">
-                <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04]">
-                    <CloudOff className="h-7 w-7 text-amber-300" />
-                </span>
-                <h1 className="mt-6 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
-                    We couldn&apos;t load this link
-                </h1>
-                <p className="mx-auto mt-3 max-w-md text-zinc-400">
-                    The file service is temporarily unavailable. Your link is probably fine — please try again in a few
-                    minutes.
-                </p>
-                <div className="mt-8 flex justify-center gap-3">
-                    <button
+                <Card className="flex w-full flex-col gap-5 p-6 sm:p-6">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-md border border-default bg-raised text-secondary">
+                        <WifiOff aria-hidden strokeWidth={1.75} className="h-5 w-5" />
+                    </span>
+                    <div className="flex flex-col gap-1.5">
+                        <h1 className="text-h2 text-strong">We couldn&apos;t load this delivery</h1>
+                        <p className="text-body text-secondary">
+                            Something went wrong on our side. Your link is probably fine, so try again in a moment.
+                        </p>
+                    </div>
+                    <Button
+                        variant="primary"
+                        size="lg"
+                        fullWidth
+                        icon={<RotateCw aria-hidden strokeWidth={1.75} className="h-4 w-4" />}
                         onClick={reset}
-                        className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-zinc-900 transition hover:bg-zinc-200"
                     >
-                        <RotateCw className="h-4 w-4" />
                         Try again
-                    </button>
-                    <Link
-                        href="/"
-                        className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-white/[0.08]"
-                    >
-                        Back to Gatekeep
-                    </Link>
-                </div>
-            </div>
+                    </Button>
+                </Card>
+            </main>
         </div>
     );
 }
