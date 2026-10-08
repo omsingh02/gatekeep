@@ -75,8 +75,27 @@ export async function POST(request: NextRequest) {
             : `${timestamp}-${randomUUID()}`;
         const shortCode = generateShortCode();
 
-        // Create presigned upload URL using admin client
         const adminClient = createAdminClient();
+
+        // Optional target folder: it must be one of this owner's folders
+        const folderId = typeof body.folderId === 'string' && body.folderId ? body.folderId : null;
+        if (folderId) {
+            const { data: folder } = await adminClient
+                .from('folders')
+                .select('id')
+                .eq('id', folderId)
+                .eq('uploaded_by', user.id)
+                .is('deleted_at', null)
+                .maybeSingle();
+            if (!folder) {
+                return NextResponse.json(
+                    { error: "That folder doesn't exist any more. Pick another folder and try again.", code: 'ERR_FOLDER_NOT_FOUND' },
+                    { status: 404 }
+                );
+            }
+        }
+
+        // Create presigned upload URL using admin client
         const { data: signedUrlData, error: signedUrlError } = await adminClient.storage
             .from('files')
             .createSignedUploadUrl(uniqueFilename);
@@ -94,9 +113,6 @@ export async function POST(request: NextRequest) {
         // Generate a unique file key to track this upload
         const fileKey = randomUUID();
 
-        // Get optional folderId from request
-        const { folderId } = body;
-
         // Return these so the client can send them in the confirm request
         return NextResponse.json({
             uploadUrl: signedUrlData.signedUrl,
@@ -111,7 +127,7 @@ export async function POST(request: NextRequest) {
                 fileSize,
                 mimeType,
                 userId: user.id,
-                folderId: folderId || null,
+                folderId,
             },
         });
     } catch (error) {

@@ -16,6 +16,8 @@ export async function GET(request: NextRequest) {
 
         const { searchParams } = new URL(request.url);
         const parentId = searchParams.get('parentId');
+        // all=true returns every folder (for "Move"), regardless of parent
+        const all = searchParams.get('all') === 'true';
 
         const adminClient = createAdminClient();
 
@@ -44,7 +46,9 @@ export async function GET(request: NextRequest) {
             .is('deleted_at', null)
             .order('created_at', { ascending: true });
 
-        if (parentId) {
+        if (all) {
+            // No parent filter: every folder the owner has
+        } else if (parentId) {
             query = query.eq('parent_id', parentId);
         } else {
             query = query.is('parent_id', null);

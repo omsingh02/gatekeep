@@ -1,8 +1,9 @@
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 import { RUN_ID, SIGN_IN_HEADING, newVisitor, signInAsAdmin, unlock } from './helpers';
 
-// One owner shares one file with one recipient, end to end: the v1 dashboard gives access, and the
-// link opens the v2 delivery page (the file's link is converted to a delivery on first visit).
+// One owner shares one file with one recipient, end to end: the file is uploaded on the Files page,
+// access is given the v1 way (through the API: the v1 "Manage access" dialog is gone, Files now sends
+// through deliveries), and the link opens the v2 delivery page (converted to a delivery on first visit).
 // The steps depend on each other (the grant needs the upload, the revisit needs the unlock), so they run in order.
 test.describe.configure({ mode: 'serial' });
 
@@ -29,16 +30,10 @@ test.afterAll(async () => {
     await visitor?.close();
 });
 
-async function openAccessManager() {
-    // /admin/files rather than /admin: the dashboard's Recent Shares list (behind the modal)
-    // also shows this recipient with a Revoke button
+test('owner uploads a file from the Files page', async () => {
     await ownerPage.goto('/admin/files');
-    const row = ownerPage.locator('tr', { hasText: fileName });
-    await row.getByTitle('Manage access').click();
-    await expect(ownerPage.getByRole('heading', { name: 'Manage File Access' })).toBeVisible();
-}
-
-test('owner uploads a file from the dashboard', async () => {
+    await ownerPage.getByRole('button', { name: 'Upload', exact: true }).click();
+    await expect(ownerPage.getByRole('dialog', { name: 'Upload files' })).toBeVisible();
     const confirm = ownerPage.waitForResponse((r) => r.url().endsWith('/api/files/confirm') && r.request().method() === 'POST');
     await ownerPage.locator('input[type="file"]:not([webkitdirectory])').setInputFiles({
         name: fileName,
@@ -46,24 +41,20 @@ test('owner uploads a file from the dashboard', async () => {
         buffer: Buffer.from(fileBody),
     });
     expect((await confirm).ok()).toBe(true);
+    await expect(ownerPage.getByRole('dialog').getByText('Uploaded 1 file')).toBeVisible();
+    await ownerPage.getByRole('button', { name: 'Done' }).click();
     await expect(ownerPage.locator('tr', { hasText: fileName })).toBeVisible();
 });
 
-test('owner grants access and gets a ready-to-send invite', async () => {
-    await openAccessManager();
-    await ownerPage.getByPlaceholder('Enter username').fill(recipient.username);
-    await ownerPage.getByPlaceholder('Enter password').first().fill(recipient.password);
-    await ownerPage.getByRole('button', { name: 'Grant Access', exact: true }).click();
-
-    await expect(ownerPage.getByText('Access granted — send them this invite')).toBeVisible();
-    const invite = ownerPage.locator('pre', { hasText: 'Password:' });
-    await expect(invite).toContainText(`I've shared "${fileName}" with you.`);
-    await expect(invite).toContainText(`Username: ${recipient.username}`);
-    await expect(invite).toContainText(`Password: ${recipient.password}`);
-
-    const link = (await invite.textContent())?.match(/Link: (\S+)/)?.[1];
-    expect(link).toMatch(/\/[A-Za-z0-9]{6}$/);
-    shareUrl = link!;
+test('owner gives a person access to the file (v1 API)', async ({ baseURL }) => {
+    const list = await (await ownerPage.request.get(`/api/files?search=${encodeURIComponent(fileName)}&showAll=true`)).json();
+    const file = list.files.find((f: { originalFilename: string }) => f.originalFilename === fileName);
+    expect(file?.shortCode).toMatch(/^[A-Za-z0-9]{6,}$/);
+    const grant = await ownerPage.request.post('/api/access', {
+        data: { fileId: file.id, userIdentifier: recipient.username, identifierType: 'username', password: recipient.password },
+    });
+    expect(grant.ok()).toBeTruthy();
+    shareUrl = `${baseURL}/${file.shortCode}`;
 });
 
 test('recipient unlocks, previews and downloads the file', async () => {

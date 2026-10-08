@@ -15,11 +15,13 @@ export interface MenuProps {
     /** Custom trigger content; defaults to a "…" icon button */
     trigger?: ReactNode;
     align?: 'start' | 'end';
+    /** Non-interactive context above the items, e.g. the signed-in account's email */
+    header?: ReactNode;
     className?: string;
 }
 
 /** Dropdown of actions. Arrow keys move, Enter selects, Escape closes and returns focus. */
-export function Menu({ items, label, trigger, align = 'end', className }: MenuProps) {
+export function Menu({ items, label, trigger, align = 'end', header, className }: MenuProps) {
     const [open, setOpen] = useState(false);
     const [active, setActive] = useState(0);
     const menuId = useId();
@@ -33,12 +35,13 @@ export function Menu({ items, label, trigger, align = 'end', className }: MenuPr
     const openMenu = (index: number) => {
         const rect = triggerRef.current?.getBoundingClientRect();
         if (rect) {
-            const estimate = items.reduce((h, item) => h + (item.type === 'separator' ? 9 : 32), 10);
+            const estimate = items.reduce((h, item) => h + (item.type === 'separator' ? 9 : 32), header ? 64 : 10);
             const below = window.innerHeight - rect.bottom;
             const up = below < estimate + 8 && rect.top > below;
             setPosition({
                 ...(up ? { bottom: window.innerHeight - rect.top + 4 } : { top: rect.bottom + 4 }),
-                ...(align === 'end' ? { right: window.innerWidth - rect.right } : { left: rect.left }),
+                // clientWidth excludes the page scrollbar, which `fixed` offsets don't include either
+                ...(align === 'end' ? { right: document.documentElement.clientWidth - rect.right } : { left: rect.left }),
             });
         }
         setActive(index);
@@ -65,7 +68,8 @@ export function Menu({ items, label, trigger, align = 'end', className }: MenuPr
     }, [open]);
 
     useEffect(() => {
-        if (open) listRef.current?.querySelector<HTMLElement>(`[data-index="${actionable[active]?.i}"]`)?.focus();
+        // preventScroll: focusing inside the fixed list must not scroll the page or a table, which would close it
+        if (open) listRef.current?.querySelector<HTMLElement>(`[data-index="${actionable[active]?.i}"]`)?.focus({ preventScroll: true });
     }, [open, active, actionable]);
 
     const close = (refocus = true) => {
@@ -135,6 +139,12 @@ export function Menu({ items, label, trigger, align = 'end', className }: MenuPr
                     style={position}
                     className="ds-pop-in fixed z-40 min-w-44 rounded-lg border border-default bg-raised p-1 shadow-overlay"
                 >
+                    {header && (
+                        <>
+                            <div className="px-2 pb-1.5 pt-1 text-body-sm text-secondary">{header}</div>
+                            <div role="separator" className="my-1 h-px bg-gray-4" />
+                        </>
+                    )}
                     {items.map((item, i) =>
                         item.type === 'separator' ? (
                             <div key={i} role="separator" className="my-1 h-px bg-gray-4" />
