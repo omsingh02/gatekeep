@@ -37,6 +37,9 @@ export default defineConfig({
             ...supabase,
             NEXT_PUBLIC_APP_URL: baseURL,
             CRON_SECRET: 'e2e-cron-secret',
+            // Keep emails in memory and expose them to the tests (app/api/test-support/emails)
+            EMAIL_TRANSPORT: 'memory',
+            E2E_TEST_SUPPORT: '1',
             NEXT_TELEMETRY_DISABLED: '1',
         },
     },
