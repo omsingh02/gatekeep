@@ -152,3 +152,74 @@ Every component gets the full state set: default, hover, active, focus-visible, 
   - **Revoked.**
   - **Wrong password** stays inline.
 - **404 and error pages:** the same card pattern; drop the glows.
+
+## Using the system
+
+Every component and state is on **`/design`** in development (`npm run dev`, then open
+http://localhost:3000/design). The page returns 404 in production builds.
+
+### Tokens
+
+Tokens are defined in `app/globals.css` (`@theme`) and used through Tailwind utilities. Never write raw hex values or
+inline `style={{}}` in screens.
+
+| Need | Use |
+|---|---|
+| Page, card, control and inset backgrounds | `bg-canvas`, `bg-surface`, `bg-raised`, `bg-inset` |
+| Text | `text-strong` (titles), `text-primary` (body), `text-secondary` (labels, metadata), `text-tertiary` (captions, placeholders) |
+| Borders | `border-subtle` (dividers), `border-default` (cards, controls), `border-strong` (hover) |
+| Status | `text-success` / `bg-success-bg` / `border-success-border`, the same for `warning` and `danger`; `bg-danger-solid` only in a destructive confirm |
+| Type | `text-display`, `text-h1`, `text-h2`, `text-h3`, `text-body`, `text-body-sm`, `text-caption`; `font-mono`; `tabular-nums` for numbers |
+| Shape and elevation | `rounded-sm` / `rounded-md` / `rounded-lg`; `shadow-overlay` (menus, toasts), `shadow-dialog` |
+| Widths | `max-w-app` (1280), `max-w-marketing` (1120), `max-w-card` (400) |
+| Focus | Global `:focus-visible` ring; `focus-ring` on custom controls |
+
+### Components
+
+Import everything from `@/components/ds`:
+
+```tsx
+import { Button, Card, CardHeader, Field, Input, StatusPill, Table, THead, TBody, TR, TH, TD, useToast } from '@/components/ds';
+import { Link2, Plus } from 'lucide-react';
+
+<PageHeader
+  title="Deliveries"
+  description="Files you've sent and who opened them."
+  actions={<Button variant="primary" icon={<Plus className="h-4 w-4" strokeWidth={1.75} />}>New delivery</Button>}
+/>
+
+<Field label="Recipient email" helper="We'll send a code to this address." error={errors.email}>
+  <Input type="email" placeholder="name@company.com" />
+</Field>
+
+<StatusPill tone="warning">Ends in 2 days</StatusPill>
+```
+
+| Component | Notes |
+|---|---|
+| `Button`, `IconButton` | Variants `primary`, `secondary` (default), `ghost`, `danger`, `danger-solid`, `link`; sizes `sm` (28), `md` (32), `lg` (40). `loading` shows the spinner. `IconButton` requires `label` (accessible name and tooltip). |
+| `Field` + `Input`, `Textarea`, `Select` | `Field` renders the label, helper or error, and wires `id`, `aria-describedby` and `aria-invalid` into the control. Use `size="lg"` on sign-in and recipient screens. Forms use `noValidate` and show inline errors. |
+| `Checkbox`, `Radio`, `Switch` | Real inputs. `Checkbox` supports `indeterminate`. Use `Switch` for settings that apply immediately. |
+| `SegmentedControl`, `Tabs`, `TabNav` | Neutral selection, arrow-key navigation. `TabNav` is for section navigation (links with `aria-current`). |
+| `Card`, `CardHeader`, `CardBody`, `StatCard` | Flat surfaces. `flush` removes padding for tables and lists. |
+| `Table`, `THead`, `TBody`, `TR`, `TH`, `TD`, `TableEmpty` | Sticky header, sortable `TH` (`onSort`, `sort`), `numeric` columns, `selected` rows. Row actions go in a `Menu`, with at most one visible secondary action. |
+| `Badge`, `StatusPill` | `Badge` for types ("Email code", "PDF"); `StatusPill` (with dot) for status. |
+| `Dialog`, `ConfirmDialog`, `PromptDialog` | Focus trap, Escape, focus restore, sheet on mobile. Never nest dialogs. Destructive confirms say what will happen and use a verb + object label. |
+| `Menu` | Arrow keys, Home/End, Escape; `danger` items; separators. |
+| `ToastProvider`, `useToast` | `toast.success/warning/error/info(message, { action })`. Errors are announced assertively. Mount the provider once. |
+| `EmptyState`, `Skeleton`, `Callout`, `Spinner` | One icon, one sentence, one action for empty states. Skeletons match the final layout. `Spinner` is only for buttons. |
+| `PageHeader`, `Breadcrumb`, `Toolbar`, `Avatar`, `Tooltip`, `Kbd` | Page scaffolding. Breadcrumbs are text links, not buttons. |
+| `CopyField` | Read-only value with copy and a "Copied" confirmation; `masked` for passwords, `multiline` for invites. |
+| `DateTimePicker` | Presets plus a neutral calendar and time for "Access ends". |
+| `Logo`, `LogoMark` | `inverted` for light backgrounds. The name is always "Gatekeep". |
+
+### Brand assets
+
+`node scripts/brand-assets.mjs` regenerates the logo, favicon, apple icon, email logo, Open Graph and Twitter cards,
+the GitHub social preview and the README banners from the glyph in `components/ds/Logo.tsx`.
+
+### Email
+
+`lib/email/template.ts` exports `renderEmail({ appUrl, preheader, heading, paragraphs, quote, button, rows, code, note, footer })`,
+which returns `{ html, text }`: the light, table-based layout described above, with every value escaped. Email wording
+follows [VOICE.md](VOICE.md): name the sender, never include a password, and say why the recipient got the email.
