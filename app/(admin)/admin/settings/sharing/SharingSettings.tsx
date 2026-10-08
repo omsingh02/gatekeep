@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 import { ExternalLink } from 'lucide-react';
-import { Callout, Field, Input, Radio, Select, useToast } from '@/components/ds';
+import { Badge, Callout, Field, Input, Radio, Select, useToast } from '@/components/ds';
 import { DOCS_URL, useDirtySection, useSettings, type OwnerSettings } from '../SettingsContext';
 import { SettingsSection, WithSettings } from '../SettingsShell';
 
@@ -100,7 +100,11 @@ function SharingForm({ settings }: { settings: OwnerSettings }) {
                     checked={values.method === 'email_code'}
                     disabled={!settings.emailConfigured}
                     onChange={() => set({ method: 'email_code' })}
-                    label="Email code (recommended)"
+                    label={
+                        <span className="inline-flex flex-wrap items-center gap-2">
+                            Email code <Badge>Recommended</Badge>
+                        </span>
+                    }
                     description={
                         settings.emailConfigured
                             ? 'Recipients get a 6-digit code at their email address. There are no passwords to send or lose.'

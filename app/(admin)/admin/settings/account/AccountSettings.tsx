@@ -105,7 +105,7 @@ function SignOutEverywhere() {
     };
 
     return (
-        <SettingsSection title="Sessions" description="Signed in on a computer that isn't yours? End every session at once.">
+        <SettingsSection title="Signed-in devices" description="Signed in on a computer that isn't yours? Sign out of every device at once.">
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="max-w-md text-body-sm text-secondary">Signs you out on every browser and device, including this one. Recipients aren&apos;t affected.</p>
                 <Button icon={<LogOut aria-hidden strokeWidth={1.75} className="h-4 w-4" />} onClick={() => setOpen(true)}>

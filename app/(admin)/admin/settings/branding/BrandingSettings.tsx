@@ -2,8 +2,9 @@
 
 import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import Link from 'next/link';
-import { ExternalLink, ImageIcon, Trash2, Upload } from 'lucide-react';
-import { Avatar, Button, Card, Field, Input, Radio, Textarea, cn, useToast } from '@/components/ds';
+import { ExternalLink, ImageIcon, Mail, Trash2, Upload } from 'lucide-react';
+import { Button, Card, Field, Input, Radio, Textarea, cn, useToast } from '@/components/ds';
+import { SenderBlock } from '@/components/recipient/Shell';
 import { readError, senderPreview, useDirtySection, useSettings, type OwnerSettings } from '../SettingsContext';
 import { SettingsSection, WithSettings } from '../SettingsShell';
 
@@ -63,7 +64,7 @@ function LogoCard({ settings }: { settings: OwnerSettings }) {
     };
 
     return (
-        <SettingsSection title="Logo" description="Shown at the top of your delivery pages, above your name.">
+        <SettingsSection title="Logo" description="Shown with your name on delivery pages and on your homepage.">
             <div className="flex flex-wrap items-center gap-4">
                 <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-default bg-inset">
                     {settings.logoUrl ? (
@@ -93,33 +94,42 @@ function LogoCard({ settings }: { settings: OwnerSettings }) {
     );
 }
 
+/** The recipient's sign-in card as it really looks (components/recipient/SignIn.tsx), with this message. */
 function RecipientPreview({ settings, message }: { settings: OwnerSettings; message: string }) {
-    const sender = senderPreview(settings.displayName ?? '', settings.organization ?? '', settings.ownerEmail);
+    const displayName = settings.displayName?.trim() ?? '';
+    const organization = settings.organization?.trim() ?? '';
+    const sender = {
+        name: displayName || organization || settings.ownerEmail || 'The sender',
+        label: senderPreview(displayName, organization, settings.ownerEmail),
+        logoUrl: settings.logoUrl,
+        message: message.trim() || null,
+    };
     return (
         <div className="rounded-lg border border-subtle bg-canvas px-4 py-8 sm:px-8" aria-label="Preview of a delivery page" role="img">
-            <Card className="mx-auto w-full max-w-card">
-                <div className="flex flex-col items-center text-center">
-                    {settings.logoUrl ? (
-                        <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg border border-default bg-inset">
-                            <LogoImage src={settings.logoUrl} className="h-full w-full p-1" />
-                        </div>
-                    ) : (
-                        <Avatar name={sender} />
-                    )}
-                    <p className="mt-3 text-h3 text-strong">{sender} sent you files</p>
-                    {message.trim() ? (
-                        <p className="mt-2 whitespace-pre-line break-words text-body-sm text-secondary">{message.trim()}</p>
-                    ) : (
-                        <p className="mt-2 text-body-sm text-tertiary">Your message to recipients appears here.</p>
-                    )}
+            {/* inert: a picture of the page, nothing in it can be focused or typed into */}
+            <Card inert className="mx-auto flex w-full max-w-card flex-col gap-6 p-6 sm:p-6">
+                <SenderBlock sender={sender} />
+                <div className="flex flex-col gap-1.5">
+                    <p className="text-h2 text-strong">{sender.name} sent you files</p>
+                    <p className="text-body text-secondary">Enter your email address and we&apos;ll send you a code to open them.</p>
                 </div>
-                <div className="mt-5 flex flex-col gap-1.5">
-                    <span className="text-caption font-medium text-secondary">Your email</span>
-                    <Input size="lg" readOnly tabIndex={-1} placeholder="name@company.com" aria-hidden />
+                <p
+                    className={cn(
+                        'whitespace-pre-line break-words border-l-2 border-default pl-3 text-body-sm',
+                        sender.message ? 'text-secondary' : 'text-tertiary'
+                    )}
+                >
+                    {sender.message ?? 'Your message to recipients appears here.'}
+                </p>
+                <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-1.5">
+                        <span className="text-caption font-medium text-secondary">Email</span>
+                        <Input size="lg" tabIndex={-1} placeholder="name@company.com" aria-hidden />
+                    </div>
+                    <Button variant="primary" size="lg" fullWidth className="pointer-events-none" tabIndex={-1} aria-hidden icon={<Mail {...ICON} />}>
+                        Send code
+                    </Button>
                 </div>
-                <Button variant="primary" size="lg" fullWidth className="pointer-events-none mt-3" tabIndex={-1} aria-hidden>
-                    Send me a code
-                </Button>
             </Card>
         </div>
     );
