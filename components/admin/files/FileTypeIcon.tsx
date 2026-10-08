@@ -39,6 +39,13 @@ export function fileKind(mimeType: string | null | undefined, name: string): Fil
     return 'other';
 }
 
+const PREVIEWABLE = new Set<FileKind>(['image', 'video', 'audio', 'pdf', 'text', 'code']);
+
+/** Whether the dashboard can show this file in FilePreviewDialog (otherwise it's download only). */
+export function isPreviewable(mimeType: string | null | undefined, name: string): boolean {
+    return PREVIEWABLE.has(fileKind(mimeType, name));
+}
+
 const ICONS: Record<FileKind, LucideIcon> = {
     image: FileImage,
     video: FileVideo,

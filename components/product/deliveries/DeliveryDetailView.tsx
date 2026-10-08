@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { CalendarClock, ExternalLink, FileX, FolderOpen, KeyRound, Link2, MailCheck, Pencil, Plus, SearchX, Trash2, Upload, UserMinus, UserPlus, Users, X } from 'lucide-react';
+import { CalendarClock, Download, ExternalLink, Eye, FileX, FolderOpen, KeyRound, Link2, MailCheck, Pencil, Plus, SearchX, Trash2, Upload, UserMinus, UserPlus, Users, X } from 'lucide-react';
 import {
     Badge,
     Breadcrumb,
@@ -30,16 +30,34 @@ import {
     useToast,
     type MenuItem,
 } from '@/components/ds';
-import { api, errorMessage, type ActivityItem, type DeliveryDetail, type DeliveryFile, type DeliveryKind, type Recipient } from './api';
-import { ActivityFeed, ActivityRow } from './ActivityFeed';
+import FilePreviewDialog from '@/components/admin/files/FilePreviewDialog';
+import { isPreviewable } from '@/components/admin/files/FileTypeIcon';
+import { downloadFile, reason } from '@/components/admin/files/api';
+import { api, errorMessage, type ActivityItem, type DeliveryDetail, type DeliveryFile, type DeliveryKind, type ReceivedFile, type Recipient } from './api';
+import { ActivityFeed } from './ActivityFeed';
 import { AddFilesDialog, AddPeopleDialog, ChangeAccessDialog, ChangePasswordDialog, EditDetailsDialog } from './DetailDialogs';
 import { FileIcon, fileTypeLabel } from './FileIcon';
-import { METHOD_LABELS, dateTime, downloadsLabel, endsShort, formatSize, plural, possessive, recipientPill, shortDate, shortName, timeAgo, timeAgoInSentence } from './format';
+import {
+    METHOD_LABELS,
+    dateTime,
+    downloadsLabel,
+    endsShort,
+    formatSize,
+    plural,
+    possessive,
+    recipientPill,
+    shortDate,
+    shortName,
+    timeAgo,
+    timeAgoInSentence,
+} from './format';
 import { useOwnerDefaults } from './hooks';
 import { PersonAvatar } from './PersonAvatar';
 import { useCopy } from './SentPanel';
 
 const ICON = { strokeWidth: 1.75, className: 'h-4 w-4', 'aria-hidden': true } as const;
+/** " · " between metadata parts; the no-break space keeps the dot on the line before */
+const SEPARATOR = '\u00a0· ';
 
 type Tab = 'recipients' | 'files' | 'activity';
 
@@ -332,10 +350,25 @@ function FilesPanel({ delivery, onChanged }: { delivery: DeliveryDetail; onChang
 /* Files received (requests)                                                                   */
 /* ------------------------------------------------------------------------------------------ */
 
-function ReceivedPanel({ delivery, uploads }: { delivery: DeliveryDetail; uploads: ActivityItem[] | null }) {
+function ReceivedPanel({ delivery }: { delivery: DeliveryDetail }) {
     const router = useRouter();
+    const toast = useToast();
+    const [preview, setPreview] = useState<{ file: ReceivedFile; key: number } | null>(null);
+    const [downloading, setDownloading] = useState<string | null>(null);
     const folder = delivery.requestFolder;
     const folderHref = folder ? `/admin/files?folder=${folder.id}` : '/admin/files';
+
+    const download = async (file: ReceivedFile) => {
+        setDownloading(file.id);
+        try {
+            await downloadFile(file.id);
+        } catch (error) {
+            toast.error(`We couldn't download ${file.name}. ${reason(error)}`);
+        } finally {
+            setDownloading(null);
+        }
+    };
+
     return (
         <Card flush>
             <CardHeader
@@ -347,19 +380,75 @@ function ReceivedPanel({ delivery, uploads }: { delivery: DeliveryDetail; upload
                     </Button>
                 }
             />
-            {uploads === null ? (
-                <div className="flex flex-col gap-3 px-5 py-4">
-                    <Skeleton className="h-4 w-64" />
-                    <Skeleton className="h-4 w-48" />
-                </div>
-            ) : uploads.length === 0 ? (
+            {delivery.received.length === 0 ? (
                 <EmptyState icon={Upload} title="Nothing uploaded yet" description={`Files people upload appear here and in ${folder?.name ?? 'All files'}.`} />
             ) : (
                 <ul className="divide-y divide-gray-4" aria-label="Files received">
-                    {uploads.map((item) => (
-                        <ActivityRow key={item.id} item={item} />
-                    ))}
+                    {delivery.received.map((file) => {
+                        const previewable = isPreviewable(file.mimeType, file.name);
+                        const open = () => setPreview({ file, key: Date.now() });
+                        return (
+                            <li key={file.id} className="flex min-h-14 items-center gap-3 px-4 py-2.5 sm:px-5" data-testid="received-file">
+                                <FileIcon mimeType={file.mimeType} />
+                                <div className="min-w-0 flex-1">
+                                    {previewable ? (
+                                        <button
+                                            type="button"
+                                            onClick={open}
+                                            title={file.name}
+                                            className="block max-w-full truncate rounded-sm text-left text-body text-primary underline-offset-4 hover:text-strong hover:underline focus-ring"
+                                        >
+                                            {file.name}
+                                        </button>
+                                    ) : (
+                                        <p className="truncate text-body text-primary" title={file.name}>
+                                            {file.name}
+                                        </p>
+                                    )}
+                                    {/* Lines wrap between the parts, not inside them */}
+                                    <p className="break-words text-caption tabular-nums text-tertiary">
+                                        <span className="whitespace-nowrap">{fileTypeLabel(file.name, file.mimeType)}</span>
+                                        {SEPARATOR}
+                                        <span className="whitespace-nowrap">{formatSize(file.size)}</span>
+                                        {file.from && (
+                                            <>
+                                                {SEPARATOR}
+                                                <span>{`From\u00a0${file.from}`}</span>
+                                            </>
+                                        )}
+                                        {SEPARATOR}
+                                        <time dateTime={file.createdAt} title={dateTime(file.createdAt)} className="whitespace-nowrap">
+                                            {timeAgo(file.createdAt)}
+                                        </time>
+                                    </p>
+                                </div>
+                                <div className="flex shrink-0 items-center gap-1">
+                                    {previewable && <IconButton label={`Preview ${file.name}`} size="sm" icon={<Eye {...ICON} />} onClick={open} />}
+                                    <IconButton
+                                        label={`Download ${file.name}`}
+                                        size="sm"
+                                        icon={<Download {...ICON} />}
+                                        disabled={downloading === file.id}
+                                        onClick={() => void download(file)}
+                                    />
+                                </div>
+                            </li>
+                        );
+                    })}
                 </ul>
+            )}
+            {preview && (
+                <FilePreviewDialog
+                    key={preview.key}
+                    file={{
+                        id: preview.file.id,
+                        originalFilename: preview.file.name,
+                        mimeType: preview.file.mimeType,
+                        fileSize: preview.file.size,
+                        updatedAt: preview.file.updatedAt,
+                    }}
+                    onClose={() => setPreview(null)}
+                />
             )}
         </Card>
     );
@@ -411,7 +500,6 @@ export function DeliveryDetailView({ id, kind }: { id: string; kind: DeliveryKin
     const [notFound, setNotFound] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [denied, setDenied] = useState<{ count: number; more: boolean } | null>(null);
-    const [uploads, setUploads] = useState<ActivityItem[] | null>(null);
     const [tab, setTab] = useState<Tab>('recipients');
     const [version, setVersion] = useState(0);
     const [adding, setAdding] = useState(false);
@@ -441,15 +529,10 @@ export function DeliveryDetailView({ id, kind }: { id: string; kind: DeliveryKin
         api<{ items: ActivityItem[]; nextCursor: string | null }>(`/api/activity?delivery=${id}&type=denied&limit=100`)
             .then((page) => !cancelled && setDenied({ count: page.items.length, more: Boolean(page.nextCursor) }))
             .catch(() => !cancelled && setDenied({ count: 0, more: false }));
-        if (isRequest) {
-            api<{ items: ActivityItem[] }>(`/api/activity?delivery=${id}&type=uploaded&limit=100`)
-                .then((page) => !cancelled && setUploads(page.items))
-                .catch(() => !cancelled && setUploads([]));
-        }
         return () => {
             cancelled = true;
         };
-    }, [id, kind, isRequest, router, version]);
+    }, [id, kind, router, version]);
 
     if (notFound) {
         return (
@@ -495,7 +578,7 @@ export function DeliveryDetailView({ id, kind }: { id: string; kind: DeliveryKin
     const tabs = [
         { value: 'recipients' as const, label: isRequest ? 'People' : 'Recipients', count: active.length },
         isRequest
-            ? { value: 'files' as const, label: 'Files received', count: uploads?.length }
+            ? { value: 'files' as const, label: 'Files received', count: delivery.received.length }
             : { value: 'files' as const, label: 'Files', count: delivery.files.length },
         { value: 'activity' as const, label: 'Activity' },
     ];
@@ -543,7 +626,7 @@ export function DeliveryDetailView({ id, kind }: { id: string; kind: DeliveryKin
                     detail={delivery.stats.lastOpenedAt ? `Last opened ${timeAgoInSentence(delivery.stats.lastOpenedAt)}` : 'Not opened yet'}
                 />
                 {isRequest ? (
-                    <StatCard label="Files received" value={uploads === null ? '–' : uploads.length.toLocaleString('en-US')} detail={`In ${delivery.requestFolder?.name ?? 'All files'}`} />
+                    <StatCard label="Files received" value={delivery.received.length.toLocaleString('en-US')} detail={`In ${delivery.requestFolder?.name ?? 'All files'}`} />
                 ) : (
                     <StatCard
                         label="Downloads"
@@ -570,7 +653,7 @@ export function DeliveryDetailView({ id, kind }: { id: string; kind: DeliveryKin
                     {tab === 'recipients' && (
                         <RecipientsPanel delivery={delivery} emailConfigured={defaults.emailConfigured} onAdd={() => setAdding(true)} onChanged={refresh} />
                     )}
-                    {tab === 'files' && (isRequest ? <ReceivedPanel delivery={delivery} uploads={uploads} /> : <FilesPanel delivery={delivery} onChanged={refresh} />)}
+                    {tab === 'files' && (isRequest ? <ReceivedPanel delivery={delivery} /> : <FilesPanel delivery={delivery} onChanged={refresh} />)}
                     {tab === 'activity' && <ActivityFeed deliveryId={delivery.id} version={version} />}
                 </div>
             </div>

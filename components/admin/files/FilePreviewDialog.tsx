@@ -6,7 +6,7 @@ import { Download, EyeOff, RotateCw, Send } from 'lucide-react';
 import { Button, Callout, Dialog, EmptyState, Skeleton, useToast } from '@/components/ds';
 import { ResumableMedia } from '@/components/product/ResumableMedia';
 import { downloadFile, fileUrl, reason } from './api';
-import { FileTypeIcon, fileKind, fileKindLabel } from './FileTypeIcon';
+import { FileTypeIcon, fileKind, fileKindLabel, isPreviewable } from './FileTypeIcon';
 import { formatFullDate, formatSize, sendHref } from './format';
 
 const ICON = { 'aria-hidden': true, strokeWidth: 1.75, className: 'h-4 w-4' } as const;
@@ -36,7 +36,7 @@ export default function FilePreviewDialog({ file, onClose }: { file: Previewable
     const [downloading, setDownloading] = useState(false);
 
     const kind = fileKind(file.mimeType, file.originalFilename);
-    const previewable = kind === 'image' || kind === 'video' || kind === 'audio' || kind === 'pdf' || kind === 'text' || kind === 'code';
+    const previewable = isPreviewable(file.mimeType, file.originalFilename);
 
     useEffect(() => {
         if (!previewable) return;
