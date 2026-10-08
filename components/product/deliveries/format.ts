@@ -46,6 +46,12 @@ export function timeAgo(iso: string | Date, now = Date.now()): string {
     return shortDate(iso);
 }
 
+/** timeAgo for mid-sentence use: "opened yesterday", "opened Oct 6" (months keep their capital). */
+export function timeAgoInSentence(iso: string | Date, now = Date.now()): string {
+    const text = timeAgo(iso, now);
+    return /^(Just now|Yesterday)$/.test(text) ? text.toLowerCase() : text;
+}
+
 /** "in 6 days", "in 3 hours", "tomorrow" */
 export function timeUntil(iso: string | Date, now = Date.now()): string {
     const ms = new Date(iso).getTime() - now;

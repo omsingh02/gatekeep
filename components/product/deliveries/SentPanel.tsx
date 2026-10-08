@@ -2,8 +2,9 @@
 
 import type { ReactNode } from 'react';
 import { CheckCircle2, Copy } from 'lucide-react';
-import { Avatar, Badge, Button, Callout, Card, CopyField, StatusPill, useToast } from '@/components/ds';
+import { Badge, Button, Callout, Card, CopyField, StatusPill, useToast } from '@/components/ds';
 import type { DeliveryKind, RecipientResult } from './api';
+import { PersonAvatar } from './PersonAvatar';
 import { ANYONE_LABEL, METHOD_LABELS, plural, shortDate, shortName } from './format';
 
 const ICON = { strokeWidth: 1.75, className: 'h-4 w-4', 'aria-hidden': true } as const;
@@ -35,7 +36,7 @@ export function RecipientResults({ recipients, link, kind = 'send' }: { recipien
                     <li key={r.id} className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0" data-testid="sent-recipient">
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                             <div className="flex min-w-0 flex-1 basis-56 items-center gap-2.5">
-                                <Avatar name={anyone ? '*' : r.label} size="sm" />
+                                <PersonAvatar label={r.label} />
                                 <div className="min-w-0">
                                     <p className="truncate text-body text-primary">{r.label}</p>
                                     <p className="text-caption text-tertiary">
@@ -75,7 +76,7 @@ export function RecipientResults({ recipients, link, kind = 'send' }: { recipien
                         {r.password && (
                             <div className="flex flex-col gap-1.5 pl-8">
                                 <p className="text-caption font-medium text-secondary">
-                                    {anyone ? 'Password for anyone with the link' : `Password for ${shortName(r.label)}`}
+                                    {anyone ? 'Password' : `Password for ${shortName(r.label)}`}
                                 </p>
                                 <CopyField label={anyone ? `Password for ${ANYONE_LABEL.toLowerCase()}` : `Password for ${r.label}`} value={r.password} className="max-w-80" />
                                 <p className="text-caption text-tertiary">

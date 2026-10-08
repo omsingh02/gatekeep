@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ExternalLink, Inbox, Link2, Plus, Search, Send, Trash2, X } from 'lucide-react';
 import {
-    Avatar,
     Button,
     Callout,
     Card,
@@ -31,7 +30,8 @@ import {
 } from '@/components/ds';
 import { useDebouncedValue } from '@/lib/utils/hooks';
 import { api, errorMessage, type DeliveryKind, type DeliveryListItem } from './api';
-import { ANYONE_LABEL, dateTime, plural, timeAgo } from './format';
+import { dateTime, plural, timeAgoInSentence } from './format';
+import { PersonAvatar } from './PersonAvatar';
 import { useCopy } from './SentPanel';
 
 const ICON = { strokeWidth: 1.75, className: 'h-4 w-4', 'aria-hidden': true } as const;
@@ -53,7 +53,7 @@ function People({ item }: { item: DeliveryListItem }) {
         <span className="flex min-w-0 items-center gap-2">
             <span className="flex shrink-0 -space-x-1.5" aria-hidden>
                 {preview.map((name, i) => (
-                    <Avatar key={i} name={name === ANYONE_LABEL ? '*' : name} size="sm" className="ring-2 ring-gray-2" />
+                    <PersonAvatar key={i} label={name} className="ring-2 ring-gray-2" />
                 ))}
             </span>
             <span className="min-w-0 truncate text-body-sm text-secondary">
@@ -64,7 +64,7 @@ function People({ item }: { item: DeliveryListItem }) {
 }
 
 function lastActivity(item: DeliveryListItem) {
-    return item.lastOpenedAt ? { text: `Opened ${timeAgo(item.lastOpenedAt).toLowerCase()}`, at: item.lastOpenedAt } : { text: `Created ${timeAgo(item.createdAt).toLowerCase()}`, at: item.createdAt };
+    return item.lastOpenedAt ? { text: `Opened ${timeAgoInSentence(item.lastOpenedAt)}`, at: item.lastOpenedAt } : { text: `Created ${timeAgoInSentence(item.createdAt)}`, at: item.createdAt };
 }
 
 function capitalize(text: string) {

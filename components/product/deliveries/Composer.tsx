@@ -229,7 +229,14 @@ export function Composer({ kind, initialFileIds = [] }: ComposerProps) {
         setErrors(found);
         const first = (['files', 'people', 'title', 'limit', 'maxFiles', 'maxFileMb'] as const).find((k) => found[k]);
         if (first) {
-            const section = first === 'files' ? 'section-files' : first === 'people' ? 'section-people' : 'section-details';
+            const section =
+                first === 'files'
+                    ? 'section-files'
+                    : first === 'people'
+                      ? 'section-people'
+                      : first === 'maxFiles' || first === 'maxFileMb'
+                        ? 'section-limits'
+                        : 'section-details';
             document.getElementById(section)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             return;
         }
@@ -483,7 +490,7 @@ export function Composer({ kind, initialFileIds = [] }: ComposerProps) {
                         step={3}
                         title={isRequest ? 'Limits and invites' : 'Details'}
                         description={isRequest ? 'How long the link works and what it accepts.' : 'What people see, and how long they can open it.'}
-                        done={isRequest ? true : detailsDone}
+                        done={isRequest ? detailsDone && peopleDone : detailsDone}
                     >
                         <div className="flex flex-col gap-5">
                             {!isRequest && detailsFields}

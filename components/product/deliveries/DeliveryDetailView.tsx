@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CalendarClock, ExternalLink, FileX, FolderOpen, KeyRound, Link2, MailCheck, Pencil, Plus, SearchX, Trash2, Upload, UserMinus, UserPlus, Users, X } from 'lucide-react';
 import {
-    Avatar,
     Badge,
     Breadcrumb,
     Button,
@@ -35,8 +34,9 @@ import { api, errorMessage, type ActivityItem, type DeliveryDetail, type Deliver
 import { ActivityFeed, ActivityRow } from './ActivityFeed';
 import { AddFilesDialog, AddPeopleDialog, ChangeAccessDialog, ChangePasswordDialog, EditDetailsDialog } from './DetailDialogs';
 import { FileIcon, fileTypeLabel } from './FileIcon';
-import { METHOD_LABELS, dateTime, downloadsLabel, formatSize, plural, possessive, recipientPill, shortDate, shortName, timeAgo } from './format';
+import { METHOD_LABELS, dateTime, downloadsLabel, formatSize, plural, possessive, recipientPill, shortDate, shortName, timeAgo, timeAgoInSentence } from './format';
 import { useOwnerDefaults } from './hooks';
+import { PersonAvatar } from './PersonAvatar';
 import { useCopy } from './SentPanel';
 
 const ICON = { strokeWidth: 1.75, className: 'h-4 w-4', 'aria-hidden': true } as const;
@@ -123,7 +123,7 @@ function RecipientsPanel({
 
     const identity = (r: Recipient) => (
         <span className="flex min-w-0 items-center gap-2.5">
-            <Avatar name={r.kind === 'anyone' ? '*' : r.label} size="sm" />
+            <PersonAvatar label={r.label} />
             <span className="min-w-0">
                 <span className={r.removedAt ? 'block truncate text-secondary line-through decoration-gray-6' : 'block truncate text-primary'}>{r.label}</span>
                 {r.endsAt && !r.removedAt && <span className="block text-caption text-tertiary">Ends {shortDate(r.endsAt)}</span>}
@@ -214,7 +214,7 @@ function RecipientsPanel({
                                             <Badge>{METHOD_LABELS[r.method]}</Badge>
                                         </div>
                                         <p className="mt-1.5 pl-8.5 text-caption text-tertiary">
-                                            {r.lastOpenedAt ? `Opened ${timeAgo(r.lastOpenedAt).toLowerCase()}` : 'Not opened yet'}
+                                            {r.lastOpenedAt ? `Opened ${timeAgoInSentence(r.lastOpenedAt)}` : 'Not opened yet'}
                                             {!isRequest &&
                                                 ` · ${r.downloadLimit !== null ? `${downloadsLabel(r)} downloads` : plural(r.downloadCount, 'download')}`}
                                         </p>
@@ -540,7 +540,7 @@ export function DeliveryDetailView({ id, kind }: { id: string; kind: DeliveryKin
                 <StatCard
                     label="Opens"
                     value={delivery.stats.opens.toLocaleString('en-US')}
-                    detail={delivery.stats.lastOpenedAt ? `Last ${timeAgo(delivery.stats.lastOpenedAt).toLowerCase()}` : 'Not opened yet'}
+                    detail={delivery.stats.lastOpenedAt ? `Last opened ${timeAgoInSentence(delivery.stats.lastOpenedAt)}` : 'Not opened yet'}
                 />
                 {isRequest ? (
                     <StatCard label="Files received" value={uploads === null ? '–' : uploads.length.toLocaleString('en-US')} detail={`In ${delivery.requestFolder?.name ?? 'All files'}`} />
