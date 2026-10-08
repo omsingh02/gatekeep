@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { FileQuestion } from 'lucide-react';
 import { Card, Logo } from '@/components/ds';
-import { RECIPIENT_MESSAGES } from '@/lib/deliveries/labels';
 
 export const metadata: Metadata = {
     title: 'Link not found — Gatekeep',
@@ -22,7 +21,7 @@ export default function NotFound() {
                     </span>
                     <div className="flex flex-col gap-1.5">
                         <h1 className="text-h2 text-strong">This link doesn&apos;t lead anywhere</h1>
-                        <p className="text-body text-secondary">{RECIPIENT_MESSAGES.notFound}</p>
+                        <p className="text-body text-secondary">Check you copied all of it, or ask the person who sent it.</p>
                     </div>
                     <p className="border-t border-subtle pt-4 text-body-sm text-secondary">
                         If it was a delivery, it may have been deleted. The person who sent it can send you a new link.

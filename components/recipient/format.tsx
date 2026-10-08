@@ -114,6 +114,23 @@ export function senderOrganization(sender: { name: string; label: string }): str
 export function guessMimeType(file: { name: string; type: string }): string {
     if (file.type) return file.type;
     const byExtension: Record<string, string> = {
+        png: 'image/png',
+        jpg: 'image/jpeg',
+        jpeg: 'image/jpeg',
+        gif: 'image/gif',
+        webp: 'image/webp',
+        svg: 'image/svg+xml',
+        mp4: 'video/mp4',
+        mov: 'video/quicktime',
+        webm: 'video/webm',
+        mp3: 'audio/mpeg',
+        wav: 'audio/wav',
+        doc: 'application/msword',
+        docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        xls: 'application/vnd.ms-excel',
+        xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ppt: 'application/vnd.ms-powerpoint',
+        pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
         md: 'text/markdown',
         markdown: 'text/markdown',
         txt: 'text/plain',

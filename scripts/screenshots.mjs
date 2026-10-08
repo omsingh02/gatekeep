@@ -96,19 +96,19 @@ async function newContext(browser, { mobile = false } = {}) {
 
 async function fillUnlockForm(page) {
     await page.goto(`${APP_URL}/${SHARE.code}`);
-    await page.locator('input[type="email"], input[placeholder*="@"]').first().fill(SHARE.recipient);
-    await page.locator('input[type="password"]').first().fill(SHARE.password);
+    await page.getByLabel('Email or username').fill(SHARE.recipient);
+    await page.getByLabel('Password', { exact: true }).fill(SHARE.password);
 }
 
-// /api/verify allows 5 attempts a minute per IP; wait it out instead of failing on back-to-back runs
+// Signing in is rate limited per IP; wait it out instead of failing on back-to-back runs
 async function submitUnlock(page) {
     for (let attempt = 0; attempt < 3; attempt++) {
         const [response] = await Promise.all([
-            page.waitForResponse((r) => r.url().endsWith('/api/verify') && r.request().method() === 'POST' && r.request().postData()?.includes('password')),
-            page.locator('button[type="submit"]').click(),
+            page.waitForResponse((r) => r.url().endsWith(`/api/d/${SHARE.code}/session`) && r.request().method() === 'POST'),
+            page.getByRole('button', { name: 'Unlock delivery' }).click(),
         ]);
         if (response.status() !== 429) return;
-        console.log('  rate limited by /api/verify, waiting 61 s…');
+        console.log('  rate limited signing in, waiting 61 s…');
         await page.waitForTimeout(61_000);
     }
     throw new Error('Could not unlock the demo share');
@@ -116,7 +116,7 @@ async function submitUnlock(page) {
 
 // After unlocking, the file is only fetched once the recipient asks for the preview
 async function showPreview(page) {
-    await page.getByRole('button', { name: /show preview/i }).click({ timeout: 20000 });
+    await page.getByRole('button', { name: 'Preview hero-shot.png' }).click({ timeout: 20000 });
     await page.waitForFunction(() => [...document.images].some((img) => img.complete && img.naturalWidth > 600), null, { timeout: 20000 });
 }
 

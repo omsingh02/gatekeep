@@ -5,7 +5,7 @@ import { notFound } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sanitizeShortCode } from '@/lib/utils/sanitization';
 import { loadDeliveryByCode } from '@/lib/deliveries/deliveries';
-import { RECIPIENT_MESSAGES } from '@/lib/deliveries/labels';
+import { SIGNED_OUT_NOTICE } from '@/components/recipient/api';
 import { publicSender } from '@/lib/deliveries/recipient-api';
 import { recipientFromSession, sessionCookieName } from '@/lib/deliveries/session';
 import { getSender } from '@/lib/deliveries/settings';
@@ -78,7 +78,7 @@ export default async function DeliveryPage({ params }: Params) {
             sender={publicSender(sender)}
             access={access}
             initial={initial}
-            notice={session.status === 'expired' ? RECIPIENT_MESSAGES.sessionEnded : null}
+            notice={session.status === 'expired' ? SIGNED_OUT_NOTICE : null}
         />
     );
 }

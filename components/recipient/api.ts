@@ -74,6 +74,9 @@ export type Failure =
 
 export type Result<T> = { ok: true; data: T } | { ok: false; failure: Failure };
 
+/** Shown on the sign-in step when a visit's sign-in ran out or was replaced (never says "session"). */
+export const SIGNED_OUT_NOTICE = "You were signed out. Confirm it's you again to continue.";
+
 export const NETWORK_MESSAGE = "We couldn't reach the server. Check your connection and try again.";
 const SERVER_MESSAGE = 'Something went wrong on our side. Try again in a moment.';
 

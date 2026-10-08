@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { CalendarX, FileQuestion, RotateCw, UserX, WifiOff } from 'lucide-react';
 import { Button, Card, Skeleton } from '@/components/ds';
 import { RECIPIENT_MESSAGES } from '@/lib/deliveries/labels';
-import { recipientApi, type AccessOptions, type Failure, type PublicSender, type VerifiedView } from './api';
+import { SIGNED_OUT_NOTICE, recipientApi, type AccessOptions, type Failure, type PublicSender, type VerifiedView } from './api';
 import { DeliveryView } from './DeliveryView';
 import { RequestUpload } from './RequestUpload';
 import { SignIn } from './SignIn';
@@ -45,7 +45,7 @@ export function RecipientApp({ code, kind, sender: initialSender, access, initia
             case 'ended':
                 return setScreen({ name: 'ended' });
             case 'signed-out':
-                return setScreen({ name: 'sign-in', notice: RECIPIENT_MESSAGES.sessionEnded });
+                return setScreen({ name: 'sign-in', notice: SIGNED_OUT_NOTICE });
             case 'not-found':
                 return setScreen({ name: 'gone' });
             default:
@@ -62,7 +62,7 @@ export function RecipientApp({ code, kind, sender: initialSender, access, initia
             if ('delivery' in data) return setScreen({ name: 'view', view: data });
             if (data.notice === RECIPIENT_MESSAGES.removed(data.sender.name)) return setScreen({ name: 'removed' });
             if (data.notice === RECIPIENT_MESSAGES.ended(data.sender.name)) return setScreen({ name: 'ended' });
-            setScreen({ name: 'sign-in', notice: data.notice });
+            setScreen({ name: 'sign-in', notice: data.notice ? SIGNED_OUT_NOTICE : null });
         },
         [fail],
     );
@@ -96,7 +96,7 @@ export function RecipientApp({ code, kind, sender: initialSender, access, initia
             source.close();
             if (data.reason === 'removed') setScreen({ name: 'removed' });
             else if (data.reason === 'ended') setScreen({ name: 'ended' });
-            else setScreen({ name: 'sign-in', notice: RECIPIENT_MESSAGES.sessionEnded });
+            else setScreen({ name: 'sign-in', notice: SIGNED_OUT_NOTICE });
         };
         source.onerror = () => {
             // The server refused the stream (signed out, removed): find out why
@@ -153,7 +153,7 @@ export function RecipientApp({ code, kind, sender: initialSender, access, initia
                     sender={sender}
                     title="Your access was removed"
                     action={
-                        <Button variant="link" className="min-h-10 self-start" onClick={signIn}>
+                        <Button variant="link" className="min-h-10 self-start text-body-sm" onClick={signIn}>
                             I have a new invite
                         </Button>
                     }
@@ -168,7 +168,7 @@ export function RecipientApp({ code, kind, sender: initialSender, access, initia
                     sender={sender}
                     title="Your access has ended"
                     action={
-                        <Button variant="link" className="min-h-10 self-start" onClick={signIn}>
+                        <Button variant="link" className="min-h-10 self-start text-body-sm" onClick={signIn}>
                             I have a new invite
                         </Button>
                     }
