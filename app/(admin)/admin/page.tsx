@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { Send, Share2, Upload } from 'lucide-react';
 import { LoadingSpinner } from '@/components/ui';
 import FileUploader from '@/components/admin/FileUploader';
 import FileList from '@/components/admin/FileList';
@@ -52,6 +53,36 @@ export default function DashboardPage() {
                     Upload files, then share each one with exactly the people who need it.
                 </p>
             </div>
+
+            {/* First run: no files yet */}
+            {!isLoading && stats.totalFiles === 0 && (
+                <section
+                    aria-labelledby="get-started"
+                    className="rounded-2xl border border-indigo-400/20 bg-[radial-gradient(ellipse_at_top_left,rgba(99,102,241,0.14),transparent_60%)] p-6"
+                >
+                    <h2 id="get-started" className="text-base font-semibold text-white">Get started in three steps</h2>
+                    <ol className="mt-4 grid gap-4 sm:grid-cols-3">
+                        {[
+                            { icon: Upload, title: 'Upload a file', body: 'Drop it in the box below, or pick files or a whole folder.' },
+                            { icon: Share2, title: 'Click Share', body: 'Add a person by email or username with a password — or make a public, password-only link.' },
+                            { icon: Send, title: 'Send the invite', body: 'Copy the ready-made invite. Every unlock attempt shows up in Analytics.' },
+                        ].map(({ icon: Icon, title, body }, i) => (
+                            <li key={title} className="flex gap-3">
+                                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04]">
+                                    <Icon className="h-4 w-4 text-indigo-300" aria-hidden />
+                                </span>
+                                <div>
+                                    <p className="text-sm font-medium text-white">
+                                        <span className="mr-1.5 text-zinc-500">{i + 1}.</span>
+                                        {title}
+                                    </p>
+                                    <p className="mt-1 text-sm leading-relaxed text-zinc-400">{body}</p>
+                                </div>
+                            </li>
+                        ))}
+                    </ol>
+                </section>
+            )}
 
             {/* Stats Grid */}
             <div style={{
