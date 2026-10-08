@@ -57,6 +57,11 @@ export function timeUntil(iso: string | Date, now = Date.now()): string {
     return 'in less than 2 hours';
 }
 
+/** Under a recipient's name: "Ends Oct 14", or "Ended Oct 6" once it's passed. */
+export function endsShort(iso: string, now = Date.now()): string {
+    return `${new Date(iso).getTime() <= now ? 'Ended' : 'Ends'} ${shortDate(iso)}`;
+}
+
 /** "Ends Oct 14 · in 6 days" or "No end date" */
 export function endsLabel(iso: string | null): string {
     return iso ? `Ends ${shortDate(iso)} · ${timeUntil(iso)}` : 'No end date';
