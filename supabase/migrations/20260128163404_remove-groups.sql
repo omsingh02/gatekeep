@@ -1,4 +1,4 @@
--- Migration: Remove groups feature from file-share
+-- Migration: Remove the groups feature
 -- This migration drops all group-related tables, columns, indexes, and constraints.
 -- Run this AFTER deploying code that removes group functionality.
 -- WARNING: This is a destructive migration. Back up data if needed.

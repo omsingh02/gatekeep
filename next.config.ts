@@ -1,5 +1,8 @@
 import type { NextConfig } from "next";
 
+// Next.js needs 'unsafe-eval' only for development tooling (React Refresh); production doesn't
+const isDev = process.env.NODE_ENV !== "production";
+
 const nextConfig: NextConfig = {
   // Emits .next/standalone for the Docker image (ignored by Vercel)
   output: "standalone",
@@ -38,14 +41,13 @@ const nextConfig: NextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://static.cloudflareinsights.com", // Next.js requires unsafe-inline/eval in dev, allow Cloudflare analytics
-              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com", // Allow Google Fonts
-              "img-src 'self' data: blob: https:", // Allow images from data URLs, blob, and HTTPS
-              "font-src 'self' data: https://fonts.gstatic.com", // Allow Google Fonts
+              `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`, // Next.js inline bootstrap scripts
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data: blob: https:", // Logos and previews from signed Storage URLs
+              "font-src 'self' data:", // Inter is self-hosted by next/font
               "connect-src 'self' https://*.supabase.co wss://*.supabase.co", // Supabase API/Realtime
               "media-src 'self' blob: https://*.supabase.co", // Video and audio previews (signed Storage URLs)
-              "frame-src 'self' https://*.supabase.co https://view.officeapps.live.com", // Allow Supabase frames and Office viewer
-              "media-src 'self' blob: https://*.supabase.co", // Video and audio previews stream from signed Supabase URLs
+              "frame-src 'self' https://*.supabase.co https://view.officeapps.live.com", // PDF previews and the Office viewer
               "frame-ancestors 'none'", // Equivalent to X-Frame-Options: DENY
             ].join('; '),
           },

@@ -2,6 +2,21 @@
   "name": "gatekeep",
   "version": "2.0.0",
   "description": "Secure file delivery with receipts, self-hosted: send files to named recipients (email codes or passwords), see every open and download, and take access back. Next.js + Supabase.",
+  "keywords": [
+    "file-delivery",
+    "secure-file-sharing",
+    "self-hosted",
+    "file-requests",
+    "audit-log",
+    "access-control",
+    "nextjs",
+    "supabase"
+  ],
+  "homepage": "https://gatekeep.omsingh.me",
+  "bugs": {
+    "url": "https://github.com/omsingh02/gatekeep/issues"
+  },
+  "author": "Om Singh (https://github.com/omsingh02)",
   "license": "MIT",
   "repository": {
     "type": "git",
