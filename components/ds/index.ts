@@ -11,7 +11,7 @@ export { Select, type SelectProps } from './Select';
 export { Checkbox, Radio, type CheckboxProps, type RadioProps } from './Checkbox';
 export { Switch, type SwitchProps } from './Switch';
 export { SegmentedControl, type SegmentedControlProps, type SegmentedOption } from './SegmentedControl';
-export { Tabs, TabNav, type TabsProps, type TabItem, type NavTab } from './Tabs';
+export { Tabs, TabNav, type TabsProps, type TabItem, type NavTab, type TabNavProps } from './Tabs';
 export { Card, Panel, CardHeader, CardBody, StatCard, type CardProps, type CardHeaderProps, type StatCardProps } from './Card';
 export { Table, THead, TBody, TR, TH, TD, TableEmpty, type SortDirection, type THProps, type TDProps, type TRProps } from './Table';
 export { Badge, StatusPill, type BadgeTone, type BadgeProps, type StatusPillProps } from './Badge';

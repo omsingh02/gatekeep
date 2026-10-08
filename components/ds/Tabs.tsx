@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRef, type KeyboardEvent, type ReactNode } from 'react';
+import { useRef, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 import { cn } from './cn';
 
 const tabClass = (active: boolean) =>
@@ -78,12 +78,35 @@ export interface NavTab {
     active: boolean;
 }
 
+const verticalClass = (active: boolean) =>
+    cn(
+        'flex items-center gap-2 rounded-md border-l-2 px-3 py-1.5 text-body font-medium transition-colors focus-ring',
+        active ? 'border-gray-10 bg-raised text-strong' : 'border-transparent text-secondary hover:bg-raised hover:text-primary'
+    );
+
+export interface TabNavProps {
+    items: NavTab[];
+    label: string;
+    /** `vertical` is a sub-navigation list (settings): selected item gets a raised fill and a 2px left indicator */
+    orientation?: 'horizontal' | 'vertical';
+    /** Called before navigating; call `event.preventDefault()` to stay (e.g. to confirm unsaved changes) */
+    onNavigate?: (event: MouseEvent<HTMLAnchorElement>, href: string) => void;
+    className?: string;
+}
+
 /** Section navigation that looks like tabs but navigates (links with aria-current). */
-export function TabNav({ items, label, className }: { items: NavTab[]; label: string; className?: string }) {
+export function TabNav({ items, label, orientation = 'horizontal', onNavigate, className }: TabNavProps) {
+    const vertical = orientation === 'vertical';
     return (
-        <nav aria-label={label} className={cn('flex gap-1 overflow-x-auto', className)}>
+        <nav aria-label={label} className={cn(vertical ? 'flex flex-col gap-0.5' : 'flex gap-1 overflow-x-auto', className)}>
             {items.map((item) => (
-                <Link key={item.href} href={item.href} aria-current={item.active ? 'page' : undefined} className={tabClass(item.active)}>
+                <Link
+                    key={item.href}
+                    href={item.href}
+                    aria-current={item.active ? 'page' : undefined}
+                    onClick={onNavigate ? (event) => onNavigate(event, item.href) : undefined}
+                    className={vertical ? verticalClass(item.active) : tabClass(item.active)}
+                >
                     {item.icon}
                     {item.label}
                 </Link>

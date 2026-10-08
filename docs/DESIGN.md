@@ -200,7 +200,7 @@ import { Link2, Plus } from 'lucide-react';
 | `Button`, `IconButton` | Variants `primary`, `secondary` (default), `ghost`, `danger`, `danger-solid`, `link`; sizes `sm` (28), `md` (32), `lg` (40). `loading` shows the spinner. `IconButton` requires `label` (accessible name and tooltip). |
 | `Field` + `Input`, `Textarea`, `Select` | `Field` renders the label, helper or error, and wires `id`, `aria-describedby` and `aria-invalid` into the control. Use `size="lg"` on sign-in and recipient screens. Forms use `noValidate` and show inline errors. |
 | `Checkbox`, `Radio`, `Switch` | Real inputs. `Checkbox` supports `indeterminate`. Use `Switch` for settings that apply immediately. |
-| `SegmentedControl`, `Tabs`, `TabNav` | Neutral selection, arrow-key navigation. `TabNav` is for section navigation (links with `aria-current`). |
+| `SegmentedControl`, `Tabs`, `TabNav` | Neutral selection, arrow-key navigation. `TabNav` is for section navigation (links with `aria-current`); `orientation="vertical"` is the sub-navigation list used by Settings. |
 | `Card`, `CardHeader`, `CardBody`, `StatCard` | Flat surfaces. `flush` removes padding for tables and lists. |
 | `Table`, `THead`, `TBody`, `TR`, `TH`, `TD`, `TableEmpty` | Sticky header, sortable `TH` (`onSort`, `sort`), `numeric` columns, `selected` rows. Row actions go in a `Menu`, with at most one visible secondary action. |
 | `Badge`, `StatusPill` | `Badge` for types ("Email code", "PDF"); `StatusPill` (with dot) for status. |

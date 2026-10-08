@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { isOwner } from '@/lib/auth/owner';
-import { Logo, ToastProvider } from '@/components/ds';
+import { Logo } from '@/components/ds';
 import AdminNav from '@/components/admin/AdminNav';
 import AccountMenu from '@/components/admin/AccountMenu';
 
@@ -30,7 +30,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     const email = user.email || 'Owner';
 
     return (
-        <ToastProvider>
             <div className="min-h-screen bg-canvas text-primary">
                 <header className="border-b border-subtle bg-surface">
                     <div className="mx-auto flex h-12 max-w-app items-center justify-between gap-4 px-4 sm:h-14 sm:px-8">
@@ -45,6 +44,5 @@ export default async function AdminLayout({ children }: { children: React.ReactN
                 </header>
                 <main className="mx-auto max-w-app px-4 pb-16 pt-6 sm:px-8 sm:pt-8">{children}</main>
             </div>
-        </ToastProvider>
     );
 }

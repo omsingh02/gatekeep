@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient as createServerSupabase } from '@/lib/supabase/server';
 import { env } from '@/lib/env';
 import { rateLimit } from '@/lib/utils/ratelimit';
 import { jsonError, readJson, requireOwner, serverError } from '@/lib/deliveries/http';
+import { OWNER_PASSWORD_MIN } from '@/lib/utils/passwordStrength';
 
 const ROUTE = '/api/account/password';
-const OWNER_PASSWORD_MIN = 10;
 
-/** POST { currentPassword, newPassword }: change the owner's password after confirming the current one. */
+/**
+ * POST { currentPassword, newPassword } → { ok, signedIn }
+ * Change the owner's password after confirming the current one. Other sessions end; this one is renewed.
+ */
 export async function POST(request: NextRequest) {
     const user = await requireOwner(ROUTE, 'POST');
     if (user instanceof NextResponse) return user;
@@ -32,11 +36,17 @@ export async function POST(request: NextRequest) {
         });
         const { error: signInError } = await verifier.auth.signInWithPassword({ email: user.email, password: current });
         if (signInError) return jsonError("Your current password isn't right.", 400, 'ERR_WRONG_PASSWORD');
-        await verifier.auth.signOut().catch(() => undefined);
+        // Only end the throwaway session: the default (global) scope would also sign the owner out here
+        await verifier.auth.signOut({ scope: 'local' }).catch(() => undefined);
 
+        // Supabase ends every session of the account when its password changes, which is what we
+        // want for other browsers and devices. Sign this browser straight back in with the new
+        // password (the server client writes the session cookies), so the owner stays signed in here.
         const { error } = await createAdminClient().auth.admin.updateUserById(user.id, { password: next });
         if (error) throw error;
-        return NextResponse.json({ ok: true });
+        const supabase = await createServerSupabase();
+        const { error: renewError } = await supabase.auth.signInWithPassword({ email: user.email, password: next });
+        return NextResponse.json({ ok: true, signedIn: !renewError });
     } catch (err) {
         return serverError(ROUTE, user.id, 'POST', err);
     }

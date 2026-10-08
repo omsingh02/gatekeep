@@ -13,6 +13,7 @@ Gatekeep becomes **secure file delivery with receipts** ([docs/PRODUCT.md](docs/
 - **Owner notifications:** first open, downloads (optional), a single alert for repeated denied attempts, and request uploads. "Access ending soon" reminders go to recipients.
 - **Settings:** your name and organization (shown to recipients instead of "someone"), logo, message to recipients, sharing defaults, notifications. Change password, forgot password, and a system status endpoint.
 - **New emails:** one light template; every email says who it's from, and replies go to you.
+- **Screens:** Activity (the receipts feed: filters by delivery, event and period, period totals, details per event, CSV export), Settings (profile, branding with a live preview, sharing defaults, notifications, account, system status), and the owner's sign-in, forgot password and reset password pages.
 - **Upgrade:** every v1 link becomes a delivery with the same code. v1 grants and the access log are carried over; recipients unlock once more.
 
 ### v2: the delivery page (what recipients see)

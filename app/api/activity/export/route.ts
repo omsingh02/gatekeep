@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
         } while (cursor && items.length < MAX_ROWS);
 
         const csv = toCsv([
-            ['Time (UTC)', 'Event', 'Reason', 'Person', 'Delivery', 'File', 'IP address', 'Browser'],
+            ['Time (UTC)', 'Event', 'Reason', 'Person', 'Delivery', 'File', 'IP address', 'Browser', 'Request ID'],
             ...items.map((item) => [
                 item.createdAt,
                 item.typeLabel,
@@ -33,6 +33,7 @@ export async function GET(request: NextRequest) {
                 item.fileName,
                 item.ip,
                 item.userAgent,
+                item.requestId,
             ]),
         ]);
         const date = new Date().toISOString().slice(0, 10);

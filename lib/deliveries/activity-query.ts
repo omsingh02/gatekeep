@@ -71,6 +71,7 @@ export interface ActivityItem {
     recipientId: string | null;
     ip: string | null;
     userAgent: string | null;
+    requestId: string | null;
     createdAt: string;
 }
 
@@ -127,8 +128,70 @@ export async function listActivity(
             recipientId: row.recipient_id,
             ip: row.ip,
             userAgent: row.user_agent,
+            requestId: row.request_id,
             createdAt: row.created_at,
         })),
         nextCursor: rows.length > options.limit ? encodeCursor(page[page.length - 1]) : null,
+    };
+}
+
+export interface ActivitySummary {
+    opened: number;
+    downloaded: number;
+    denied: number;
+    /** Deliveries someone can open right now: at least one person whose access hasn't ended or been removed */
+    activeDeliveries: number;
+    /** People who can open the filtered delivery right now (only when filtering by one delivery) */
+    activeRecipients: number | null;
+}
+
+/**
+ * Totals for the activity page's summary cards, counted in the database for the whole period
+ * (not from the page of events the browser has loaded). The type filter doesn't apply.
+ */
+export async function activitySummary(ownerId: string, filters: Omit<ActivityFilters, 'types'>): Promise<ActivitySummary> {
+    const admin = createAdminClient();
+
+    const count = async (types: ActivityType[]) => {
+        let query = admin.from('activity').select('id', { count: 'exact', head: true }).eq('owner_id', ownerId).in('type', types);
+        if (filters.deliveryId) query = query.eq('delivery_id', filters.deliveryId);
+        if (filters.recipientId) query = query.eq('recipient_id', filters.recipientId);
+        if (filters.from) query = query.gte('created_at', filters.from);
+        if (filters.to) query = query.lte('created_at', filters.to);
+        const { count: total, error } = await query;
+        if (error) throw error;
+        return total ?? 0;
+    };
+
+    const activeAccess = async () => {
+        let deliveries = admin.from('deliveries').select('id').eq('owner_id', ownerId).is('deleted_at', null);
+        if (filters.deliveryId) deliveries = deliveries.eq('id', filters.deliveryId);
+        const { data: owned, error } = await deliveries;
+        if (error) throw error;
+        const ids = (owned ?? []).map((d) => d.id);
+        if (!ids.length) return { deliveries: 0, recipients: 0 };
+        const { data: recipients, error: recipientsError } = await admin
+            .from('delivery_recipients')
+            .select('delivery_id')
+            .in('delivery_id', ids)
+            .is('removed_at', null)
+            .or(`ends_at.is.null,ends_at.gt.${new Date().toISOString()}`);
+        if (recipientsError) throw recipientsError;
+        const rows = recipients ?? [];
+        return { deliveries: new Set(rows.map((r) => r.delivery_id)).size, recipients: rows.length };
+    };
+
+    const [opened, downloaded, denied, active] = await Promise.all([
+        count(['opened']),
+        count(['downloaded', 'downloaded_all']),
+        count(['denied']),
+        activeAccess(),
+    ]);
+    return {
+        opened,
+        downloaded,
+        denied,
+        activeDeliveries: active.deliveries,
+        activeRecipients: filters.deliveryId ? active.recipients : null,
     };
 }

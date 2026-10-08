@@ -34,12 +34,18 @@ export async function POST(request: NextRequest) {
                 email,
                 options: { redirectTo: `${env.app.url}/reset-password` },
             });
-            if (error || !data?.user || !data.properties?.action_link) return;
+            if (error || !data?.user || !data.properties?.hashed_token) return;
             if (!isOwner(data.user)) {
                 logWarning(ROUTE, 'not-owner', 'Password reset requested for an account that is not the owner');
                 return;
             }
-            const message = passwordResetEmail({ email, instanceUrl: env.app.url, resetUrl: data.properties.action_link });
+            // Link straight to /reset-password with the token hash: the page verifies it with
+            // verifyOtp, so the link works without adding Gatekeep's URL to Supabase's redirect allow list.
+            const resetUrl = `${env.app.url}/reset-password?${new URLSearchParams({
+                token_hash: data.properties.hashed_token,
+                type: 'recovery',
+            })}`;
+            const message = passwordResetEmail({ email, instanceUrl: env.app.url, resetUrl });
             await sendEmail({ to: email, ...message });
         });
 
