@@ -43,18 +43,3 @@ export function useOwnerDefaults(): OwnerDefaults {
 
     return state;
 }
-
-/** Whether email works, for screens that only need that. */
-export function useEmailConfigured(): boolean | undefined {
-    const [value, setValue] = useState<boolean | undefined>(undefined);
-    useEffect(() => {
-        let cancelled = false;
-        fetchEmailConfigured()
-            .then((v) => !cancelled && setValue(v))
-            .catch(() => undefined);
-        return () => {
-            cancelled = true;
-        };
-    }, []);
-    return value;
-}

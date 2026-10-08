@@ -77,10 +77,6 @@ export function toRecipientInputs(
     };
 }
 
-export function recipientCount(draft: RecipientsDraft): number {
-    return draft.people.length;
-}
-
 export interface RecipientEditorProps {
     value: RecipientsDraft;
     onChange: (next: RecipientsDraft) => void;

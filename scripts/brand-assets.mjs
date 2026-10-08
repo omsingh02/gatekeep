@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Regenerates every Gatekeep Mono brand asset (logo, icons, Open Graph cards, README banners,
 // email logo) from the glyph in components/ds/Logo.tsx. Monochrome only (docs/DESIGN.md).
-// Usage: node scripts/brand-assets.mjs   (needs Chromium: CHROMIUM_PATH, default /usr/bin/chromium)
+// Usage: npm run brand-assets   (needs Chromium: CHROMIUM_PATH, default /usr/bin/chromium)
 import { chromium } from 'playwright-core';
 import { writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';

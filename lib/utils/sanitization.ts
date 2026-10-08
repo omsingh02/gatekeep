@@ -97,22 +97,6 @@ export function sanitizeUserIdentifier(identifier: string, maxLength: number = 2
 }
 
 /**
- * Escape HTML to prevent XSS when rendering user content
- */
-export function escapeHtml(unsafe: string): string {
-    if (!unsafe || typeof unsafe !== 'string') {
-        return '';
-    }
-
-    return unsafe
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-}
-
-/**
  * Sanitize short code to ensure it only contains expected characters
  */
 export function sanitizeShortCode(code: string): string {
