@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import Link from 'next/link';
+import { Globe, UserRound } from 'lucide-react';
 import { ConfirmDialog, EmptyState, Skeleton, useToast } from '@/components/ui';
 import { formatDateTime } from '@/lib/utils/date';
 import { useDebouncedValue } from '@/lib/utils/hooks';
@@ -9,10 +9,9 @@ import { useDebouncedValue } from '@/lib/utils/hooks';
 interface ShareWithFile {
     id: string;
     fileId: string;
-    type: 'user' | 'group';
+    type: 'user' | 'public';
     userIdentifier?: string;
-    groupId?: string;
-    groupName?: string;
+    isPublic?: boolean;
     expiresAt: string | null;
     accessCount: number;
     downloadCount?: number;
@@ -76,7 +75,7 @@ export default function AllSharesPage() {
                 setTotalCount(data.totalCount || 0);
                 setTotalPages(data.totalPages || 1);
             }
-        } catch (error) {
+        } catch {
             // Error handled silently
         } finally {
             setIsLoading(false);
@@ -101,7 +100,7 @@ export default function AllSharesPage() {
                     limitReached,
                 });
             }
-        } catch (error) {
+        } catch {
             // Error handled silently
         }
     }, []);
@@ -132,7 +131,7 @@ export default function AllSharesPage() {
             } else {
                 toast.error('Failed to revoke access');
             }
-        } catch (error) {
+        } catch {
             toast.error('Failed to revoke access');
         } finally {
             setRevokeConfirm({ isOpen: false, shareId: null, userName: '' });
@@ -140,7 +139,7 @@ export default function AllSharesPage() {
     };
 
     const confirmRevoke = (share: ShareWithFile) => {
-        setRevokeConfirm({ isOpen: true, shareId: share.id, userName: share.userIdentifier || share.groupName || 'Unknown' });
+        setRevokeConfirm({ isOpen: true, shareId: share.id, userName: share.userIdentifier || 'the public link' });
     };
 
     const getStatusBadge = (status: string) => {
@@ -156,32 +155,14 @@ export default function AllSharesPage() {
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            {/* Header with Back Link */}
+            {/* Header */}
             <div>
-                <Link
-                    href="/admin"
-                    style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                        fontSize: '0.875rem',
-                        color: '#9ca3af',
-                        textDecoration: 'none',
-                        marginBottom: '0.5rem',
-                        transition: 'color 0.2s',
-                    }}
-                >
-                    <svg style={{ width: '16px', height: '16px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                    </svg>
-                    Back to Admin
-                </Link>
                 <h1 style={{
                     fontSize: '1.5rem',
                     fontWeight: 600,
                     color: '#e0e0e0',
                     margin: 0,
-                }}>Access Management</h1>
+                }}>Shares</h1>
                 <p style={{
                     fontSize: '0.875rem',
                     color: '#9ca3af',
@@ -306,7 +287,7 @@ export default function AllSharesPage() {
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
                             <thead>
                                 <tr style={{ borderBottom: '1px solid #23263a' }}>
-                                    <th style={{ padding: '0.75rem 0.5rem', textAlign: 'left', color: '#9ca3af', fontWeight: 500 }}>USER/GROUP</th>
+                                    <th style={{ padding: '0.75rem 0.5rem', textAlign: 'left', color: '#9ca3af', fontWeight: 500 }}>RECIPIENT</th>
                                     <th style={{ padding: '0.75rem 0.5rem', textAlign: 'left', color: '#9ca3af', fontWeight: 500 }}>FILE</th>
                                     <th style={{ padding: '0.75rem 0.5rem', textAlign: 'left', color: '#9ca3af', fontWeight: 500 }}>STATUS</th>
                                     <th style={{ padding: '0.75rem 0.5rem', textAlign: 'left', color: '#9ca3af', fontWeight: 500 }}>VIEWS</th>
@@ -333,28 +314,24 @@ export default function AllSharesPage() {
                                                         width: '32px',
                                                         height: '32px',
                                                         borderRadius: '50%',
-                                                        backgroundColor: share.type === 'group' ? '#7c3aed' : '#6366f1',
+                                                        backgroundColor: share.type === 'public' ? '#059669' : '#6366f1',
                                                         display: 'flex',
                                                         alignItems: 'center',
                                                         justifyContent: 'center',
                                                         flexShrink: 0,
                                                     }}>
-                                                        {share.type === 'group' ? (
-                                                            <svg width="16" height="16" fill="none" stroke="#fff" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                                                            </svg>
+                                                        {share.type === 'public' ? (
+                                                            <Globe size={16} color="#fff" aria-hidden />
                                                         ) : (
-                                                            <svg width="16" height="16" fill="none" stroke="#fff" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                                            </svg>
+                                                            <UserRound size={16} color="#fff" aria-hidden />
                                                         )}
                                                     </div>
                                                     <div>
                                                         <div style={{ color: '#e0e0e0', fontWeight: 500 }}>
-                                                            {share.userIdentifier || share.groupName || 'Unknown'}
+                                                            {share.type === 'public' ? 'Public link' : share.userIdentifier}
                                                         </div>
                                                         <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                                                            {share.type === 'group' ? 'Group' : 'User'}
+                                                            {share.type === 'public' ? 'Anyone with the password' : 'Recipient'}
                                                         </div>
                                                     </div>
                                                 </div>

@@ -256,6 +256,7 @@ export default function FilePreview({ fileData, shortCode, userIdentifier }: Fil
                     padding: '1rem',
                     backgroundColor: '#0b0c11',
                 }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element -- short-lived signed URL to a private file; must not go through the public image optimizer */}
                     <img
                         src={previewUrl}
                         alt={file.originalFilename}
