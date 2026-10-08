@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { env } from './lib/env';
+import { isOwner } from './lib/auth/owner';
 
 export async function proxy(request: NextRequest) {
     let response = NextResponse.next({
@@ -34,16 +35,17 @@ export async function proxy(request: NextRequest) {
 
     const { data: { user } } = await supabase.auth.getUser();
 
-    // Protect admin routes
-    if (request.nextUrl.pathname.startsWith('/admin')) {
-        if (!user) {
-            const redirectUrl = new URL('/login', request.url);
-            return NextResponse.redirect(redirectUrl);
-        }
+    const owner = isOwner(user);
+
+    // Protect admin routes: signed in is not enough, it must be the owner
+    if (request.nextUrl.pathname.startsWith('/admin') && !owner) {
+        const redirectUrl = new URL('/login', request.url);
+        if (user) redirectUrl.searchParams.set('reason', 'not-owner');
+        return NextResponse.redirect(redirectUrl);
     }
 
-    // Redirect authenticated users away from login
-    if (request.nextUrl.pathname === '/login' && user) {
+    // Send the signed-in owner away from login (a non-owner stays, to switch accounts)
+    if (request.nextUrl.pathname === '/login' && owner) {
         const redirectUrl = new URL('/admin', request.url);
         return NextResponse.redirect(redirectUrl);
     }

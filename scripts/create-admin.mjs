@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// Creates (or resets the password of) the admin user who signs in at /login.
+// Creates (or resets the password of) the owner account that signs in at /login, and marks it
+// as the owner (app_metadata.role = "owner"); only the owner can use the dashboard.
 // Usage: npm run create-admin            (reads .env.local / .env)
 import { createClient } from '@supabase/supabase-js';
 import { existsSync, readFileSync } from 'node:fs';
@@ -45,10 +46,15 @@ if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || password.length < 8) {
 }
 
 const supabase = createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
-const { data: created, error } = await supabase.auth.admin.createUser({ email, password, email_confirm: true });
+const { data: created, error } = await supabase.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    app_metadata: { role: 'owner' },
+});
 
 if (!error) {
-    console.log(`Created admin ${created.user.email}. Sign in at ${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/login`);
+    console.log(`Created owner ${created.user.email}. Sign in at ${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/login`);
     process.exit(0);
 }
 
@@ -64,9 +70,12 @@ if (listError || !existing) {
     console.error(`User exists but could not be updated: ${listError?.message ?? 'not found'}`);
     process.exit(1);
 }
-const { error: updateError } = await supabase.auth.admin.updateUserById(existing.id, { password });
+const { error: updateError } = await supabase.auth.admin.updateUserById(existing.id, {
+    password,
+    app_metadata: { ...existing.app_metadata, role: 'owner' },
+});
 if (updateError) {
     console.error(`Failed to reset password: ${updateError.message}`);
     process.exit(1);
 }
-console.log(`Updated password for existing admin ${email}.`);
+console.log(`Updated password for ${email} and marked it as the owner.`);

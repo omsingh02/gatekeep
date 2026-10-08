@@ -4,6 +4,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { isOwner } from '@/lib/auth/owner';
 import type { User } from '@supabase/supabase-js';
 import { logWarning } from './logger';
 
@@ -24,6 +25,13 @@ export function validateAuth(
     if (!userData?.data?.user) {
         logWarning(route, 'auth-required', `${method} request without authentication`);
         return NextResponse.json({ error: 'Unauthorized', code: 'ERR_UNAUTHORIZED' }, { status: 401 });
+    }
+    if (!isOwner(userData.data.user)) {
+        logWarning(route, 'not-owner', `${method} request from a signed-in account that isn't the owner`);
+        return NextResponse.json(
+            { error: "This account doesn't have access to this Gatekeep.", code: 'ERR_FORBIDDEN' },
+            { status: 403 }
+        );
     }
     return userData.data.user;
 }

@@ -27,15 +27,21 @@ Copy `.env.example` to `.env.local` (local / Docker) or add them in your host's 
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ | Public anon key |
 | `SUPABASE_SERVICE_ROLE_KEY` | ✅ | Service-role key — server only, never prefix with `NEXT_PUBLIC_` |
 | `NEXT_PUBLIC_APP_URL` | ✅ | Public base URL used in share links, e.g. `https://files.example.com` |
+| `OWNER_EMAILS` | existing installs | Sign-in email(s) of the owner, comma-separated. Not needed if you created the account with `npm run create-admin` (it marks the owner) |
 | `CRON_SECRET` | ✅ (prod) | Random string (`openssl rand -hex 32`). Authenticates the daily keep-alive job |
 | `RESEND_API_KEY` | – | Enables "access granted" emails |
 | `EMAIL_FROM` | with Resend | Sender on a domain verified in Resend, e.g. `Gatekeep <noreply@example.com>` |
 
-## 3. Admin account
+## 3. Owner account
 
 ```bash
 npm run create-admin     # prompts for email + password; re-run to reset the password
 ```
+
+Only the **owner** can use the dashboard. `create-admin` marks the account it creates (or resets) as the owner.
+A signed-in account that isn't the owner is sent back to the sign-in page, and the admin APIs return 403,
+so even if sign-ups are enabled on your Supabase project, nobody else can use your instance. Keep sign-ups
+off anyway (step 1).
 
 ## 4. Vercel
 
@@ -81,6 +87,10 @@ files up to 100 MB, so raise the limit (paid plans) or expect larger uploads to 
 **Database → Backups** for what your plan retains before storing anything you can't lose.
 
 ## Upgrading an existing deployment
+
+> **Upgrading from 1.0.x:** the dashboard is now owner-only. Before deploying, either set
+> `OWNER_EMAILS=<your sign-in email>` or run `npm run create-admin` against your project with your
+> existing email (it keeps your account, sets the password you enter, and marks it as the owner).
 
 Pull the latest code, then apply any new files in `supabase/migrations/`:
 
