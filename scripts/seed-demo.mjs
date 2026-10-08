@@ -279,11 +279,37 @@ async function main() {
     const { error: migrateError } = await supabase.rpc('migrate_v1_to_v2');
     if (migrateError) throw migrateError;
 
+    // v1 counted downloads on the grant but never logged them as events, so migrated history has
+    // opens and no downloads. Add a 'downloaded' receipt for each download the demo grants counted.
+    const { data: downloaders, error: downloadersError } = await supabase
+        .from('delivery_recipients')
+        .select('id, identifier, download_count, delivery_id, deliveries!inner(owner_id, delivery_files(file_id))')
+        .eq('deliveries.owner_id', adminId)
+        .gt('download_count', 0);
+    if (downloadersError) throw downloadersError;
+    const downloads = downloaders.flatMap((r) =>
+        Array.from({ length: r.download_count }, () => ({
+            owner_id: adminId,
+            delivery_id: r.delivery_id,
+            recipient_id: r.id,
+            file_id: r.deliveries.delivery_files[0]?.file_id ?? null,
+            type: 'downloaded',
+            actor: r.identifier,
+            ip: `${pick(['203.0.113', '198.51.100', '192.0.2'])}.${Math.floor(rand() * 250) + 2}`,
+            user_agent: pick(agents),
+            request_id: randomUUID().slice(0, 8),
+            created_at: iso(Math.floor(Math.pow(rand(), 1.6) * 30 * DAY) + 5 * 60 * 1000),
+        }))
+    );
+    const { error: downloadsError } = await supabase.from('activity').insert(downloads);
+    if (downloadsError) throw downloadsError;
+
     const { error: settingsError } = await supabase.from('owner_settings').upsert({
         owner_id: adminId,
         display_name: 'Avery Stone',
         organization: 'Northwind Studio',
         recipient_message: 'Files from Northwind Studio. Reach me at avery@northwind.example with any questions.',
+        homepage: 'landing',
     });
     if (settingsError) throw settingsError;
 

@@ -9,13 +9,7 @@ export function plural(count: number, one: string, many = `${one}s`): string {
     return `${count.toLocaleString('en-US')} ${count === 1 ? one : many}`;
 }
 
-export function formatSize(bytes: number): string {
-    if (!bytes) return '0 B';
-    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-    const value = bytes / 1024 ** i;
-    return `${value >= 10 || i === 0 ? Math.round(value) : value.toFixed(1)} ${units[i]}`;
-}
+export { formatFileSize as formatSize } from '@/lib/utils/fileTypes';
 
 /** "Oct 6", or "Oct 6, 2025" outside this year. */
 export function shortDate(iso: string | Date): string {

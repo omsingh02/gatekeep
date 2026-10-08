@@ -10,21 +10,7 @@ export function describeItems(files: number, folders: number): string {
     return count(files, 'file');
 }
 
-const UNITS = ['KB', 'MB', 'GB', 'TB'];
-
-/** "512 bytes", "4.1 KB", "2.3 MB", "196 MB": one decimal under 100, none above. */
-export function formatSize(bytes: number | null | undefined): string {
-    if (!bytes || bytes < 0) return '0 bytes';
-    if (bytes < 1024) return `${bytes} ${bytes === 1 ? 'byte' : 'bytes'}`;
-    let value = bytes / 1024;
-    let unit = 0;
-    while (value >= 1024 && unit < UNITS.length - 1) {
-        value /= 1024;
-        unit += 1;
-    }
-    const rounded = value >= 100 ? Math.round(value).toString() : (Math.round(value * 10) / 10).toString();
-    return `${rounded} ${UNITS[unit]}`;
-}
+export { formatFileSize as formatSize } from '@/lib/utils/fileTypes';
 
 /** Compact date for tables: "2:05 PM" today, "Oct 6" this year, "Oct 6, 2025" before. */
 export function formatShortDate(iso: string): string {

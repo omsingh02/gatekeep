@@ -89,17 +89,23 @@ function getIconForCategory(category: FileCategory): string {
     return icons[category];
 }
 
+const SIZE_UNITS = ['KB', 'MB', 'GB', 'TB'];
+
 /**
- * Formats file size in human-readable format
+ * The one size format everywhere (dashboard, recipient pages, emails, errors):
+ * "512 bytes", "4.1 KB", "2.3 MB", "196 MB": one decimal under 100, none above.
  */
-export function formatFileSize(bytes: number): string {
-    if (bytes === 0) return '0 Bytes';
-
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+export function formatFileSize(bytes: number | null | undefined): string {
+    if (!bytes || bytes < 0) return '0 bytes';
+    if (bytes < 1024) return `${bytes} ${bytes === 1 ? 'byte' : 'bytes'}`;
+    let value = bytes / 1024;
+    let unit = 0;
+    while (value >= 1024 && unit < SIZE_UNITS.length - 1) {
+        value /= 1024;
+        unit += 1;
+    }
+    const rounded = value >= 100 ? Math.round(value).toString() : (Math.round(value * 10) / 10).toString();
+    return `${rounded} ${SIZE_UNITS[unit]}`;
 }
 
 /**

@@ -1,8 +1,9 @@
 'use client';
 
 import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
-import { ImageIcon, Trash2, Upload } from 'lucide-react';
-import { Avatar, Button, Card, Field, Input, Textarea, cn, useToast } from '@/components/ds';
+import Link from 'next/link';
+import { ExternalLink, ImageIcon, Trash2, Upload } from 'lucide-react';
+import { Avatar, Button, Card, Field, Input, Radio, Textarea, cn, useToast } from '@/components/ds';
 import { readError, senderPreview, useDirtySection, useSettings, type OwnerSettings } from '../SettingsContext';
 import { SettingsSection, WithSettings } from '../SettingsShell';
 
@@ -178,6 +179,75 @@ function MessageForm({ settings }: { settings: OwnerSettings }) {
     );
 }
 
+function HomepageForm({ settings }: { settings: OwnerSettings }) {
+    const { save } = useSettings();
+    const toast = useToast();
+    const [homepage, setHomepage] = useState(settings.homepage);
+    const [baseline, setBaseline] = useState(settings.homepage);
+    const [saving, setSaving] = useState(false);
+    const dirty = homepage !== baseline;
+    useDirtySection('homepage', dirty);
+
+    const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        setSaving(true);
+        try {
+            const saved = await save({ homepage });
+            setHomepage(saved.homepage);
+            setBaseline(saved.homepage);
+            toast.success('Homepage saved');
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : "We couldn't save the homepage. Try again.");
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <SettingsSection
+            title="Homepage"
+            description="What people see when they open this site's address without a delivery link."
+            onSubmit={onSubmit}
+            saveLabel="Save homepage"
+            saving={saving}
+            dirty={dirty}
+            footerStart={
+                dirty ? undefined : (
+                    <Link
+                        href="/"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 rounded-sm font-medium text-primary underline-offset-4 hover:text-strong hover:underline focus-ring"
+                    >
+                        View homepage
+                        <ExternalLink aria-hidden strokeWidth={1.75} className="h-3 w-3" />
+                    </Link>
+                )
+            }
+        >
+            <fieldset className="flex flex-col gap-2.5">
+                <legend className="sr-only">Homepage</legend>
+                <Radio
+                    name="homepage"
+                    value="branded"
+                    checked={homepage === 'branded'}
+                    onChange={() => setHomepage('branded')}
+                    label="Branded welcome"
+                    description="Your name and logo, and a note to use the link they were sent. New installs start with this."
+                />
+                <Radio
+                    name="homepage"
+                    value="landing"
+                    checked={homepage === 'landing'}
+                    onChange={() => setHomepage('landing')}
+                    label="Product page"
+                    description="Explains what Gatekeep is, with links to the project and its docs."
+                />
+            </fieldset>
+        </SettingsSection>
+    );
+}
+
 export default function BrandingSettings() {
     return (
         <WithSettings rows={3}>
@@ -185,6 +255,7 @@ export default function BrandingSettings() {
                 <div className="flex flex-col gap-6">
                     <LogoCard settings={settings} />
                     <MessageForm settings={settings} />
+                    <HomepageForm settings={settings} />
                 </div>
             )}
         </WithSettings>

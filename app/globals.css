@@ -177,17 +177,6 @@
   }
 }
 
-/* Shake animation */
-@keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
-  20%, 40%, 60%, 80% { transform: translateX(4px); }
-}
-
-.animate-shake {
-  animation: shake 0.5s ease-in-out;
-}
-
 /* Gatekeep Mono skeleton shimmer and overlay entrance (respecting reduced motion) */
 @keyframes ds-shimmer {
   0% { background-position: 200% 0; }
@@ -215,17 +204,5 @@
   }
   .ds-pop-in {
     animation: ds-pop-in 140ms ease-out;
-  }
-}
-
-/* Landing page: slow floating motion for the hero share card */
-@keyframes gk-float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .gk-float {
-    animation: gk-float 6s ease-in-out infinite;
   }
 }

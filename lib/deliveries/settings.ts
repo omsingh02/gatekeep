@@ -21,6 +21,7 @@ export function defaultSettings(ownerId: string): OwnerSettings {
         notify_downloaded: false,
         notify_denied: true,
         notify_uploaded: true,
+        // Same as the column default: clients who open the bare address see the owner, not an ad for Gatekeep
         homepage: 'branded',
         created_at: new Date(0).toISOString(),
         updated_at: new Date(0).toISOString(),
@@ -31,6 +32,40 @@ export function defaultSettings(ownerId: string): OwnerSettings {
 export async function getOwnerSettings(ownerId: string): Promise<OwnerSettings> {
     const { data } = await createAdminClient().from('owner_settings').select('*').eq('owner_id', ownerId).maybeSingle();
     return data ?? defaultSettings(ownerId);
+}
+
+export type InstanceHomepage =
+    | { mode: 'landing' }
+    | { mode: 'branded'; name: string | null; person: string | null; logoUrl: string | null };
+
+const UNNAMED_WELCOME: InstanceHomepage = { mode: 'branded', name: null, person: null, logoUrl: null };
+
+/**
+ * What `/` shows: the owner's choice in Settings → Branding → Homepage, the branded welcome by
+ * default. With no settings saved, or if the database can't be reached, it's the welcome without a
+ * name. Never exposes the owner's email.
+ */
+export async function getInstanceHomepage(): Promise<InstanceHomepage> {
+    try {
+        const { data, error } = await createAdminClient()
+            .from('owner_settings')
+            .select('homepage, display_name, organization, logo_path')
+            .order('created_at', { ascending: true })
+            .limit(1)
+            .maybeSingle();
+        if (error || !data) return UNNAMED_WELCOME;
+        if (data.homepage === 'landing') return { mode: 'landing' };
+        const organization = data.organization?.trim() || null;
+        const person = data.display_name?.trim() || null;
+        return {
+            mode: 'branded',
+            name: organization ?? person,
+            person: organization && person ? person : null,
+            logoUrl: logoUrl(data),
+        };
+    } catch {
+        return UNNAMED_WELCOME;
+    }
 }
 
 export function logoUrl(settings: Pick<OwnerSettings, 'logo_path'>): string | null {
