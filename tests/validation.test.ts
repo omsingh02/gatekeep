@@ -12,9 +12,27 @@ afterEach(() => {
 });
 
 describe('validateAuth', () => {
-    it('returns the user when present', () => {
-        const user = { id: 'u1' } as User;
+    it('returns the user when it is the owner (app_metadata.role)', () => {
+        const user = { id: 'u1', app_metadata: { role: 'owner' } } as unknown as User;
         expect(validateAuth({ data: { user } }, '/api/test', 'GET')).toBe(user);
+    });
+
+    it('accepts an owner listed in OWNER_EMAILS, case-insensitively', () => {
+        vi.stubEnv('OWNER_EMAILS', 'someone@else.dev, Owner@Example.com');
+        const user = { id: 'u2', email: 'owner@example.com', app_metadata: {} } as unknown as User;
+        expect(validateAuth({ data: { user } }, '/api/test', 'GET')).toBe(user);
+        vi.unstubAllEnvs();
+    });
+
+    it('returns a 403 for a signed-in account that is not the owner', async () => {
+        vi.stubEnv('OWNER_EMAILS', 'owner@example.com');
+        const user = { id: 'u3', email: 'stranger@example.com', app_metadata: {} } as unknown as User;
+        const result = validateAuth({ data: { user } }, '/api/test', 'GET');
+        expect(result).toBeInstanceOf(NextResponse);
+        const res = result as NextResponse;
+        expect(res.status).toBe(403);
+        expect(await res.json()).toMatchObject({ code: 'ERR_FORBIDDEN' });
+        vi.unstubAllEnvs();
     });
 
     it('returns a 401 response when there is no user', async () => {

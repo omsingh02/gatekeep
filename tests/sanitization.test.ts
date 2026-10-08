@@ -34,6 +34,11 @@ describe('sanitizeShortCode', () => {
 });
 
 describe('sanitizeUserIdentifier', () => {
+    it('lowercases so recipients are case-insensitive', () => {
+        expect(sanitizeUserIdentifier('Maya@Acme.CO')).toBe('maya@acme.co');
+        expect(sanitizeUserIdentifier('Studio-Wren')).toBe('studio-wren');
+    });
+
     it('trims and collapses whitespace', () => {
         expect(sanitizeUserIdentifier('  john   wick  ')).toBe('john wick');
     });

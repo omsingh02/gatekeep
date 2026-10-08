@@ -80,7 +80,9 @@ export function sanitizeUserIdentifier(identifier: string, maxLength: number = 2
         // Trim whitespace
         .trim()
         // Collapse multiple spaces
-        .replace(/\s{2,}/g, ' ');
+        .replace(/\s{2,}/g, ' ')
+        // Recipients are case-insensitive: "Maya@Acme.co" and "maya@acme.co" are the same person
+        .toLowerCase();
 
     // Limit length
     if (sanitized.length > maxLength) {

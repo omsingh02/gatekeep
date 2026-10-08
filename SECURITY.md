@@ -13,6 +13,7 @@ Only the latest release on `main` receives security fixes.
 ## Hardening checklist for self-hosters
 
 - Keep `SUPABASE_SERVICE_ROLE_KEY` and `CRON_SECRET` server-side only — never prefix them with `NEXT_PUBLIC_`.
+- Only the owner account can use the dashboard (see `OWNER_EMAILS` / `npm run create-admin`).
 - Disable public sign-ups in Supabase (**Authentication → Providers → Email → Allow new users to sign up: off**);
   create the admin with `npm run create-admin`.
 - Keep the `files` storage bucket **private** (the migration creates it that way).

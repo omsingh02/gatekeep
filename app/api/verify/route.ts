@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { verifyPassword } from '@/lib/utils/crypto';
+import { verifyPassword, verifyAgainstDummy } from '@/lib/utils/crypto';
 import { generateAccessToken, hashToken } from '@/lib/utils/tokens';
 import { rateLimit, getClientIdentifier } from '@/lib/utils/ratelimit';
 import { sanitizeUserIdentifier, sanitizeShortCode } from '@/lib/utils/sanitization';
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
         
         if (!success) {
             return NextResponse.json(
-                { error: 'Too many attempts. Please try again later.' },
+                { error: 'Too many tries. Wait a few minutes, then try again.' },
                 { status: 429, headers: { 'X-RateLimit-Remaining': '0' } }
             );
         }
@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
                 fileId: file.id,
             });
             return NextResponse.json(
-                { error: 'Too many failed attempts. Please try again in 15 minutes.' },
+                { error: 'Too many tries. Wait a few minutes, then try again.' },
                 { status: 429 }
             );
         }
@@ -188,58 +188,62 @@ export async function POST(request: NextRequest) {
             }
         }
 
+        // One message for "not on the list" and "wrong password", so nobody can test who has access
+        const CREDENTIALS_ERROR = "That email, username or password doesn't match. Check what you were sent and try again.";
+
         if (!access) {
+            if (password) await verifyAgainstDummy(password); // same timing as a real check
             await logAccess(file.id, sanitizedUserIdentifier || 'public', false, request, requestId, 'no_access_grant');
-            return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+            // Cookie-only revisits (no identifier) fall back to the form silently on the client
+            return NextResponse.json({ error: cookieSessionToken && !password ? 'Access denied' : CREDENTIALS_ERROR }, { status: 403 });
         }
 
         // Cookie-only revisits don't send an identifier; log the grant's own
         const logIdentifier = sanitizedUserIdentifier || access.user_identifier || 'public';
 
-        // Check if expired
-        if (access.expires_at && new Date(access.expires_at) < new Date()) {
-            await logAccess(file.id, logIdentifier, false, request, requestId, 'expired');
-            return NextResponse.json({ error: 'Access expired' }, { status: 403 });
-        }
-
-        // Check download limit
-        const maxDownloads = access.max_downloads;
-        const downloadCount = access.download_count || 0;
-        if (maxDownloads !== null && downloadCount >= maxDownloads) {
-            await logAccess(file.id, logIdentifier, false, request, requestId, 'download_limit');
-            return NextResponse.json({ error: 'Download limit reached' }, { status: 403 });
-        }
-
-        let newSessionToken: string | null = null;
-
-        // Verify either password or session token (from cookie or body)
+        // 1. Credentials first. Nothing about the grant (expiry, downloads) is revealed before this.
         if (cookieSessionToken) {
-            // Session token authentication (from cookie or request body)
             const tokenHash = await hashToken(cookieSessionToken);
             if (access.session_token !== tokenHash) {
                 await logAccess(file.id, logIdentifier, false, request, requestId, 'invalid_session');
                 return NextResponse.json({ error: 'Invalid session' }, { status: 403 });
             }
-
-            // Check if session expired
             if (access.session_expires_at && new Date(access.session_expires_at) < new Date()) {
                 await logAccess(file.id, logIdentifier, false, request, requestId, 'session_expired');
-                return NextResponse.json({ error: 'Session expired' }, { status: 403 });
+                return NextResponse.json({ error: 'Your session ended. Enter your details again to unlock the file.' }, { status: 403 });
             }
         } else if (password) {
-            // Password authentication - create new session
             const isValid = await verifyPassword(password, access.password_hash);
             if (!isValid) {
                 await logAccess(file.id, logIdentifier, false, request, requestId, 'wrong_password');
-                return NextResponse.json({ error: 'Invalid password' }, { status: 403 });
+                return NextResponse.json({ error: CREDENTIALS_ERROR }, { status: 403 });
             }
+        }
 
-            // Generate new session token (24 hour expiry)
+        // 2. Then the grant's own limits
+        if (access.expires_at && new Date(access.expires_at) < new Date()) {
+            await logAccess(file.id, logIdentifier, false, request, requestId, 'expired');
+            return NextResponse.json(
+                { error: 'Your access to this file has ended. Ask the person who shared it for a new invite.' },
+                { status: 403 }
+            );
+        }
+        const maxDownloads = access.max_downloads;
+        const downloadCount = access.download_count || 0;
+        if (maxDownloads !== null && downloadCount >= maxDownloads) {
+            await logAccess(file.id, logIdentifier, false, request, requestId, 'download_limit');
+            return NextResponse.json(
+                { error: "You've used all your downloads for this file. Ask the person who shared it if you need more." },
+                { status: 403 }
+            );
+        }
+
+        // 3. Password unlock starts a new 24-hour session
+        let newSessionToken: string | null = null;
+        if (!cookieSessionToken && password) {
             newSessionToken = generateAccessToken();
             const tokenHash = await hashToken(newSessionToken);
             const sessionExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-
-            // Store hashed token (don't increment counts yet - do it once below)
             await adminClient
                 .from('file_access')
                 .update({
@@ -262,17 +266,8 @@ export async function POST(request: NextRequest) {
             })
             .eq('id', access.id);
 
-        // Get signed URL for file with download option for proper Content-Disposition
-        const { data: signedUrlData, error: urlError } = await adminClient.storage
-            .from('files')
-            .createSignedUrl(file.filename, 3600, {
-                download: file.original_filename, // Supabase handles RFC 5987 encoding
-            });
-
-        if (urlError || !signedUrlData) {
-            return NextResponse.json({ error: 'Failed to generate file URL' }, { status: 500 });
-        }
-
+        // No file URL here: previews and downloads get short-lived URLs from /api/access/download,
+        // which re-checks the grant and counts downloads
         const response = NextResponse.json({
             success: true,
             // Lets a returning visitor's page restore live revocation and downloads
@@ -280,7 +275,6 @@ export async function POST(request: NextRequest) {
                 userIdentifier: access.user_identifier,
                 isPublic: access.is_public,
             },
-            fileUrl: signedUrlData.signedUrl,
             file: {
                 id: file.id,
                 originalFilename: file.original_filename,

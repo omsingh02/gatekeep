@@ -32,7 +32,7 @@ test('a wrong password is rejected', async ({ browser, baseURL }) => {
     const page = await visitor.newPage();
     await page.goto(`/${DEMO.share.code}`);
     await unlock(page, DEMO.share.recipient, 'definitely-not-the-password');
-    await expect(page.getByRole('alert').filter({ hasText: 'Invalid password' })).toBeVisible();
+    await expect(page.getByRole('alert').filter({ hasText: "That email, username or password doesn't match." })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'This file is protected' })).toBeVisible();
     await visitor.close();
 });

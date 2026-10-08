@@ -11,6 +11,24 @@ import type { Database, Tables } from '@/lib/types';
 
 type FileAccessUpdate = Database['public']['Tables']['file_access']['Update'];
 
+/** Returns a message describing the first invalid setting, or null when they're all valid. */
+function validateAccessSettings({ password, expiresAt, maxDownloads }: { password?: unknown; expiresAt?: unknown; maxDownloads?: unknown }): string | null {
+    if (password) {
+        if (typeof password !== 'string' || password.length < 8) return 'Use a password of at least 8 characters.';
+    }
+    if (expiresAt) {
+        const endsAt = new Date(String(expiresAt)).getTime();
+        if (Number.isNaN(endsAt)) return "That end date isn't valid.";
+        if (endsAt <= Date.now()) return 'Pick an end date in the future.';
+    }
+    // 0, '' and null all mean "no limit"
+    if (maxDownloads) {
+        const limit = Number(maxDownloads);
+        if (!Number.isInteger(limit) || limit < 1) return 'The download limit must be a whole number of at least 1.';
+    }
+    return null;
+}
+
 // API shape for a grant. Never expose password_hash or session_token.
 function serializeAccess(a: Tables<'file_access'>) {
     return {
@@ -196,6 +214,11 @@ export async function POST(request: NextRequest) {
 
         if (isPublic && userIdentifier) {
             return NextResponse.json({ error: 'Public shares cannot have a user identifier', code: 'ERR_INVALID_INPUT' }, { status: 400 });
+        }
+
+        const invalidSetting = validateAccessSettings({ password, expiresAt, maxDownloads });
+        if (invalidSetting) {
+            return NextResponse.json({ error: invalidSetting, code: 'ERR_INVALID_INPUT' }, { status: 400 });
         }
 
         let sanitizedUserIdentifier: string | null = null;
@@ -396,6 +419,11 @@ export async function PATCH(request: NextRequest) {
 
         if (fetchError || !access || access.files.uploaded_by !== user.id) {
             return NextResponse.json({ error: 'Access grant not found' }, { status: 404 });
+        }
+
+        const invalidSetting = validateAccessSettings({ password, expiresAt, maxDownloads });
+        if (invalidSetting) {
+            return NextResponse.json({ error: invalidSetting, code: 'ERR_INVALID_INPUT' }, { status: 400 });
         }
 
         // Build update object with only provided fields

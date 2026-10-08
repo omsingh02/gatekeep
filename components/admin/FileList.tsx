@@ -361,25 +361,36 @@ export default function FileList({
     const handleMove = async () => {
         setMoveDialog((prev) => ({ ...prev, isLoading: true }));
         try {
+            const total = selectedFileIds.size + selectedFolderIds.size;
+            let failed = 0;
+
             // Move files
             for (const fileId of selectedFileIds) {
-                await fetch(`/api/files/${fileId}`, {
+                const res = await fetch(`/api/files/${fileId}`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ folderId: moveTargetFolder }),
                 });
+                if (!res.ok) failed++;
             }
 
             // Move folders
             for (const folderId of selectedFolderIds) {
-                await fetch(`/api/folders/${folderId}`, {
+                const res = await fetch(`/api/folders/${folderId}`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ parentId: moveTargetFolder }),
                 });
+                if (!res.ok) failed++;
             }
 
-            toast.success(`Moved ${selectedFileIds.size + selectedFolderIds.size} items`);
+            if (failed === 0) {
+                toast.success(`Moved ${total} ${total === 1 ? 'item' : 'items'}`);
+            } else if (failed === total) {
+                toast.error(`Couldn't move ${total === 1 ? 'that item' : 'those items'}. Try again.`);
+            } else {
+                toast.warning(`Moved ${total - failed} of ${total} items. ${failed} couldn't be moved.`);
+            }
             clearSelection();
             await fetchFiles();
             await fetchFolders();
@@ -393,14 +404,24 @@ export default function FileList({
     // Bulk delete
     const handleBulkDelete = async () => {
         try {
+            const total = selectedFileIds.size + selectedFolderIds.size;
+            let failed = 0;
             for (const fileId of selectedFileIds) {
-                await fetch(`/api/files/${fileId}`, { method: 'DELETE' });
+                const res = await fetch(`/api/files/${fileId}`, { method: 'DELETE' });
+                if (!res.ok) failed++;
             }
             for (const folderId of selectedFolderIds) {
-                await fetch(`/api/folders/${folderId}`, { method: 'DELETE' });
+                const res = await fetch(`/api/folders/${folderId}`, { method: 'DELETE' });
+                if (!res.ok) failed++;
             }
 
-            toast.success(`Deleted ${selectedFileIds.size + selectedFolderIds.size} items`);
+            if (failed === 0) {
+                toast.success(`Deleted ${total} ${total === 1 ? 'item' : 'items'}`);
+            } else if (failed === total) {
+                toast.error(`Couldn't delete ${total === 1 ? 'that item' : 'those items'}. Try again.`);
+            } else {
+                toast.warning(`Deleted ${total - failed} of ${total} items. ${failed} couldn't be deleted.`);
+            }
             clearSelection();
             await fetchFiles();
             await fetchFolders();

@@ -134,6 +134,7 @@ async function resetDemoAdmin() {
     const { data, error: createError } = await supabase.auth.admin.createUser({
         email: DEMO_ADMIN.email,
         password: DEMO_ADMIN.password,
+        app_metadata: { role: 'owner' },
         email_confirm: true,
     });
     if (createError) throw createError;

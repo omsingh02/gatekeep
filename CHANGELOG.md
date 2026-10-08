@@ -5,6 +5,18 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Security
+- **The dashboard and admin APIs are owner-only.** Previously any signed-in Supabase account could use them, so an instance with sign-ups enabled let strangers upload into its storage. Set `OWNER_EMAILS` or run `npm run create-admin` before upgrading.
+- The unlock page gives one answer for unknown recipients and wrong passwords (with equal timing), so it can't be used to discover who has access. End dates and download limits are only revealed after the password is accepted.
+- `/api/verify` no longer returns an uncounted one-hour download URL.
+
+### Fixed
+- Previews no longer use up a recipient's downloads; only real downloads count.
+- Recipient emails and usernames are case-insensitive (existing ones are lowercased by a migration).
+- Moving files to another folder silently failed (the endpoint didn't exist); bulk move and delete now report partial failures.
+- Giving access rejects passwords under 8 characters, end dates in the past and download limits below 1.
+- Recipient-facing error messages explain what happened and what to do instead of exposing internals.
+
 ### Added
 - **Copy invite**: after granting access, a ready-to-send message (link, recipient, password, expiry, download limit) with one-click copy; copy button next to every short link.
 - New Gatekeep logo, favicon/app icons, Open Graph and GitHub social-preview images.

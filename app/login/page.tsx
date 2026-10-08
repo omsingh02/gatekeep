@@ -1,13 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { use, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Logo } from '@/components/brand/Logo';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
-export default function LoginPage() {
+export default function LoginPage({ searchParams }: { searchParams: Promise<{ reason?: string }> }) {
+    const { reason } = use(searchParams);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -57,6 +58,12 @@ export default function LoginPage() {
                 <div className="mt-8 rounded-2xl border border-white/10 bg-[#0d0f15]/80 p-7 shadow-2xl shadow-black/60 backdrop-blur-xl sm:p-8">
                     <h1 className="text-xl font-semibold tracking-tight text-white">Sign in to Gatekeep</h1>
                     <p className="mt-1.5 text-sm text-zinc-400">Use the admin account for this instance.</p>
+
+                    {reason === 'not-owner' && (
+                        <p role="status" className="mt-5 rounded-xl border border-amber-400/25 bg-amber-500/10 px-3.5 py-2.5 text-sm text-amber-100">
+                            That account isn&apos;t the owner of this Gatekeep. Sign in with the owner account.
+                        </p>
+                    )}
 
                     <form onSubmit={handleLogin} className="mt-7 space-y-5">
                         <div>

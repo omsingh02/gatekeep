@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { isOwner } from '@/lib/auth/owner';
 import SignOutButton from '@/components/admin/SignOutButton';
 import AdminNav from '@/components/admin/AdminNav';
 
@@ -20,6 +21,10 @@ export default async function AdminLayout({
 
     if (!user) {
         redirect('/login');
+    }
+    // Signed in is not enough: only the owner may use the dashboard
+    if (!isOwner(user)) {
+        redirect('/login?reason=not-owner');
     }
 
     // Fallback for user email (defensive programming)
