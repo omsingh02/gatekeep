@@ -654,7 +654,7 @@ export function DeliveryDetailView({ id, kind }: { id: string; kind: DeliveryKin
                         <RecipientsPanel delivery={delivery} emailConfigured={defaults.emailConfigured} onAdd={() => setAdding(true)} onChanged={refresh} />
                     )}
                     {tab === 'files' && (isRequest ? <ReceivedPanel delivery={delivery} /> : <FilesPanel delivery={delivery} onChanged={refresh} />)}
-                    {tab === 'activity' && <ActivityFeed deliveryId={delivery.id} version={version} />}
+                    {tab === 'activity' && <ActivityFeed deliveryId={delivery.id} kind={delivery.kind} version={version} />}
                 </div>
             </div>
 

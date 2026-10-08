@@ -2,46 +2,27 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Download, History } from 'lucide-react';
-import { Button, Callout, Card, CardHeader, EmptyState, Skeleton, Tooltip, useToast } from '@/components/ds';
-import { ActivityIcon } from './ActivityIcon';
-import { api, errorMessage, type ActivityItem } from './api';
-import { activitySentence, dateTime, timeAgo } from './format';
-
-export function ActivityRow({ item }: { item: ActivityItem }) {
-    const details = [dateTime(item.createdAt), item.ip && item.ip !== 'unknown' ? `IP ${item.ip}` : null].filter(Boolean).join(' · ');
-    return (
-        <li className="flex items-start gap-3 px-4 py-3 sm:px-5" data-testid="activity-row">
-            <ActivityIcon type={item.type} />
-            <p className="min-w-0 flex-1 break-words pt-1 text-body-sm text-primary">{activitySentence(item)}</p>
-            <Tooltip content={details} className="shrink-0 pt-1">
-                <time
-                    dateTime={item.createdAt}
-                    tabIndex={0}
-                    aria-label={`${timeAgo(item.createdAt)}, ${details}`}
-                    className="whitespace-nowrap rounded-sm text-caption tabular-nums text-tertiary focus-ring"
-                >
-                    {timeAgo(item.createdAt)}
-                </time>
-            </Tooltip>
-        </li>
-    );
-}
+import { Button, Callout, Card, CardHeader, EmptyState, Skeleton, useToast } from '@/components/ds';
+import { ActivityRow, useExpandedRows } from './ActivityRow';
+import { api, errorMessage, type ActivityItem, type DeliveryKind } from './api';
 
 export interface ActivityFeedProps {
     deliveryId: string;
+    kind: DeliveryKind;
     /** Bump to reload after a change (e.g. access removed) */
     version?: number;
     title?: string;
 }
 
 /** Everything that happened on one delivery, newest first, with CSV export. */
-export function ActivityFeed({ deliveryId, version = 0, title = 'Activity' }: ActivityFeedProps) {
+export function ActivityFeed({ deliveryId, kind, version = 0, title = 'Activity' }: ActivityFeedProps) {
     const toast = useToast();
     const [items, setItems] = useState<ActivityItem[] | null>(null);
     const [cursor, setCursor] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [loadingMore, setLoadingMore] = useState(false);
     const [reload, setReload] = useState(0);
+    const rows = useExpandedRows();
 
     const fetchPage = useCallback(
         (after: string | null) =>
@@ -87,7 +68,7 @@ export function ActivityFeed({ deliveryId, version = 0, title = 'Activity' }: Ac
         <Card flush>
             <CardHeader
                 title={title}
-                description="Opens, downloads and denied attempts. Hover a time for the date and IP address."
+                description={kind === 'request' ? 'Opens, uploads and denied attempts.' : 'Opens, downloads and denied attempts.'}
                 actions={
                     <Button
                         variant="secondary"
@@ -122,9 +103,16 @@ export function ActivityFeed({ deliveryId, version = 0, title = 'Activity' }: Ac
                 <EmptyState icon={History} title="Nothing yet" description="When someone opens the link, downloads a file or is denied, it shows up here." />
             ) : (
                 <>
-                    <ul className="divide-y divide-gray-4" aria-label="Activity">
+                    <ul aria-label="Activity">
                         {items.map((item) => (
-                            <ActivityRow key={item.id} item={item} />
+                            <ActivityRow
+                                key={item.id}
+                                item={item}
+                                within={kind}
+                                time="relative"
+                                expanded={rows.expanded(item.id)}
+                                onToggle={() => rows.toggle(item.id)}
+                            />
                         ))}
                     </ul>
                     {cursor && (

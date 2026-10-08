@@ -20,7 +20,7 @@ import {
 } from '@/components/ds';
 import type { ActivityItem, ActivitySummary } from '@/lib/deliveries/activity-query';
 import type { ActivityType } from '@/lib/types';
-import { ActivityRow } from './ActivityRow';
+import { ActivityRow, useExpandedRows } from '@/components/product/deliveries/ActivityRow';
 
 const ICON = { strokeWidth: 1.75, className: 'h-4 w-4', 'aria-hidden': true } as const;
 const DAY = 24 * 60 * 60 * 1000;
@@ -150,7 +150,7 @@ export default function ActivityView() {
     const [feed, setFeed] = useState<FeedState | null>(null);
     const [summary, setSummary] = useState<{ key: string; data: ActivitySummary | null } | null>(null);
     const [deliveries, setDeliveries] = useState<DeliveryOption[] | null>(null);
-    const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+    const rows = useExpandedRows();
     const [loadingMore, setLoadingMore] = useState(false);
     const [reloadToken, setReloadToken] = useState(0);
     const [exporting, setExporting] = useState(false);
@@ -238,14 +238,6 @@ export default function ActivityView() {
         window.location.href = `/api/activity/export?${apiQuery(filters, { withType: true })}`;
         setTimeout(() => setExporting(false), 1500);
     };
-
-    const toggle = (id: string) =>
-        setExpanded((current) => {
-            const next = new Set(current);
-            if (next.has(id)) next.delete(id);
-            else next.add(id);
-            return next;
-        });
 
     const groups = useMemo(() => {
         const out: { key: string; label: string; items: ActivityItem[] }[] = [];
@@ -453,8 +445,8 @@ export default function ActivityView() {
                                     <ActivityRow
                                         key={item.id}
                                         item={item}
-                                        expanded={expanded.has(item.id)}
-                                        onToggle={() => toggle(item.id)}
+                                        expanded={rows.expanded(item.id)}
+                                        onToggle={() => rows.toggle(item.id)}
                                         onFilterDelivery={filters.delivery ? undefined : (delivery) => setFilters({ delivery })}
                                         onFilterPerson={filters.person ? undefined : (person) => setFilters({ person })}
                                     />
