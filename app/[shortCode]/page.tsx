@@ -31,7 +31,8 @@ const findDelivery = cache(async (shortCode: string) => {
     if (error) throw new Error(`Delivery lookup failed: ${error.message}`);
 
     if (!delivery) {
-        // Maybe a v1 link made after the upgrade: convert it on first use (as loadDeliveryByCode does)
+        // Maybe a v1 link the 1.x dashboard made after the migration ran (before 2.0 was deployed):
+        // convert it on first use, as loadDeliveryByCode does. New files never have a short code.
         const legacy = await admin
             .from('files')
             .select('id')

@@ -1,6 +1,7 @@
 import { test, expect, type APIRequestContext, type BrowserContext } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
-import { DEMO, RUN_ID, newVisitor, signInAsAdmin } from './helpers';
+import bcrypt from 'bcryptjs';
+import { DEMO, RUN_ID, newVisitor, signInAsAdmin, unlock } from './helpers';
 import { localSupabaseEnv } from './supabase-env';
 
 // API-level tests for v2 deliveries (docs/decisions/0001-deliveries.md). They share state, so they run in order.
@@ -338,6 +339,43 @@ test('a v1 link keeps working after the upgrade', async ({ browser, baseURL }) =
         const view = await session.json();
         expect(view.delivery.files).toHaveLength(1);
         expect(view.delivery.files[0].name).toBe('hero-shot.png');
+    } finally {
+        await visitor.close();
+    }
+});
+
+test('a v1 link made after the migration ran is converted on its first visit', async ({ browser, baseURL }) => {
+    // What the 1.x dashboard did when it shared a file: a file with its own code and a password grant.
+    // Rows like these can appear between running the 2.0 migrations and deploying 2.0.
+    const env = localSupabaseEnv();
+    const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+        auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const { data: owner } = await admin.from('deliveries').select('owner_id').eq('short_code', DEMO.share.code).single();
+    const code = `v1${RUN_ID.slice(-4)}`.replace(/[^0-9A-Za-z]/g, 'x');
+    const name = `late-v1-${RUN_ID}.txt`;
+    const path = `e2e-late-v1-${RUN_ID}.txt`;
+    const password = `late-v1-${RUN_ID}`;
+    expect((await admin.storage.from('files').upload(path, Buffer.from('Shared by Gatekeep 1.x'), { contentType: 'text/plain' })).error).toBeNull();
+    const { data: file, error } = await admin
+        .from('files')
+        .insert({ filename: path, original_filename: name, file_path: path, file_size: 22, mime_type: 'text/plain', short_code: code, uploaded_by: owner!.owner_id })
+        .select('id')
+        .single();
+    expect(error).toBeNull();
+    expect(
+        (await admin.from('file_access').insert({ file_id: file!.id, user_identifier: 'late-v1-person', identifier_type: 'username', password_hash: bcrypt.hashSync(password, 10) })).error,
+    ).toBeNull();
+
+    const visitor = await newVisitor(browser, baseURL!);
+    try {
+        const page = await visitor.newPage();
+        await page.goto(`/${code}`);
+        // Recipients unlock once more, with the password they already have
+        await unlock(page, 'late-v1-person', password);
+        await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
+        const { data: delivery } = await admin.from('deliveries').select('title').eq('short_code', code).single();
+        expect(delivery!.title).toBe(name);
     } finally {
         await visitor.close();
     }

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { env } from '@/lib/env';
 import { validateAuth } from '@/lib/utils/validation';
 
 export async function GET(request: NextRequest) {
@@ -66,14 +65,11 @@ export async function GET(request: NextRequest) {
               file_path,
               file_size,
               mime_type,
-              short_code,
               uploaded_by,
               created_at,
               updated_at,
               folder_id,
-              folders!folder_id(id, name),
-              file_access(count),
-              access_log(count)
+              folders!folder_id(id, name)
             `, { count: 'exact' })
             .eq('uploaded_by', user.id)
             .is('deleted_at', null);
@@ -154,7 +150,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to fetch files' }, { status: 500 });
         }
 
-        // Transform to camelCase with aggregated stats
+        // Transform to camelCase
         const transformedFiles = (files || []).map((file) => ({
             id: file.id,
             filename: file.filename,
@@ -162,16 +158,11 @@ export async function GET(request: NextRequest) {
             filePath: file.file_path,
             fileSize: file.file_size,
             mimeType: file.mime_type,
-            shortCode: file.short_code,
             uploadedBy: file.uploaded_by,
             createdAt: file.created_at,
             updatedAt: file.updated_at,
             folderId: file.folder_id,
             folderName: file.folders?.name || null,
-            shortUrl: `${env.app.url}/${file.short_code}`,
-            // Eager loaded aggregates (avoids N+1 queries for stats)
-            accessGrantCount: file.file_access?.[0]?.count ?? 0,
-            accessLogCount: file.access_log?.[0]?.count ?? 0,
         }));
 
         // Calculate pagination metadata

@@ -2,7 +2,6 @@ import { randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { generateShortCode } from '@/lib/utils/shortCode';
 import { rateLimit, getClientIdentifier } from '@/lib/utils/ratelimit';
 import { validateFileMetadata } from '@/lib/utils/fileTypes';
 import { sanitizeFilename } from '@/lib/utils/sanitization';
@@ -67,13 +66,12 @@ export async function POST(request: NextRequest) {
         // Sanitize the original filename
         const sanitizedFilename = sanitizeFilename(filename);
 
-        // Generate unique storage path and short code
+        // Unique storage path. Files have no link of their own: they're shared through deliveries.
         const fileExt = filename.split('.').pop()?.toLowerCase();
         const timestamp = Date.now();
         const uniqueFilename = fileExt
             ? `${timestamp}-${randomUUID()}.${fileExt}`
             : `${timestamp}-${randomUUID()}`;
-        const shortCode = generateShortCode();
 
         const adminClient = createAdminClient();
 
@@ -123,7 +121,6 @@ export async function POST(request: NextRequest) {
             metadata: {
                 uniqueFilename,
                 sanitizedFilename,
-                shortCode,
                 fileSize,
                 mimeType,
                 userId: user.id,

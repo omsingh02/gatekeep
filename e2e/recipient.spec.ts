@@ -242,3 +242,77 @@ test('request: the recipient sees what was asked for, uploads files with progres
         await visitor.close();
     }
 });
+
+/** A few seconds of a quiet tone as a WAV file (8 kHz, 8-bit mono PCM): small, and every browser plays it. */
+function toneWav(seconds: number): Buffer {
+    const rate = 8000;
+    const samples = rate * seconds;
+    const wav = Buffer.alloc(44 + samples);
+    wav.write('RIFF', 0);
+    wav.writeUInt32LE(36 + samples, 4);
+    wav.write('WAVEfmt ', 8);
+    wav.writeUInt32LE(16, 16);
+    wav.writeUInt16LE(1, 20); // PCM
+    wav.writeUInt16LE(1, 22); // mono
+    wav.writeUInt32LE(rate, 24);
+    wav.writeUInt32LE(rate, 28); // bytes per second
+    wav.writeUInt16LE(1, 32); // block align
+    wav.writeUInt16LE(8, 34); // bits per sample
+    wav.write('data', 36);
+    wav.writeUInt32LE(samples, 40);
+    for (let i = 0; i < samples; i++) wav[44 + i] = 128 + Math.round(16 * Math.sin((2 * Math.PI * 440 * i) / rate));
+    return wav;
+}
+
+test('media previews outlive a minute, and an expired URL is replaced without losing the place', async ({ browser, baseURL }) => {
+    const owner = state.owner!;
+    const name = `tone-${RUN_ID}.wav`;
+    const wav = toneWav(6);
+    const presign = await owner.post('/api/files/presign', { data: { filename: name, fileSize: wav.length, mimeType: 'audio/wav' } });
+    expect(presign.ok()).toBeTruthy();
+    const { uploadUrl, metadata } = await presign.json();
+    expect((await owner.put(uploadUrl, { data: wav, headers: { 'content-type': 'audio/wav' } })).ok()).toBeTruthy();
+    const confirmed = await owner.post('/api/files/confirm', { data: { metadata } });
+    expect(confirmed.ok()).toBeTruthy();
+    const fileId = (await confirmed.json()).file.id as string;
+
+    // Media previews get 15 minutes; downloads still get one
+    expect((await (await owner.get(`/api/files/${fileId}/url?action=preview`)).json()).expiresIn).toBe(900);
+    expect((await (await owner.get(`/api/files/${fileId}/url?action=download`)).json()).expiresIn).toBe(60);
+
+    const { delivery, recipients } = await createDelivery({ title: `Tone ${RUN_ID}`, fileIds: [fileId], anyone: {} });
+    const visitor = await newVisitor(browser, baseURL!);
+    const page = await visitor.newPage();
+    const fileUrlResponse = () =>
+        page.waitForResponse((r) => r.url().endsWith(`/api/d/${delivery.shortCode}/files/${fileId}`) && r.request().method() === 'POST');
+    try {
+        await page.goto(`/${delivery.shortCode}`);
+        await unlock(page, null, recipients[0].password!);
+        await expect(page.getByRole('heading', { level: 1, name: delivery.title })).toBeVisible();
+
+        const first = fileUrlResponse();
+        await page.getByRole('button', { name: `Preview ${name}` }).click();
+        expect((await (await first).json()).expiresInSeconds).toBe(900);
+        const audio = page.getByRole('dialog', { name }).locator('audio');
+        await expect.poll(() => audio.evaluate((el: HTMLAudioElement) => el.readyState)).toBeGreaterThanOrEqual(1);
+
+        // The URL stops working while they listen: the element reports an error at 4 s in
+        const second = fileUrlResponse();
+        await audio.evaluate((el: HTMLAudioElement) => {
+            el.addEventListener('loadedmetadata', () => el.setAttribute('data-reloaded', ''), { once: true });
+            el.currentTime = 4;
+            el.dispatchEvent(new Event('error'));
+        });
+        expect((await second).ok()).toBeTruthy();
+        // The fresh URL loads and playback is back at the same moment, with no error shown
+        await expect(audio).toHaveAttribute('data-reloaded', '');
+        expect(Math.round(await audio.evaluate((el: HTMLAudioElement) => el.currentTime))).toBe(4);
+        await expect(page.getByText("We couldn't play this file")).toHaveCount(0);
+
+        // Media that really can't play shows an error instead of asking for URLs forever
+        await audio.evaluate((el: HTMLAudioElement) => el.dispatchEvent(new Event('error')));
+        await expect(page.getByText("We couldn't play this file. Try again, or download it.")).toBeVisible();
+    } finally {
+        await visitor.close();
+    }
+});

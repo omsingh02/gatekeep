@@ -1,7 +1,7 @@
 {
   "name": "gatekeep",
-  "version": "1.0.0",
-  "description": "Self-hosted, access-controlled file sharing — short links, per-recipient passwords, expiry, previews and audit logs. Next.js + Supabase.",
+  "version": "2.0.0",
+  "description": "Secure file delivery with receipts, self-hosted: send files to named recipients (email codes or passwords), see every open and download, and take access back. Next.js + Supabase.",
   "license": "MIT",
   "repository": {
     "type": "git",

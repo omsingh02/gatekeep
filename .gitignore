@@ -55,3 +55,6 @@ supabase/.temp
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# Written by `next dev` (Next.js 16.4+) when it detects a coding agent; generated, not project docs
+/AGENTS.md

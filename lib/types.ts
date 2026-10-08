@@ -9,6 +9,7 @@ type FilesRow = {
     file_path: string;
     file_size: number;
     mime_type: string;
+    /** Only v1 files have one (their link became a delivery with the same code). New files get none. */
     short_code: string | null;
     uploaded_by: string;
     created_at: Timestamp;
@@ -20,6 +21,10 @@ type FilesRow = {
     received_from_recipient_id: string | null;
 };
 
+/**
+ * @deprecated v1 grants. Read-only since v2: migrate_v1_to_v2() copied them to `delivery_recipients`,
+ * nothing in the app writes or reads them any more, and the table is dropped in v2.1.
+ */
 type FileAccessRow = {
     id: string;
     file_id: string;
@@ -48,6 +53,10 @@ type FoldersRow = {
     deleted_at: Timestamp | null;
 };
 
+/**
+ * @deprecated v1 access log. Read-only since v2: migrate_v1_to_v2() copied it to `activity`,
+ * nothing in the app writes or reads it any more, and the table is dropped in v2.1.
+ */
 type AccessLogRow = {
     id: string;
     file_id: string;
@@ -177,6 +186,7 @@ export type Database = {
                     { foreignKeyName: 'files_folder_id_fkey'; columns: ['folder_id']; isOneToOne: false; referencedRelation: 'folders'; referencedColumns: ['id'] },
                 ];
             };
+            /** @deprecated v1, read-only; dropped in v2.1 (see FileAccessRow) */
             file_access: {
                 Row: FileAccessRow;
                 Insert: InsertOf<FileAccessRow, 'file_id' | 'password_hash'>;
@@ -193,6 +203,7 @@ export type Database = {
                     { foreignKeyName: 'folders_parent_id_fkey'; columns: ['parent_id']; isOneToOne: false; referencedRelation: 'folders'; referencedColumns: ['id'] },
                 ];
             };
+            /** @deprecated v1, read-only; dropped in v2.1 (see AccessLogRow) */
             access_log: {
                 Row: AccessLogRow;
                 Insert: InsertOf<AccessLogRow, 'file_id' | 'user_identifier'>;
@@ -278,54 +289,16 @@ export interface FileMetadata {
     filePath: string;
     fileSize: number;
     mimeType: string;
-    shortCode: string;
     uploadedBy: string;
     createdAt: string;
     updatedAt: string;
-    shortUrl?: string;
     folderId?: string | null;
     folderName?: string | null;
-}
-
-export interface FileAccess {
-    id: string;
-    fileId: string;
-    type: 'user' | 'public';
-    userIdentifier?: string;
-    isPublic?: boolean;
-    expiresAt: string | null;
-    accessCount: number;
-    downloadCount?: number;
-    maxDownloads?: number | null;
-    lastAccessed: string | null;
-    createdAt: string;
-}
-
-export interface CreateFileAccessInput {
-    fileId: string;
-    userIdentifier: string;
-    password: string;
-    expiresAt?: string;
-}
-
-export interface VerifyAccessInput {
-    shortCode: string;
-    userIdentifier: string;
-    password: string;
-}
-
-export interface VerifyAccessResponse {
-    success: boolean;
-    fileUrl?: string;
-    file?: FileMetadata;
-    error?: string;
 }
 
 export type FileCategory = 'image' | 'video' | 'audio' | 'pdf' | 'document' | 'other';
 
 export type FileTypeFilter = 'all' | FileCategory | 'archive';
-
-export type DateFilter = 'all' | 'today' | 'week' | 'month' | '3months' | 'custom';
 
 export interface FileTypeInfo {
     category: FileCategory;
@@ -345,16 +318,4 @@ export interface Folder {
     subfolderCount?: number;
     fileCount?: number;
     path?: Array<{ id: string; name: string }>;
-}
-
-export interface FolderContents {
-    folder: {
-        id: string;
-        name: string;
-        parentId: string | null;
-    };
-    path: Array<{ id: string; name: string }>;
-    subfolders: Folder[];
-    files: FileMetadata[];
-    totalItems: number;
 }

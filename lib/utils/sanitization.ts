@@ -49,13 +49,9 @@ export function sanitizeFilename(filename: string, maxLength: number = 255): str
 }
 
 /**
- * Sanitize folder or group names while keeping friendly labels
+ * Sanitize folder names while keeping friendly labels
  */
 export function sanitizeFolderName(name: string, maxLength: number = 120): string {
-    return sanitizeFilename(name, maxLength);
-}
-
-export function sanitizeGroupName(name: string, maxLength: number = 120): string {
     return sanitizeFilename(name, maxLength);
 }
 
@@ -101,32 +97,6 @@ export function sanitizeUserIdentifier(identifier: string, maxLength: number = 2
 }
 
 /**
- * Sanitize text content for safe display
- * - Escapes HTML special characters
- * - Removes null bytes
- * - Removes control characters
- * - Limits length
- */
-export function sanitizeText(text: string, maxLength: number = 10000): string {
-    if (!text || typeof text !== 'string') {
-        return '';
-    }
-
-    let sanitized = text
-        // Remove null bytes
-        .replace(/\0/g, '')
-        // Remove control characters except newlines and tabs
-        .replace(/[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f-\x9f]/g, '');
-
-    // Limit length
-    if (sanitized.length > maxLength) {
-        sanitized = sanitized.substring(0, maxLength);
-    }
-
-    return sanitized;
-}
-
-/**
  * Escape HTML to prevent XSS when rendering user content
  */
 export function escapeHtml(unsafe: string): string {
@@ -152,49 +122,6 @@ export function sanitizeShortCode(code: string): string {
 
     // New codes are base62; older ones came from nanoid's URL-safe alphabet and may contain - or _
     return code.replace(/[^a-zA-Z0-9_-]/g, '').substring(0, 10);
-}
-
-/**
- * Sanitize file path to prevent directory traversal
- */
-export function sanitizeFilePath(path: string): string {
-    if (!path || typeof path !== 'string') {
-        return '';
-    }
-
-    return path
-        // Remove null bytes
-        .replace(/\0/g, '')
-        // Remove path traversal attempts
-        .replace(/\.\./g, '')
-        // Remove control characters
-        .replace(/[\x00-\x1f\x7f-\x9f]/g, '')
-        .trim();
-}
-
-/**
- * Validate and sanitize URL for safe usage
- */
-export function sanitizeUrl(url: string): string {
-    if (!url || typeof url !== 'string') {
-        return '';
-    }
-
-    const trimmed = url.trim();
-    
-    // Only allow http and https protocols
-    const urlPattern = /^https?:\/\//i;
-    if (!urlPattern.test(trimmed)) {
-        return '';
-    }
-
-    try {
-        const parsed = new URL(trimmed);
-        // Reconstruct URL to ensure it's properly formatted
-        return parsed.href;
-    } catch {
-        return '';
-    }
 }
 
 /**

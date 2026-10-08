@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { env } from '@/lib/env';
 import { logError, logWarning } from '@/lib/utils/logger';
 import { validateAuth, validateRequiredFields } from '@/lib/utils/validation';
 
@@ -11,7 +10,8 @@ import { validateAuth, validateRequiredFields } from '@/lib/utils/validation';
  * Confirms a successful upload and saves file metadata to the database.
  * Called after the browser successfully uploads to the presigned URL.
  * 
- * Request body: { metadata: { uniqueFilename, sanitizedFilename, shortCode, fileSize, mimeType, userId } }
+ * Request body: { metadata: { uniqueFilename, sanitizedFilename, fileSize, mimeType, userId, folderId? } }
+ * The file gets no link of its own (short_code stays null): it's shared by adding it to a delivery.
  */
 export async function POST(request: NextRequest) {
     let authUserId: string | undefined;
@@ -34,7 +34,6 @@ export async function POST(request: NextRequest) {
         const {
             uniqueFilename,
             sanitizedFilename,
-            shortCode,
             fileSize,
             mimeType,
             userId,
@@ -96,7 +95,6 @@ export async function POST(request: NextRequest) {
                 file_path: uniqueFilename,
                 file_size: fileSize,
                 mime_type: mimeType,
-                short_code: shortCode,
                 uploaded_by: user.id,
                 folder_id: folderId || null,
             })
@@ -106,7 +104,6 @@ export async function POST(request: NextRequest) {
         if (dbError) {
             logError('/api/files/confirm', user.id, 'save-metadata', dbError, {
                 filename: sanitizedFilename.substring(0, 20),
-                shortCode,
             });
             // Clean up uploaded file since we couldn't save metadata
             await adminClient.storage.from('files').remove([uniqueFilename]);
@@ -122,8 +119,6 @@ export async function POST(request: NextRequest) {
                 id: fileData.id,
                 filename: fileData.filename,
                 originalFilename: fileData.original_filename,
-                shortCode: fileData.short_code,
-                shortUrl: `${env.app.url}/${fileData.short_code}`,
             },
         });
     } catch (error) {
