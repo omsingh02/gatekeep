@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logError, logWarning } from '@/lib/utils/logger';
 import { validateAuth } from '@/lib/utils/validation';
+import { sanitizeFilename } from '@/lib/utils/sanitization';
+import type { Database } from '@/lib/types';
 
 export async function GET(
     request: NextRequest,
@@ -38,6 +40,87 @@ export async function GET(
     } catch (error) {
         logError('/api/files/[id]', userId, 'GET-file-request', error);
         return NextResponse.json({ error: 'Internal server error', code: 'ERR_FILE_GET' }, { status: 500 });
+    }
+}
+
+/**
+ * Move a file to another folder and/or rename it.
+ * Body: { folderId?: string | null (null = All files), name?: string }
+ */
+export async function PATCH(
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    let userId: string | undefined;
+    try {
+        const { id } = await params;
+        const supabase = await createClient();
+        const userData = await supabase.auth.getUser();
+        const user = validateAuth(userData, '/api/files/[id]', 'PATCH');
+        if (user instanceof NextResponse) return user;
+        userId = user.id;
+
+        const body = await request.json().catch(() => ({}));
+        const update: Database['public']['Tables']['files']['Update'] = {};
+
+        const adminClient = createAdminClient();
+        const { data: file } = await adminClient
+            .from('files')
+            .select('id')
+            .eq('id', id)
+            .eq('uploaded_by', user.id)
+            .is('deleted_at', null)
+            .maybeSingle();
+        if (!file) {
+            return NextResponse.json({ error: 'File not found', code: 'ERR_NOT_FOUND' }, { status: 404 });
+        }
+
+        if ('folderId' in body) {
+            const folderId = body.folderId === null || body.folderId === '' ? null : String(body.folderId);
+            if (folderId) {
+                const { data: folder } = await adminClient
+                    .from('folders')
+                    .select('id')
+                    .eq('id', folderId)
+                    .eq('uploaded_by', user.id)
+                    .is('deleted_at', null)
+                    .maybeSingle();
+                if (!folder) {
+                    return NextResponse.json({ error: "That folder doesn't exist.", code: 'ERR_NOT_FOUND' }, { status: 404 });
+                }
+            }
+            update.folder_id = folderId;
+        }
+
+        if ('name' in body) {
+            const name = sanitizeFilename(String(body.name ?? ''));
+            if (!name) {
+                return NextResponse.json({ error: 'Enter a file name.', code: 'ERR_INVALID_INPUT' }, { status: 400 });
+            }
+            update.original_filename = name;
+        }
+
+        if (Object.keys(update).length === 0) {
+            return NextResponse.json({ error: 'Nothing to change.', code: 'ERR_INVALID_INPUT' }, { status: 400 });
+        }
+        update.updated_at = new Date().toISOString();
+
+        const { data: updated, error } = await adminClient
+            .from('files')
+            .update(update)
+            .eq('id', id)
+            .eq('uploaded_by', user.id)
+            .select('*')
+            .single();
+        if (error || !updated) {
+            logError('/api/files/[id]', userId, 'PATCH-file-update', error);
+            return NextResponse.json({ error: "Couldn't update the file. Try again.", code: 'ERR_FILE_UPDATE' }, { status: 500 });
+        }
+
+        return NextResponse.json({ file: updated });
+    } catch (error) {
+        logError('/api/files/[id]', userId, 'PATCH-file-request', error);
+        return NextResponse.json({ error: "Couldn't update the file. Try again.", code: 'ERR_FILE_UPDATE' }, { status: 500 });
     }
 }
 
