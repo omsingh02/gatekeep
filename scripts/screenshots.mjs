@@ -170,9 +170,9 @@ async function captureAdmin(browser) {
     await page.keyboard.press('Escape');
     await page.reload();
 
-    // Analytics page
-    await page.goto(`${APP_URL}/admin/analytics`);
-    await page.getByText('Most Accessed Files').waitFor({ timeout: 20000 });
+    // Activity page (saved as analytics.png, which the landing page shows)
+    await page.goto(`${APP_URL}/admin/activity`);
+    await page.locator('[data-testid="activity-row"]').first().waitFor({ timeout: 20000 });
     await page.waitForLoadState('networkidle').catch(() => {});
     await settle(page, 1500);
     await shot(page, 'analytics');

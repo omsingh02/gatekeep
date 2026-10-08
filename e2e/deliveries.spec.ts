@@ -322,7 +322,7 @@ test('activity records every step and exports as CSV', async () => {
     const csv = await owner.get(`/api/activity/export?delivery=${state.deliveryId}`);
     expect(csv.headers()['content-type']).toContain('text/csv');
     const text = await csv.text();
-    expect(text.split('\r\n')[0]).toBe('Time (UTC),Event,Reason,Person,Delivery,File,IP address,Browser');
+    expect(text.split('\r\n')[0]).toBe('Time (UTC),Event,Reason,Person,Delivery,File,IP address,Browser,Request ID');
     expect(text).toContain('Downloaded all');
 });
 
