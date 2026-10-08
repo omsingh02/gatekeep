@@ -39,15 +39,15 @@
     "brand-assets": "node scripts/brand-assets.mjs"
   },
   "dependencies": {
-    "@supabase/ssr": "^0.8.0",
+    "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.89.0",
     "bcryptjs": "^3.0.3",
     "client-zip": "^2.5.1",
     "lucide-react": "^0.562.0",
     "nanoid": "^5.1.16",
     "next": "16.4.0",
-    "react": "19.2.3",
-    "react-dom": "19.2.3",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
     "resend": "^6.32.1"
   },
   "devDependencies": {
@@ -57,7 +57,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.1.1",
+    "eslint-config-next": "16.3.8",
     "playwright-core": "^1.63.0",
     "postcss": "^8.5.29",
     "tailwindcss": "^4",
