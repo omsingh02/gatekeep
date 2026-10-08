@@ -69,6 +69,24 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // The target folder must still exist and belong to this owner
+        if (folderId) {
+            const { data: folder } = await adminClient
+                .from('folders')
+                .select('id')
+                .eq('id', folderId)
+                .eq('uploaded_by', user.id)
+                .is('deleted_at', null)
+                .maybeSingle();
+            if (!folder) {
+                await adminClient.storage.from('files').remove([uniqueFilename]);
+                return NextResponse.json(
+                    { error: "That folder doesn't exist any more. Pick another folder and try again.", code: 'ERR_FOLDER_NOT_FOUND' },
+                    { status: 404 }
+                );
+            }
+        }
+
         // Save file metadata to database
         const { data: fileData, error: dbError } = await adminClient
             .from('files')

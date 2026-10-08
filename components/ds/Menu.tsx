@@ -15,11 +15,13 @@ export interface MenuProps {
     /** Custom trigger content; defaults to a "…" icon button */
     trigger?: ReactNode;
     align?: 'start' | 'end';
+    /** Non-interactive context above the items, e.g. the signed-in account's email */
+    header?: ReactNode;
     className?: string;
 }
 
 /** Dropdown of actions. Arrow keys move, Enter selects, Escape closes and returns focus. */
-export function Menu({ items, label, trigger, align = 'end', className }: MenuProps) {
+export function Menu({ items, label, trigger, align = 'end', header, className }: MenuProps) {
     const [open, setOpen] = useState(false);
     const [active, setActive] = useState(0);
     const menuId = useId();
@@ -113,6 +115,12 @@ export function Menu({ items, label, trigger, align = 'end', className }: MenuPr
                         align === 'end' ? 'right-0' : 'left-0'
                     )}
                 >
+                    {header && (
+                        <>
+                            <div className="px-2 pb-1.5 pt-1 text-body-sm text-secondary">{header}</div>
+                            <div role="separator" className="my-1 h-px bg-gray-4" />
+                        </>
+                    )}
                     {items.map((item, i) =>
                         item.type === 'separator' ? (
                             <div key={i} role="separator" className="my-1 h-px bg-gray-4" />
