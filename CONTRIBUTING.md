@@ -22,3 +22,9 @@ npx supabase stop
 - Locally it uses `/usr/bin/chromium` (or `CHROMIUM_PATH`); otherwise run `npx playwright install chromium`.
 - A failed run leaves a trace in `test-results/` — open it with `npx playwright show-trace <trace.zip>`.
 - CI runs the same suite in the `e2e` job.
+
+## Email in development and tests
+
+Set `EMAIL_TRANSPORT=memory` to keep emails in the server process instead of sending them. The
+end-to-end tests also set `E2E_TEST_SUPPORT=1`, which exposes the captured emails at
+`/api/test-support/emails` so tests can read codes and invites. Never set either in production.

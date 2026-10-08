@@ -29,8 +29,15 @@ Copy `.env.example` to `.env.local` (local / Docker) or add them in your host's 
 | `NEXT_PUBLIC_APP_URL` | ✅ | Public base URL used in share links, e.g. `https://files.example.com` |
 | `OWNER_EMAILS` | existing installs | Sign-in email(s) of the owner, comma-separated. Not needed if you created the account with `npm run create-admin` (it marks the owner) |
 | `CRON_SECRET` | ✅ (prod) | Random string (`openssl rand -hex 32`). Authenticates the daily keep-alive job |
-| `RESEND_API_KEY` | – | Enables "access granted" emails |
-| `EMAIL_FROM` | with Resend | Sender on a domain verified in Resend, e.g. `Gatekeep <noreply@example.com>` |
+| `RESEND_API_KEY` | recommended | Sends invites, email codes, owner notifications and password resets. Without it, recipients use passwords |
+| `EMAIL_FROM` | with Resend | Sender on a domain verified in Resend, e.g. `Gatekeep <noreply@example.com>`. Emails appear as "{your name} via Gatekeep", with replies going to you |
+| `GATEKEEP_TIMEZONE` | – | IANA time zone for dates in emails, e.g. `Europe/London` (default `UTC`) |
+
+### Supabase Auth URLs
+
+In Supabase → **Authentication → URL Configuration**, set **Site URL** to your public URL and add
+`https://<your-domain>/reset-password` to **Redirect URLs**. The owner's "Forgot password?" link
+lands there.
 
 ## 3. Owner account
 

@@ -5,6 +5,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### v2: deliveries (backend)
+Gatekeep becomes **secure file delivery with receipts** ([docs/PRODUCT.md](docs/PRODUCT.md)). This release adds the server side; the v2 screens follow.
+- **Deliveries:** one link for one or more files, sent to named recipients and/or anyone with the password, with a title and message. **Requests** use the same link and access controls to collect files *from* recipients into a folder you choose.
+- **Email codes:** recipients can prove who they are with a 6-digit code sent to their inbox (default when email is set up), or with their own password. Every person gets their own password; invites never contain one.
+- **Receipts:** an activity feed of every open, preview, download, upload and denied attempt (with the reason), with filters, pagination and CSV export.
+- **Owner notifications:** first open, downloads (optional), a single alert for repeated denied attempts, and request uploads. "Access ending soon" reminders go to recipients.
+- **Settings:** your name and organization (shown to recipients instead of "someone"), logo, message to recipients, sharing defaults, notifications. Change password, forgot password, and a system status endpoint.
+- **New emails:** one light template; every email says who it's from, and replies go to you.
+- **Upgrade:** every v1 link becomes a delivery with the same code. v1 grants and the access log are carried over; recipients unlock once more.
+
 ### Security
 - **The dashboard and admin APIs are owner-only.** Previously any signed-in Supabase account could use them, so an instance with sign-ups enabled let strangers upload into its storage. Set `OWNER_EMAILS` or run `npm run create-admin` before upgrading.
 - The unlock page gives one answer for unknown recipients and wrong passwords (with equal timing), so it can't be used to discover who has access. End dates and download limits are only revealed after the password is accepted.

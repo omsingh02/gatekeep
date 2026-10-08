@@ -274,7 +274,25 @@ async function main() {
     const { error: logError } = await supabase.from('access_log').insert(logs);
     if (logError) throw logError;
 
-    console.log(`Seeded ${files.length} files, ${folders.length} folders, ${grants.length} grants, ${logs.length} log entries.\n`);
+    // The demo is seeded in the v1 shape on purpose: converting it exercises the same
+    // v1 → v2 migration real instances go through (one delivery per v1 link, same code).
+    const { error: migrateError } = await supabase.rpc('migrate_v1_to_v2');
+    if (migrateError) throw migrateError;
+
+    const { error: settingsError } = await supabase.from('owner_settings').upsert({
+        owner_id: adminId,
+        display_name: 'Avery Stone',
+        organization: 'Northwind Studio',
+        recipient_message: 'Files from Northwind Studio. Reach me at avery@northwind.example with any questions.',
+    });
+    if (settingsError) throw settingsError;
+
+    const { count: deliveryCount } = await supabase
+        .from('deliveries')
+        .select('id', { count: 'exact', head: true })
+        .eq('owner_id', adminId);
+
+    console.log(`Seeded ${files.length} files, ${folders.length} folders, ${grants.length} grants, ${logs.length} log entries, ${deliveryCount} deliveries.\n`);
     console.log(`Admin       ${appUrl}/login   ${DEMO_ADMIN.email} / ${DEMO_ADMIN.password}`);
     console.log(`Share link  ${appUrl}/${DEMO_SHARE.shortCode}   ${DEMO_SHARE.recipient} / ${DEMO_SHARE.password}`);
 }
