@@ -1,1586 +1,1102 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { Share2 } from 'lucide-react';
-import { Skeleton, ConfirmDialog, PromptDialog, Modal, useToast, EmptyState, FileTypeIcon } from '@/components/ui';
-import { FileMetadata, FileTypeFilter, DateFilter, Folder } from '@/lib/types';
-import { formatFileSize, getFileTypeInfo } from '@/lib/utils/fileTypes';
-import { formatDateTime } from '@/lib/utils/date';
+import { useRouter } from 'next/navigation';
+import { useEffect, useRef, useState, useSyncExternalStore, type DragEvent, type ReactNode } from 'react';
+import {
+    CloudOff,
+    Download,
+    Eye,
+    Folder as FolderIcon,
+    FolderInput,
+    FolderOpen,
+    FolderPlus,
+    FolderX,
+    LayoutGrid,
+    List,
+    Pencil,
+    Search,
+    SearchX,
+    Send,
+    Trash2,
+    Upload,
+    X,
+    ChevronLeft,
+    ChevronRight,
+} from 'lucide-react';
+import {
+    Breadcrumb,
+    Button,
+    Card,
+    Checkbox,
+    ConfirmDialog,
+    EmptyState,
+    IconButton,
+    Input,
+    Menu,
+    PageHeader,
+    PromptDialog,
+    SegmentedControl,
+    Select,
+    Skeleton,
+    TBody,
+    TD,
+    TH,
+    THead,
+    TR,
+    Table,
+    Toolbar,
+    Tooltip,
+    cn,
+    useToast,
+    type Crumb,
+    type MenuItem,
+    type SortDirection,
+} from '@/components/ds';
+import type { FileMetadata, FileTypeFilter, Folder } from '@/lib/types';
 import { useDebouncedValue } from '@/lib/utils/hooks';
-import AccessManager from './AccessManager';
+import FileUploader from './FileUploader';
+import FilePreviewDialog from './files/FilePreviewDialog';
+import MoveDialog, { type MoveResult } from './files/MoveDialog';
+import { FileTypeIcon } from './files/FileTypeIcon';
+import { ApiError, downloadFile, folderError, jsonInit, reason, requestJson } from './files/api';
+import { count, describeItems, formatFullDate, formatShortDate, formatSize, sendHref } from './files/format';
+import { filesFromDrop, useUploads, type Uploads, type UploadTarget } from './files/useUploads';
 
-type ViewMode = 'table' | 'grid';
+const ICON = { 'aria-hidden': true, strokeWidth: 1.75, className: 'h-4 w-4' } as const;
+const PAGE_SIZE = 50;
 
-interface FileListProps {
-    limit?: number;
-    showViewAll?: boolean;
-    viewAllHref?: string;
-    enablePagination?: boolean;
-    itemsPerPage?: number;
-    showFolderNavigation?: boolean;
+type View = 'table' | 'grid';
+type SortKey = 'name' | 'size' | 'modified';
+interface Sort {
+    key: SortKey;
+    dir: 'asc' | 'desc';
 }
 
-export default function FileList({
-    limit,
-    showViewAll = false,
-    viewAllHref = '/admin/files',
-    enablePagination = false,
-    itemsPerPage = 20,
-    showFolderNavigation = true,
-}: FileListProps) {
-    const [files, setFiles] = useState<FileMetadata[]>([]);
-    const [totalCount, setTotalCount] = useState(0);
-    const [currentPage, setCurrentPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
-    const [isLoading, setIsLoading] = useState(true);
-    const [selectedFile, setSelectedFile] = useState<FileMetadata | null>(null);
-    const [showAccessManager, setShowAccessManager] = useState(false);
+const SORT_OPTIONS: { value: string; label: string; sort: Sort }[] = [
+    { value: 'modified-desc', label: 'Newest first', sort: { key: 'modified', dir: 'desc' } },
+    { value: 'modified-asc', label: 'Oldest first', sort: { key: 'modified', dir: 'asc' } },
+    { value: 'name-asc', label: 'Name, A to Z', sort: { key: 'name', dir: 'asc' } },
+    { value: 'name-desc', label: 'Name, Z to A', sort: { key: 'name', dir: 'desc' } },
+    { value: 'size-desc', label: 'Largest first', sort: { key: 'size', dir: 'desc' } },
+    { value: 'size-asc', label: 'Smallest first', sort: { key: 'size', dir: 'asc' } },
+];
 
-    // Responsive: detect mobile to default to grid view
+const TYPE_OPTIONS: { value: FileTypeFilter; label: string }[] = [
+    { value: 'all', label: 'All types' },
+    { value: 'image', label: 'Images' },
+    { value: 'video', label: 'Videos' },
+    { value: 'audio', label: 'Audio' },
+    { value: 'pdf', label: 'PDFs' },
+    { value: 'document', label: 'Documents' },
+    { value: 'archive', label: 'Archives' },
+];
 
-    // View mode state - default to grid on mobile
-    const [viewMode, setViewMode] = useState<ViewMode>('table');
-    const [hasSetInitialViewMode, setHasSetInitialViewMode] = useState(false);
+const folderHref = (id: string) => `/admin/files?folder=${encodeURIComponent(id)}`;
 
-    // Set initial view mode based on screen size (only once on mount). useIsMobile is still
-    // false on this first pass (it measures in its own effect), so read the width directly.
-    useEffect(() => {
-        if (!hasSetInitialViewMode) {
-            setViewMode(window.innerWidth < 768 ? 'grid' : 'table');
-            setHasSetInitialViewMode(true);
-        }
-    }, [hasSetInitialViewMode]);
+// The table/grid choice is remembered on this device
+const VIEW_KEY = 'gatekeep:files-view';
+const viewStore = {
+    subscribe(callback: () => void) {
+        window.addEventListener('storage', callback);
+        window.addEventListener(VIEW_KEY, callback);
+        return () => {
+            window.removeEventListener('storage', callback);
+            window.removeEventListener(VIEW_KEY, callback);
+        };
+    },
+    get: (): View => (window.localStorage.getItem(VIEW_KEY) === 'grid' ? 'grid' : 'table'),
+    set(view: View) {
+        window.localStorage.setItem(VIEW_KEY, view);
+        window.dispatchEvent(new Event(VIEW_KEY));
+    },
+};
 
-    // Selection state
-    const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set());
-    const [selectedFolderIds, setSelectedFolderIds] = useState<Set<string>>(new Set());
+type Location = { status: 'loading' } | { status: 'missing' | 'error' } | { status: 'ready'; name: string; path: { id: string; name: string }[] };
 
-    // Search and filter state
-    const [searchInput, setSearchInput] = useState('');
-    const [fileTypeFilter, setFileTypeFilter] = useState<FileTypeFilter>('all');
-    const [dateFilter, setDateFilter] = useState<DateFilter>('all');
-    const debouncedSearch = useDebouncedValue(searchInput, 300);
-
-    // Folder state
-    const [folders, setFolders] = useState<Folder[]>([]);
-    const [currentFolder, setCurrentFolder] = useState<{ id: string | null; name: string }>({ id: null, name: 'Home' });
-    const [breadcrumbs, setBreadcrumbs] = useState<Array<{ id: string | null; name: string }>>([{ id: null, name: 'Home' }]);
-    const [, setIsFoldersLoading] = useState(false);
-
-    // Dialog state
-    const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; fileId: string | null; fileName: string; type: 'file' | 'folder' }>({
-        isOpen: false,
-        fileId: null,
-        fileName: '',
-        type: 'file',
-    });
-    const [folderPrompt, setFolderPrompt] = useState<{ isOpen: boolean; isLoading: boolean; mode: 'create' | 'rename'; folderId?: string; initialValue?: string }>({
-        isOpen: false,
-        isLoading: false,
-        mode: 'create',
-    });
-    const [moveDialog, setMoveDialog] = useState<{ isOpen: boolean; isLoading: boolean }>({
-        isOpen: false,
-        isLoading: false,
-    });
-    const [moveTargetFolder, setMoveTargetFolder] = useState<string | null>(null);
-    const [allFolders, setAllFolders] = useState<Folder[]>([]);
-    const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
-
+/**
+ * The Files page: folders and files in the current folder, upload, preview, send, rename, move
+ * and delete. The folder comes from the URL (?folder=id) so breadcrumbs are plain links.
+ */
+export default function FileList({ folderId, startUpload = false }: { folderId: string | null; startUpload?: boolean }) {
+    const router = useRouter();
     const toast = useToast();
+    const view = useSyncExternalStore(viewStore.subscribe, viewStore.get, () => 'table' as View);
+    const [sort, setSort] = useState<Sort>({ key: 'modified', dir: 'desc' });
+    const [reloadKey, setReloadKey] = useState(0);
+    const reload = () => setReloadKey((k) => k + 1);
 
-    // Clear selection when changing folder or filters
+    // The upload dialog can open straight away (?upload=1, e.g. from the Overview guide)
+    const [uploadOpen, setUploadOpen] = useState(startUpload);
+    const uploadOpenRef = useRef(uploadOpen);
     useEffect(() => {
-        setSelectedFileIds(new Set());
-        setSelectedFolderIds(new Set());
-    }, [currentFolder.id, debouncedSearch, fileTypeFilter, dateFilter]);
-
+        uploadOpenRef.current = uploadOpen;
+    }, [uploadOpen]);
     useEffect(() => {
-        fetchFiles();
-        if (showFolderNavigation) {
-            fetchFolders();
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [limit, currentPage, debouncedSearch, fileTypeFilter, dateFilter, currentFolder.id, showFolderNavigation]);
+        if (startUpload) router.replace(folderId ? folderHref(folderId) : '/admin/files', { scroll: false });
+    }, [startUpload, folderId, router]);
 
-    const fetchFolders = async () => {
-        try {
-            setIsFoldersLoading(true);
-            let url = '/api/folders';
-            const params = new URLSearchParams();
-
-            if (currentFolder.id) {
-                params.append('parentId', currentFolder.id);
+    const uploads = useUploads({
+        onUploaded: reload,
+        onSettled: (items) => {
+            // With the dialog open, its own summary says what happened
+            if (uploadOpenRef.current) return;
+            const done = items.filter((item) => item.status === 'done');
+            const failed = items.filter((item) => item.status === 'error').length;
+            if (done.length > 0) {
+                const folders = new Set(done.map((item) => item.folderName));
+                const ids = done.flatMap((item) => (item.fileId ? [item.fileId] : []));
+                toast.success(`Uploaded ${count(done.length, 'file')}${folders.size === 1 ? ` to ${done[0].folderName}` : ''}`, {
+                    action: { label: 'Send', onClick: () => router.push(sendHref(ids)) },
+                });
             }
-
-            if (params.toString()) {
-                url += `?${params.toString()}`;
+            if (failed > 0) {
+                toast.error(`${failed === 1 ? "1 file couldn't" : `${failed} files couldn't`} be uploaded. Open Upload to see why and retry.`);
             }
+            uploads.clearUploaded();
+        },
+    });
 
-            const response = await fetch(url);
-            if (response.ok) {
-                const data = await response.json();
-                setFolders(data.folders || []);
-            } else {
-                setFolders([]);
-            }
-        } catch {
-            setFolders([]);
-        } finally {
-            setIsFoldersLoading(false);
-        }
-    };
-
-    const fetchFiles = async () => {
-        try {
-            setIsLoading(true);
-            let url = '/api/files';
-            const params = new URLSearchParams();
-
-            if (limit) {
-                params.append('limit', limit.toString());
-            } else if (enablePagination) {
-                params.append('page', currentPage.toString());
-                params.append('limit', itemsPerPage.toString());
-            }
-
-            if (debouncedSearch.trim()) {
-                params.append('search', debouncedSearch.trim());
-            }
-
-            if (fileTypeFilter !== 'all') {
-                params.append('fileType', fileTypeFilter);
-            }
-
-            if (dateFilter !== 'all') {
-                params.append('dateFilter', dateFilter);
-            }
-
-            if (currentFolder.id) {
-                params.append('folderId', currentFolder.id);
-            }
-
-            // For recent files view (no folder navigation), show all files across folders
-            if (!showFolderNavigation) {
-                params.append('showAll', 'true');
-            }
-
-            if (params.toString()) {
-                url += `?${params.toString()}`;
-            }
-
-            const response = await fetch(url);
-            if (response.ok) {
-                const data = await response.json();
-                setFiles(data.files || []);
-                setTotalCount(data.totalCount || data.files?.length || 0);
-                setTotalPages(data.totalPages || 1);
-            }
-        } catch {
-            // Error handled silently
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleDelete = async (fileId: string, type: 'file' | 'folder' = 'file') => {
-        try {
-            const endpoint = type === 'folder' ? `/api/folders/${fileId}` : `/api/files/${fileId}`;
-            const response = await fetch(endpoint, {
-                method: 'DELETE',
+    const [fetched, setFetched] = useState<({ id: string } & Location) | null>(null);
+    useEffect(() => {
+        if (!folderId) return;
+        const controller = new AbortController();
+        requestJson<{ folder: Folder }>(`/api/folders/${encodeURIComponent(folderId)}`, { signal: controller.signal })
+            .then(({ folder }) => setFetched({ id: folderId, status: 'ready', name: folder.name, path: folder.path ?? [{ id: folder.id, name: folder.name }] }))
+            .catch((error) => {
+                if (controller.signal.aborted) return;
+                setFetched({ id: folderId, status: error instanceof ApiError && error.status === 404 ? 'missing' : 'error' });
             });
+        return () => controller.abort();
+    }, [folderId]);
 
-            if (response.ok) {
-                if (type === 'folder') {
-                    toast.success('Folder deleted successfully');
-                    await fetchFolders();
-                } else {
-                    const newFiles = files.filter((f) => f.id !== fileId);
-                    setFiles(newFiles);
-                    toast.success('File deleted successfully');
-                    if (newFiles.length === 0 && currentPage > 1) {
-                        setCurrentPage(currentPage - 1);
-                    } else {
-                        fetchFiles();
-                    }
-                }
-            } else {
-                toast.error(`Failed to delete ${type}`);
-            }
-        } catch {
-            toast.error(`Failed to delete ${type}`);
-        } finally {
-            setDeleteConfirm({ isOpen: false, fileId: null, fileName: '', type: 'file' });
-        }
-    };
-
-    const confirmDelete = (file: FileMetadata) => {
-        setDeleteConfirm({ isOpen: true, fileId: file.id, fileName: file.originalFilename, type: 'file' });
-    };
-
-    const confirmDeleteFolder = (folder: Folder) => {
-        setDeleteConfirm({ isOpen: true, fileId: folder.id, fileName: folder.name, type: 'folder' });
-    };
-
-    const copyShortLink = (shortCode: string) => {
-        const url = `${window.location.origin}/${shortCode}`;
-        navigator.clipboard.writeText(url);
-        toast.success('Link copied to clipboard');
-    };
-
-    const handleEnterFolder = (folder: Folder) => {
-        setCurrentFolder({ id: folder.id, name: folder.name });
-        setBreadcrumbs((prev) => [...prev, { id: folder.id, name: folder.name }]);
-        setCurrentPage(1);
-    };
-
-    const handleBreadcrumbClick = (index: number) => {
-        const target = breadcrumbs[index];
-        setBreadcrumbs((prev) => prev.slice(0, index + 1));
-        setCurrentFolder({ id: target.id, name: target.name });
-        setCurrentPage(1);
-    };
-
-    const handleFolderSubmit = async (name: string) => {
-        setFolderPrompt((prev) => ({ ...prev, isLoading: true }));
-        try {
-            if (folderPrompt.mode === 'rename' && folderPrompt.folderId) {
-                const response = await fetch(`/api/folders/${folderPrompt.folderId}`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name }),
-                });
-
-                if (!response.ok) {
-                    const data = await response.json();
-                    toast.error(data.error || 'Failed to rename folder');
-                    return;
-                }
-
-                toast.success('Folder renamed successfully');
-            } else {
-                const response = await fetch('/api/folders', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        name,
-                        parentId: currentFolder.id,
-                    }),
-                });
-
-                if (!response.ok) {
-                    const data = await response.json();
-                    toast.error(data.error || 'Failed to create folder');
-                    return;
-                }
-
-                toast.success('Folder created successfully');
-            }
-
-            setFolderPrompt({ isOpen: false, isLoading: false, mode: 'create' });
-            await fetchFolders();
-        } catch {
-            toast.error(folderPrompt.mode === 'rename' ? 'Failed to rename folder' : 'Failed to create folder');
-        } finally {
-            setFolderPrompt((prev) => ({ ...prev, isLoading: false }));
-        }
-    };
-
-    const handleRenameFolder = (folder: Folder) => {
-        setFolderPrompt({ isOpen: true, isLoading: false, mode: 'rename', folderId: folder.id, initialValue: folder.name });
-    };
-
-    // Selection handlers
-    const toggleFileSelection = (fileId: string) => {
-        setSelectedFileIds((prev) => {
-            const next = new Set(prev);
-            if (next.has(fileId)) {
-                next.delete(fileId);
-            } else {
-                next.add(fileId);
-            }
-            return next;
-        });
-    };
-
-    const toggleFolderSelection = (folderId: string) => {
-        setSelectedFolderIds((prev) => {
-            const next = new Set(prev);
-            if (next.has(folderId)) {
-                next.delete(folderId);
-            } else {
-                next.add(folderId);
-            }
-            return next;
-        });
-    };
-
-    const selectAll = () => {
-        const targetFolderCount = showFolderNavigation ? folders.length : 0;
-        if (selectedFileIds.size === files.length && selectedFolderIds.size === targetFolderCount) {
-            setSelectedFileIds(new Set());
-            setSelectedFolderIds(new Set());
-        } else {
-            setSelectedFileIds(new Set(files.map((f) => f.id)));
-            if (showFolderNavigation) {
-                setSelectedFolderIds(new Set(folders.map((f) => f.id)));
-            }
-        }
-    };
-
-    const clearSelection = () => {
-        setSelectedFileIds(new Set());
-        setSelectedFolderIds(new Set());
-    };
-
-    const hasSelection = selectedFileIds.size > 0 || selectedFolderIds.size > 0;
-    const targetFolderCountForAll = showFolderNavigation ? folders.length : 0;
-    const allSelected = files.length > 0 && selectedFileIds.size === files.length && selectedFolderIds.size === targetFolderCountForAll;
-
-    // Fetch all folders for move dialog
-    const fetchAllFolders = useCallback(async () => {
-        try {
-            const response = await fetch('/api/folders?all=true');
-            if (response.ok) {
-                const data = await response.json();
-                setAllFolders(data.folders || []);
-            }
-        } catch {
-            // Silently fail
-        }
-    }, []);
-
-    // Move handlers
-    const openMoveDialog = async () => {
-        setMoveDialog({ isOpen: true, isLoading: false });
-        setMoveTargetFolder(null);
-        await fetchAllFolders();
-    };
-
-    const handleMove = async () => {
-        setMoveDialog((prev) => ({ ...prev, isLoading: true }));
-        try {
-            const total = selectedFileIds.size + selectedFolderIds.size;
-            let failed = 0;
-
-            // Move files
-            for (const fileId of selectedFileIds) {
-                const res = await fetch(`/api/files/${fileId}`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ folderId: moveTargetFolder }),
-                });
-                if (!res.ok) failed++;
-            }
-
-            // Move folders
-            for (const folderId of selectedFolderIds) {
-                const res = await fetch(`/api/folders/${folderId}`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ parentId: moveTargetFolder }),
-                });
-                if (!res.ok) failed++;
-            }
-
-            if (failed === 0) {
-                toast.success(`Moved ${total} ${total === 1 ? 'item' : 'items'}`);
-            } else if (failed === total) {
-                toast.error(`Couldn't move ${total === 1 ? 'that item' : 'those items'}. Try again.`);
-            } else {
-                toast.warning(`Moved ${total - failed} of ${total} items. ${failed} couldn't be moved.`);
-            }
-            clearSelection();
-            await fetchFiles();
-            await fetchFolders();
-        } catch {
-            toast.error('Failed to move some items');
-        } finally {
-            setMoveDialog({ isOpen: false, isLoading: false });
-        }
-    };
-
-    // Bulk delete
-    const handleBulkDelete = async () => {
-        try {
-            const total = selectedFileIds.size + selectedFolderIds.size;
-            let failed = 0;
-            for (const fileId of selectedFileIds) {
-                const res = await fetch(`/api/files/${fileId}`, { method: 'DELETE' });
-                if (!res.ok) failed++;
-            }
-            for (const folderId of selectedFolderIds) {
-                const res = await fetch(`/api/folders/${folderId}`, { method: 'DELETE' });
-                if (!res.ok) failed++;
-            }
-
-            if (failed === 0) {
-                toast.success(`Deleted ${total} ${total === 1 ? 'item' : 'items'}`);
-            } else if (failed === total) {
-                toast.error(`Couldn't delete ${total === 1 ? 'that item' : 'those items'}. Try again.`);
-            } else {
-                toast.warning(`Deleted ${total - failed} of ${total} items. ${failed} couldn't be deleted.`);
-            }
-            clearSelection();
-            await fetchFiles();
-            await fetchFolders();
-        } catch {
-            toast.error('Failed to delete some items');
-        } finally {
-            setBulkDeleteConfirm(false);
-        }
-    };
-
-    const handleManageAccess = (file: FileMetadata) => {
-        setSelectedFile(file);
-        setShowAccessManager(true);
-    };
-
-    if (isLoading) {
-        const skeletonCount = limit || 3;
-        return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                {Array.from({ length: skeletonCount }).map((_, i) => (
-                    <div
-                        key={i}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '1rem',
-                            padding: '1rem',
-                            backgroundColor: '#12141c',
-                            borderRadius: '6px',
-                            border: '1px solid #23263a',
-                        }}
-                    >
-                        <Skeleton width="40px" height="40px" />
-                        <div style={{ flex: 1 }}>
-                            <Skeleton variant="text" width="60%" height="1rem" />
-                            <div style={{ marginTop: '0.5rem' }}>
-                                <Skeleton variant="text" width="30%" height="0.75rem" />
-                            </div>
-                        </div>
-                        <Skeleton width="80px" height="32px" />
-                    </div>
-                ))}
-            </div>
-        );
-    }
-
-    const hasActiveFilters = searchInput.trim() || fileTypeFilter !== 'all' || dateFilter !== 'all';
+    const location: Location = !folderId
+        ? { status: 'ready', name: 'All files', path: [] }
+        : fetched?.id === folderId
+          ? fetched
+          : { status: 'loading' };
+    const target: UploadTarget = { id: folderId, name: location.status === 'ready' ? location.name : 'this folder' };
 
     return (
         <>
-            {/* Search and Filter Controls */}
-            {enablePagination && (
-                <div
-                    style={{
-                        marginBottom: '1.5rem',
-                        display: 'flex',
-                        gap: '0.75rem',
-                        flexWrap: 'wrap',
-                        alignItems: 'center',
-                    }}
-                >
-                    <input
-                        type="text"
-                        placeholder="Search files..."
-                        value={searchInput}
-                        onChange={(e) => {
-                            setSearchInput(e.target.value);
-                            setCurrentPage(1);
-                        }}
-                        disabled={isLoading}
-                        style={{
-                            flex: '1 1 180px',
-                            minWidth: '140px',
-                            padding: '0.5rem 0.75rem',
-                            fontSize: '0.875rem',
-                            color: '#e0e0e0',
-                            backgroundColor: '#0b0c11',
-                            border: '1px solid #23263a',
-                            borderRadius: '4px',
-                            outline: 'none',
-                            opacity: isLoading ? 0.5 : 1,
-                            cursor: isLoading ? 'not-allowed' : 'text',
-                        }}
-                        onFocus={(e) => !isLoading && (e.currentTarget.style.borderColor = '#6366f1')}
-                        onBlur={(e) => (e.currentTarget.style.borderColor = '#23263a')}
-                    />
+            <FolderBrowser
+                key={folderId ?? 'root'}
+                folderId={folderId}
+                location={location}
+                target={target}
+                view={view}
+                sort={sort}
+                onSort={setSort}
+                reloadKey={reloadKey}
+                onReload={reload}
+                uploads={uploads}
+                onUpload={() => setUploadOpen(true)}
+            />
+            <FileUploader open={uploadOpen} onClose={() => setUploadOpen(false)} target={target} uploads={uploads} />
+        </>
+    );
+}
 
-                    <select
-                        value={fileTypeFilter}
-                        onChange={(e) => {
-                            setFileTypeFilter(e.target.value as FileTypeFilter);
-                            setCurrentPage(1);
-                        }}
-                        disabled={isLoading}
-                        style={{
-                            padding: '0.5rem 0.75rem',
-                            fontSize: '0.875rem',
-                            color: '#e0e0e0',
-                            backgroundColor: '#0b0c11',
-                            border: '1px solid #23263a',
-                            borderRadius: '4px',
-                            outline: 'none',
-                            cursor: isLoading ? 'not-allowed' : 'pointer',
-                            opacity: isLoading ? 0.5 : 1,
-                        }}
-                    >
-                        <option value="all">All Types</option>
-                        <option value="image">Images</option>
-                        <option value="video">Videos</option>
-                        <option value="audio">Audio</option>
-                        <option value="pdf">PDFs</option>
-                        <option value="document">Documents</option>
-                        <option value="archive">Archives</option>
-                    </select>
+type DialogState =
+    | { type: 'new-folder' }
+    | { type: 'rename-file'; file: FileMetadata }
+    | { type: 'rename-folder'; folder: Folder }
+    | { type: 'delete-file'; file: FileMetadata }
+    | { type: 'delete-folder'; folder: Folder }
+    | { type: 'delete-selection'; files: FileMetadata[]; folders: Folder[] }
+    | { type: 'move'; files: FileMetadata[]; folders: Folder[] }
+    | null;
 
-                    <select
-                        value={dateFilter}
-                        onChange={(e) => {
-                            setDateFilter(e.target.value as DateFilter);
-                            setCurrentPage(1);
-                        }}
-                        disabled={isLoading}
-                        style={{
-                            padding: '0.5rem 0.75rem',
-                            fontSize: '0.875rem',
-                            color: '#e0e0e0',
-                            backgroundColor: '#0b0c11',
-                            border: '1px solid #23263a',
-                            borderRadius: '4px',
-                            outline: 'none',
-                            cursor: isLoading ? 'not-allowed' : 'pointer',
-                            opacity: isLoading ? 0.5 : 1,
-                        }}
-                    >
-                        <option value="all">Any Date</option>
-                        <option value="today">Today</option>
-                        <option value="week">Last 7 Days</option>
-                        <option value="month">Last 30 Days</option>
-                        <option value="3months">Last 90 Days</option>
-                    </select>
+type Result =
+    | { key: string; status: 'ready'; files: FileMetadata[]; folders: Folder[]; total: number; totalPages: number }
+    | { key: string; status: 'error' };
 
-                    {(searchInput || fileTypeFilter !== 'all' || dateFilter !== 'all') && (
-                        <button
-                            onClick={() => {
-                                setSearchInput('');
-                                setFileTypeFilter('all');
-                                setDateFilter('all');
-                                setCurrentPage(1);
-                            }}
-                            disabled={isLoading}
-                            style={{
-                                padding: '0.5rem 0.75rem',
-                                fontSize: '0.875rem',
-                                color: '#9ca3af',
-                                backgroundColor: 'transparent',
-                                border: '1px solid #23263a',
-                                borderRadius: '4px',
-                                cursor: isLoading ? 'not-allowed' : 'pointer',
-                                transition: 'all 0.2s',
-                                whiteSpace: 'nowrap',
-                                opacity: isLoading ? 0.5 : 1,
-                            }}
-                            onMouseEnter={(e) => {
-                                if (!isLoading) {
-                                    e.currentTarget.style.backgroundColor = '#0b0c11';
-                                    e.currentTarget.style.color = '#e0e0e0';
-                                }
-                            }}
-                            onMouseLeave={(e) => {
-                                if (!isLoading) {
-                                    e.currentTarget.style.backgroundColor = 'transparent';
-                                    e.currentTarget.style.color = '#9ca3af';
-                                }
-                            }}
-                        >
-                            Clear Filters
-                        </button>
-                    )}
+interface FolderBrowserProps {
+    folderId: string | null;
+    location: Location;
+    target: UploadTarget;
+    view: View;
+    sort: Sort;
+    onSort: (sort: Sort) => void;
+    reloadKey: number;
+    onReload: () => void;
+    uploads: Uploads;
+    onUpload: () => void;
+}
 
-                    {totalCount > 0 && (
-                        <span style={{ fontSize: '0.875rem', color: '#9ca3af', whiteSpace: 'nowrap', order: 10 }}>
-                            {totalCount} {totalCount === 1 ? 'file' : 'files'}
-                        </span>
-                    )}
+function FolderBrowser({ folderId, location, target, view, sort, onSort, reloadKey, onReload, uploads, onUpload }: FolderBrowserProps) {
+    const router = useRouter();
+    const toast = useToast();
+    const [search, setSearch] = useState('');
+    const query = useDebouncedValue(search.trim(), 250);
+    const [type, setType] = useState<FileTypeFilter>('all');
+    const [page, setPage] = useState(1);
+    const [result, setResult] = useState<Result | null>(null);
+    const [selection, setSelection] = useState<{ key: string; files: Set<string>; folders: Set<string> } | null>(null);
+    const [dialog, setDialog] = useState<DialogState>(null);
+    const [preview, setPreview] = useState<{ file: FileMetadata; key: number } | null>(null);
+    const [dragging, setDragging] = useState(false);
 
-                    {/* View Toggle */}
-                    <div style={{ display: 'flex', gap: '0.25rem', backgroundColor: '#0b0c11', borderRadius: '4px', padding: '0.25rem', order: 11 }}>
-                        <button
-                            onClick={() => setViewMode('table')}
-                            title="Table view"
-                            style={{
-                                padding: '0.35rem 0.5rem',
-                                backgroundColor: viewMode === 'table' ? '#23263a' : 'transparent',
-                                border: 'none',
-                                borderRadius: '3px',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                            }}
-                        >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={viewMode === 'table' ? '#e0e0e0' : '#6b7280'} strokeWidth="2">
-                                <rect x="3" y="3" width="18" height="18" rx="2" />
-                                <line x1="3" y1="9" x2="21" y2="9" />
-                                <line x1="3" y1="15" x2="21" y2="15" />
-                                <line x1="9" y1="3" x2="9" y2="21" />
-                            </svg>
-                        </button>
-                        <button
-                            onClick={() => setViewMode('grid')}
-                            title="Grid view"
-                            style={{
-                                padding: '0.35rem 0.5rem',
-                                backgroundColor: viewMode === 'grid' ? '#23263a' : 'transparent',
-                                border: 'none',
-                                borderRadius: '3px',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                            }}
-                        >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={viewMode === 'grid' ? '#e0e0e0' : '#6b7280'} strokeWidth="2">
-                                <rect x="3" y="3" width="7" height="7" />
-                                <rect x="14" y="3" width="7" height="7" />
-                                <rect x="3" y="14" width="7" height="7" />
-                                <rect x="14" y="14" width="7" height="7" />
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-            )}
+    const queryKey = [folderId, query, type, sort.key, sort.dir, page].join('|');
 
-            {/* Bulk Action Bar */}
-            {hasSelection && (
-                <div
-                    style={{
-                        marginBottom: '1rem',
-                        padding: '0.75rem 1rem',
-                        borderRadius: '6px',
-                        backgroundColor: '#1e1b4b',
-                        border: '1px solid #6366f1',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: '1rem',
-                    }}
-                >
-                    <span style={{ fontSize: '0.875rem', color: '#e0e0e0' }}>
-                        {selectedFileIds.size + selectedFolderIds.size} item{selectedFileIds.size + selectedFolderIds.size !== 1 ? 's' : ''} selected
-                    </span>
-                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                        <button
-                            onClick={openMoveDialog}
-                            style={{
-                                padding: '0.4rem 0.75rem',
-                                fontSize: '0.8rem',
-                                color: '#e0e0e0',
-                                backgroundColor: '#4f46e5',
-                                border: 'none',
-                                borderRadius: '4px',
-                                cursor: 'pointer',
-                                fontWeight: 500,
-                            }}
-                        >
-                            Move
-                        </button>
-                        <button
-                            onClick={() => setBulkDeleteConfirm(true)}
-                            style={{
-                                padding: '0.4rem 0.75rem',
-                                fontSize: '0.8rem',
-                                color: '#ffffff',
-                                backgroundColor: '#dc2626',
-                                border: 'none',
-                                borderRadius: '4px',
-                                cursor: 'pointer',
-                                fontWeight: 500,
-                            }}
-                        >
-                            Delete
-                        </button>
-                        <button
-                            onClick={clearSelection}
-                            style={{
-                                padding: '0.4rem 0.75rem',
-                                fontSize: '0.8rem',
-                                color: '#9ca3af',
-                                backgroundColor: 'transparent',
-                                border: '1px solid #23263a',
-                                borderRadius: '4px',
-                                cursor: 'pointer',
-                            }}
-                        >
-                            Clear
-                        </button>
-                    </div>
-                </div>
-            )}
+    useEffect(() => {
+        const controller = new AbortController();
+        const params = new URLSearchParams({ limit: String(PAGE_SIZE), page: String(page), sort: sort.key, order: sort.dir });
+        if (folderId) params.set('folderId', folderId);
+        if (query) params.set('search', query);
+        if (type !== 'all') params.set('fileType', type);
+        const folderParams = folderId ? `?parentId=${encodeURIComponent(folderId)}` : '';
+        Promise.all([
+            requestJson<{ files: FileMetadata[]; totalCount: number; totalPages: number }>(`/api/files?${params}`, { signal: controller.signal }),
+            requestJson<{ folders: Folder[] }>(`/api/folders${folderParams}`, { signal: controller.signal }),
+        ])
+            .then(([files, folders]) =>
+                setResult({ key: queryKey, status: 'ready', files: files.files, folders: folders.folders, total: files.totalCount, totalPages: files.totalPages })
+            )
+            .catch(() => {
+                if (!controller.signal.aborted) setResult({ key: queryKey, status: 'error' });
+            });
+        return () => controller.abort();
+    }, [folderId, query, type, sort.key, sort.dir, page, queryKey, reloadKey]);
 
-            {/* Folder Navigation - Breadcrumbs and New Folder */}
-            {showFolderNavigation && (
-            <div
-                style={{
-                    marginBottom: '1rem',
-                    padding: 'clamp(0.75rem, 2vw, 1rem)',
-                    borderRadius: '6px',
-                    border: '1px solid #23263a',
-                    backgroundColor: '#0f1117',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '0.75rem',
-                    flexWrap: 'wrap',
-                }}
-            >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                    {breadcrumbs.map((crumb, idx) => (
-                        <span key={`${crumb.id || 'root'}-${idx}`} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                            <button
-                                onClick={() => handleBreadcrumbClick(idx)}
-                                style={{
-                                    padding: '0.4rem 0.65rem',
-                                    fontSize: '0.85rem',
-                                    color: '#e0e0e0',
-                                    backgroundColor: idx === breadcrumbs.length - 1 ? '#6366f1' : 'transparent',
-                                    border: '1px solid #23263a',
-                                    borderRadius: '4px',
-                                    cursor: idx === breadcrumbs.length - 1 ? 'default' : 'pointer',
-                                    opacity: idx === breadcrumbs.length - 1 ? 0.9 : 1,
-                                }}
-                                disabled={idx === breadcrumbs.length - 1}
-                            >
-                                {crumb.name}
-                            </button>
-                            {idx < breadcrumbs.length - 1 && <span style={{ color: '#6b7280', fontSize: '0.85rem' }}>/</span>}
-                        </span>
-                    ))}
-                </div>
+    const filtering = query !== '' || type !== 'all';
+    const ready = result?.status === 'ready' ? result : null;
+    const stale = result !== null && result.key !== queryKey;
 
-                <button
-                    onClick={() => setFolderPrompt({ isOpen: true, isLoading: false, mode: 'create' })}
-                    style={{
-                        padding: '0.5rem 0.85rem',
-                        fontSize: '0.85rem',
-                        color: '#e0e0e0',
-                        backgroundColor: '#4f46e5',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontWeight: 500,
-                    }}
-                >
-                    New Folder
-                </button>
-            </div>
-            )}
+    const files = ready?.files ?? [];
+    const folders = page === 1 && ready ? sortFolders(filterFolders(ready.folders, query, type), sort) : [];
 
-            {/* File and Folder List */}
-            {files.length === 0 && (!showFolderNavigation || folders.length === 0) ? (
-                hasActiveFilters ? (
+    const current = selection?.key === queryKey ? selection : null;
+    const selectedFiles = files.filter((f) => current?.files.has(f.id));
+    const selectedFolders = folders.filter((f) => current?.folders.has(f.id));
+    const selectedCount = selectedFiles.length + selectedFolders.length;
+    const allSelected = files.length + folders.length > 0 && selectedCount === files.length + folders.length;
+
+    const toggle = (kind: 'files' | 'folders', id: string) =>
+        setSelection((prev) => {
+            const base = prev?.key === queryKey ? prev : { key: queryKey, files: new Set<string>(), folders: new Set<string>() };
+            const next = new Set(base[kind]);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return { ...base, [kind]: next };
+        });
+    const toggleAll = () =>
+        setSelection(
+            allSelected
+                ? null
+                : { key: queryKey, files: new Set(files.map((f) => f.id)), folders: new Set(folders.map((f) => f.id)) }
+        );
+    const clearSelection = () => setSelection(null);
+
+    const sortBy = (key: SortKey) =>
+        onSort(sort.key === key ? { key, dir: sort.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: key === 'name' ? 'asc' : 'desc' });
+    const thSort = (key: SortKey): SortDirection => (sort.key === key ? sort.dir : null);
+
+    // Actions -----------------------------------------------------------------------------------
+    const openPreview = (file: FileMetadata) => setPreview({ file, key: Date.now() });
+    const send = (ids: string[]) => router.push(sendHref(ids));
+    const download = async (file: FileMetadata) => {
+        try {
+            await downloadFile(file.id);
+        } catch (error) {
+            toast.error(`We couldn't download ${file.originalFilename}. ${reason(error)}`);
+        }
+    };
+
+    const createFolder = async (name: string) => {
+        try {
+            const { folder } = await requestJson<{ folder: Folder }>('/api/folders', jsonInit('POST', { name, parentId: folderId }));
+            toast.success(`Created ${folder.name}`);
+            setDialog(null);
+            onReload();
+        } catch (error) {
+            toast.error(folderError(error, name, 'create'));
+        }
+    };
+
+    const renameFile = async (file: FileMetadata, name: string) => {
+        try {
+            const { file: updated } = await requestJson<{ file: { original_filename: string } }>(`/api/files/${file.id}`, jsonInit('PATCH', { name }));
+            toast.success(`Renamed ${file.originalFilename} to ${updated.original_filename}`);
+            setDialog(null);
+            onReload();
+        } catch (error) {
+            toast.error(`We couldn't rename ${file.originalFilename}. ${reason(error)}`);
+        }
+    };
+
+    const renameFolder = async (folder: Folder, name: string) => {
+        try {
+            const { folder: updated } = await requestJson<{ folder: Folder }>(`/api/folders/${folder.id}`, jsonInit('PATCH', { name }));
+            toast.success(`Renamed ${folder.name} to ${updated.name}`);
+            setDialog(null);
+            onReload();
+        } catch (error) {
+            toast.error(folderError(error, name, 'rename'));
+        }
+    };
+
+    const deleteItems = async (filesToDelete: FileMetadata[], foldersToDelete: Folder[]) => {
+        let failed = 0;
+        for (const file of filesToDelete) {
+            try {
+                await requestJson(`/api/files/${file.id}`, { method: 'DELETE' });
+            } catch {
+                failed += 1;
+            }
+        }
+        for (const folder of foldersToDelete) {
+            try {
+                await requestJson(`/api/folders/${folder.id}`, { method: 'DELETE' });
+            } catch {
+                failed += 1;
+            }
+        }
+        const total = filesToDelete.length + foldersToDelete.length;
+        const name = total === 1 ? (filesToDelete[0]?.originalFilename ?? foldersToDelete[0]?.name) : describeItems(filesToDelete.length, foldersToDelete.length);
+        if (failed === 0) toast.success(`Deleted ${name}`);
+        else if (failed === total) toast.error(`We couldn't delete ${name}. Try again.`);
+        else toast.warning(`Deleted ${total - failed} of ${total} items. ${failed} couldn't be deleted. Try again.`);
+        setDialog(null);
+        clearSelection();
+        onReload();
+    };
+
+    const onMoved = ({ moved, failed, destination, error }: MoveResult) => {
+        if (failed === 0) toast.success(`Moved ${moved === 1 ? (dialog?.type === 'move' ? (dialog.files[0]?.originalFilename ?? dialog.folders[0]?.name) : 'it') : `${moved} items`} to ${destination}`);
+        else if (moved === 0) toast.error(error ?? `We couldn't move those items. Try again.`);
+        else toast.warning(`Moved ${moved} of ${moved + failed} items to ${destination}. ${error ?? ''}`.trim());
+        setDialog(null);
+        clearSelection();
+        onReload();
+    };
+
+    const fileMenu = (file: FileMetadata, withSend = false): MenuItem[] => [
+        ...(withSend ? [{ label: 'Send', icon: <Send {...ICON} />, onSelect: () => send([file.id]) }] : []),
+        { label: 'Preview', icon: <Eye {...ICON} />, onSelect: () => openPreview(file) },
+        { label: 'Download', icon: <Download {...ICON} />, onSelect: () => void download(file) },
+        { label: 'Rename', icon: <Pencil {...ICON} />, onSelect: () => setDialog({ type: 'rename-file', file }) },
+        { label: 'Move', icon: <FolderInput {...ICON} />, onSelect: () => setDialog({ type: 'move', files: [file], folders: [] }) },
+        { type: 'separator' },
+        { label: 'Delete', icon: <Trash2 {...ICON} />, danger: true, onSelect: () => setDialog({ type: 'delete-file', file }) },
+    ];
+
+    const folderMenu = (folder: Folder): MenuItem[] => [
+        { label: 'Open', icon: <FolderOpen {...ICON} />, onSelect: () => router.push(folderHref(folder.id)) },
+        { label: 'Rename', icon: <Pencil {...ICON} />, onSelect: () => setDialog({ type: 'rename-folder', folder }) },
+        { label: 'Move', icon: <FolderInput {...ICON} />, onSelect: () => setDialog({ type: 'move', files: [], folders: [folder] }) },
+        { type: 'separator' },
+        { label: 'Delete', icon: <Trash2 {...ICON} />, danger: true, onSelect: () => setDialog({ type: 'delete-folder', folder }) },
+    ];
+
+    // Dropping files anywhere on the page uploads them here
+    const onDragEnter = (event: DragEvent) => {
+        if (!event.dataTransfer.types.includes('Files') || location.status !== 'ready') return;
+        event.preventDefault();
+        setDragging(true);
+    };
+    const onDrop = async (event: DragEvent) => {
+        if (!dragging) return;
+        event.preventDefault();
+        setDragging(false);
+        const { files: dropped, folderName } = await filesFromDrop(event.dataTransfer);
+        if (dropped.length === 0) return;
+        onUpload();
+        if (folderName) {
+            try {
+                await uploads.enqueueFolder(folderName, dropped, target);
+            } catch (error) {
+                toast.error(`We couldn't create the folder ${folderName}. ${reason(error)}`);
+            }
+        } else {
+            uploads.enqueue(dropped, target);
+        }
+    };
+
+    // Rendering ---------------------------------------------------------------------------------
+    const locationName = location.status === 'ready' ? location.name : null;
+    const crumbs: Crumb[] =
+        location.status === 'ready'
+            ? location.path.length === 0
+                ? [{ label: 'All files' }]
+                : [
+                      { label: 'All files', href: '/admin/files' },
+                      ...location.path.slice(0, -1).map((p) => ({ label: p.name, href: folderHref(p.id) })),
+                      { label: location.name },
+                  ]
+            : [{ label: 'All files', href: '/admin/files' }, { label: location.status === 'loading' ? <Skeleton className="h-3.5 w-24" /> : 'Folder not found' }];
+
+    let content: ReactNode;
+    if (location.status === 'missing') {
+        content = (
+            <Card flush>
+                <EmptyState
+                    icon={FolderX}
+                    title="This folder doesn't exist"
+                    description="It may have been deleted, or the link is out of date."
+                    action={
+                        <Button variant="secondary" onClick={() => router.push('/admin/files')}>
+                            Go to All files
+                        </Button>
+                    }
+                />
+            </Card>
+        );
+    } else if (location.status === 'error' || (result?.status === 'error' && !stale)) {
+        content = (
+            <Card flush>
+                <EmptyState
+                    icon={CloudOff}
+                    title="We couldn't load your files"
+                    description="Check your connection and try again."
+                    action={<Button onClick={onReload}>Try again</Button>}
+                />
+            </Card>
+        );
+    } else if (!ready) {
+        content = view === 'grid' ? <GridSkeleton /> : <TableSkeleton />;
+    } else if (files.length === 0 && folders.length === 0) {
+        content = (
+            <Card flush>
+                {filtering ? (
                     <EmptyState
-                        type="no-results"
-                        title="No files match your search"
-                        description="Try adjusting your filters or search term"
+                        icon={SearchX}
+                        title={query ? `No files match “${query}”` : `No ${TYPE_OPTIONS.find((t) => t.value === type)?.label.toLowerCase()} here`}
+                        description={folderId ? `Try another name or type, or search from All files.` : 'Try another name or file type.'}
                         action={
-                            <button
+                            <Button
                                 onClick={() => {
-                                    setSearchInput('');
-                                    setFileTypeFilter('all');
-                                    setDateFilter('all');
-                                    setCurrentPage(1);
-                                }}
-                                style={{
-                                    padding: '0.5rem 1rem',
-                                    fontSize: '0.875rem',
-                                    color: '#6366f1',
-                                    backgroundColor: 'transparent',
-                                    border: '1px solid #6366f1',
-                                    borderRadius: '4px',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s',
-                                }}
-                                onMouseEnter={(e) => {
-                                    e.currentTarget.style.backgroundColor = '#6366f1';
-                                    e.currentTarget.style.color = '#ffffff';
-                                }}
-                                onMouseLeave={(e) => {
-                                    e.currentTarget.style.backgroundColor = 'transparent';
-                                    e.currentTarget.style.color = '#6366f1';
+                                    setSearch('');
+                                    setType('all');
+                                    setPage(1);
                                 }}
                             >
-                                Clear All Filters
-                            </button>
+                                Clear filters
+                            </Button>
                         }
                     />
                 ) : (
                     <EmptyState
-                        type="empty-folder"
-                        title="No files in this folder"
-                        description="Upload or move files here to get started"
+                        icon={folderId ? FolderOpen : Upload}
+                        title={folderId ? 'This folder is empty' : 'No files yet'}
+                        description={
+                            folderId
+                                ? 'Upload files here, or move files in from another folder.'
+                                : 'Upload the files you want to send. They stay private until you deliver them.'
+                        }
+                        action={
+                            <Button variant="primary" icon={<Upload {...ICON} />} onClick={onUpload}>
+                                Upload files
+                            </Button>
+                        }
                     />
-                )
-            ) : (
-                <>
-                    {viewMode === 'table' ? (
-                        /* Table View */
-                        <div style={{ overflowX: 'auto' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
-                                <thead>
-                                    <tr style={{ borderBottom: '1px solid #23263a' }}>
-                                        <th style={{ padding: '0.75rem 0.5rem', textAlign: 'left', width: '40px' }}>
-                                            <div
-                                                onClick={selectAll}
-                                                style={{
-                                                    width: '18px',
-                                                    height: '18px',
-                                                    borderRadius: '4px',
-                                                    border: `2px solid ${allSelected && (files.length > 0 || folders.length > 0) ? '#6366f1' : '#2f3349'}`,
-                                                    backgroundColor: allSelected && (files.length > 0 || folders.length > 0) ? '#6366f1' : 'transparent',
-                                                    cursor: 'pointer',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    transition: 'all 0.15s',
-                                                }}
-                                            >
-                                                {allSelected && (files.length > 0 || folders.length > 0) && (
-                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                                                        <polyline points="20 6 9 17 4 12" />
-                                                    </svg>
-                                                )}
-                                            </div>
-                                        </th>
-                                        <th style={{ padding: '0.75rem 0.5rem', textAlign: 'left', color: '#9ca3af', fontWeight: 500 }}>NAME</th>
-                                        <th style={{ padding: '0.75rem 0.5rem', textAlign: 'left', color: '#9ca3af', fontWeight: 500, width: '100px' }}>SIZE</th>
-                                        <th style={{ padding: '0.75rem 0.5rem', textAlign: 'left', color: '#9ca3af', fontWeight: 500, width: '140px' }}>CREATED AT</th>
-                                        <th style={{ padding: '0.75rem 0.5rem', textAlign: 'left', color: '#9ca3af', fontWeight: 500, width: '140px' }}>UPDATED AT</th>
-                                        <th style={{ padding: '0.75rem 0.5rem', textAlign: 'right', color: '#9ca3af', fontWeight: 500, width: '100px' }}>ACTIONS</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {/* Folders first */}
-                                    {showFolderNavigation && folders.map((folder) => {
-                                        const isSelected = selectedFolderIds.has(folder.id);
-                                        return (
-                                            <tr
-                                                key={`folder-${folder.id}`}
-                                                style={{
-                                                    borderBottom: '1px solid #12141c',
-                                                    backgroundColor: isSelected ? '#1e1b4b' : 'transparent',
-                                                    transition: 'background-color 0.15s',
-                                                    cursor: 'pointer',
-                                                }}
-                                                onDoubleClick={() => handleEnterFolder(folder)}
-                                            >
-                                                <td style={{ padding: '0.75rem 0.5rem' }}>
-                                                    <div
-                                                        onClick={(e) => { e.stopPropagation(); toggleFolderSelection(folder.id); }}
-                                                        style={{
-                                                            width: '18px',
-                                                            height: '18px',
-                                                            borderRadius: '4px',
-                                                            border: `2px solid ${isSelected ? '#6366f1' : '#2f3349'}`,
-                                                            backgroundColor: isSelected ? '#6366f1' : 'transparent',
-                                                            cursor: 'pointer',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'center',
-                                                            transition: 'all 0.15s',
-                                                        }}
-                                                    >
-                                                        {isSelected && (
-                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                                                                <polyline points="20 6 9 17 4 12" />
-                                                            </svg>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                                <td style={{ padding: '0.75rem 0.5rem' }}>
-                                                    <button
-                                                        onClick={() => handleEnterFolder(folder)}
-                                                        style={{
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            gap: '0.5rem',
-                                                            background: 'none',
-                                                            border: 'none',
-                                                            cursor: 'pointer',
-                                                            padding: 0,
-                                                        }}
-                                                    >
-                                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="#818cf8" stroke="none">
-                                                            <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                                                        </svg>
-                                                        <span style={{ color: '#e0e0e0', fontWeight: 500 }}>{folder.name}</span>
-                                                    </button>
-                                                </td>
-                                                <td style={{ padding: '0.75rem 0.5rem', color: '#6b7280' }}>—</td>
-                                                <td style={{ padding: '0.75rem 0.5rem', color: '#6b7280', fontSize: '0.8rem' }}>{formatDateTime(folder.createdAt)}</td>
-                                                <td style={{ padding: '0.75rem 0.5rem', color: '#6b7280', fontSize: '0.8rem' }}>{formatDateTime(folder.createdAt)}</td>
-                                                <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>
-                                                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.25rem' }}>
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); handleRenameFolder(folder); }}
-                                                            title="Rename"
-                                                            style={{ padding: '0.3rem', backgroundColor: 'transparent', border: 'none', borderRadius: '3px', cursor: 'pointer', color: '#6b7280' }}
-                                                        >
-                                                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                                            </svg>
-                                                        </button>
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); confirmDeleteFolder(folder); }}
-                                                            title="Delete"
-                                                            style={{ padding: '0.3rem', backgroundColor: 'transparent', border: 'none', borderRadius: '3px', cursor: 'pointer', color: '#ef4444' }}
-                                                        >
-                                                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                            </svg>
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                    {/* Files */}
-                                    {files.map((file) => {
-                                        const typeInfo = getFileTypeInfo(file.mimeType);
-                                        const isSelected = selectedFileIds.has(file.id);
-                                        return (
-                                            <tr
-                                                key={file.id}
-                                                style={{
-                                                    borderBottom: '1px solid #12141c',
-                                                    backgroundColor: isSelected ? '#1e1b4b' : 'transparent',
-                                                    transition: 'background-color 0.15s',
-                                                }}
-                                            >
-                                                <td style={{ padding: '0.75rem 0.5rem' }}>
-                                                    <div
-                                                        onClick={() => toggleFileSelection(file.id)}
-                                                        style={{
-                                                            width: '18px',
-                                                            height: '18px',
-                                                            borderRadius: '4px',
-                                                            border: `2px solid ${isSelected ? '#6366f1' : '#2f3349'}`,
-                                                            backgroundColor: isSelected ? '#6366f1' : 'transparent',
-                                                            cursor: 'pointer',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'center',
-                                                            transition: 'all 0.15s',
-                                                        }}
-                                                    >
-                                                        {isSelected && (
-                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                                                                <polyline points="20 6 9 17 4 12" />
-                                                            </svg>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                                <td style={{ padding: '0.75rem 0.5rem', maxWidth: '200px' }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                        <FileTypeIcon category={typeInfo.category} size={18} />
-                                                        <div style={{ minWidth: 0, width: '100%' }}>
-                                                            <div 
-                                                                title={file.originalFilename}
-                                                                style={{ color: '#e0e0e0', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                                                            >
-                                                                {file.originalFilename}
-                                                            </div>
-                                                            {file.folderName && (
-                                                                <span style={{ fontSize: '0.75rem', color: '#818cf8', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="#818cf8" stroke="none"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
-                                                                    {file.folderName}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td style={{ padding: '0.75rem 0.5rem', color: '#9ca3af' }}>{formatFileSize(file.fileSize)}</td>
-                                                <td style={{ padding: '0.75rem 0.5rem', color: '#6b7280', fontSize: '0.8rem' }}>{formatDateTime(file.createdAt)}</td>
-                                                <td style={{ padding: '0.75rem 0.5rem', color: '#6b7280', fontSize: '0.8rem' }}>{formatDateTime(file.updatedAt)}</td>
-                                                <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>
-                                                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.25rem' }}>
-                                                        <button
-                                                            onClick={() => copyShortLink(file.shortCode)}
-                                                            title="Copy link"
-                                                            style={{ padding: '0.3rem', backgroundColor: 'transparent', border: 'none', borderRadius: '3px', cursor: 'pointer', color: '#6b7280' }}
-                                                        >
-                                                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                                                            </svg>
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleManageAccess(file)}
-                                                            title="Manage access"
-                                                            aria-label={`Share ${file.originalFilename}`}
-                                                            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', padding: '0.3rem 0.65rem', marginRight: '0.25rem', backgroundColor: 'rgba(99, 102, 241, 0.12)', border: '1px solid rgba(129, 140, 248, 0.35)', borderRadius: '6px', cursor: 'pointer', color: '#c7d2fe', fontSize: '0.75rem', fontWeight: 600 }}
-                                                        >
-                                                            <Share2 size={13} aria-hidden />
-                                                            Share
-                                                        </button>
-                                                        <button
-                                                            onClick={() => confirmDelete(file)}
-                                                            title="Delete"
-                                                            style={{ padding: '0.3rem', backgroundColor: 'transparent', border: 'none', borderRadius: '3px', cursor: 'pointer', color: '#ef4444' }}
-                                                        >
-                                                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                            </svg>
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                    ) : (
-                        /* Card Grid View */
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
-                            {/* Folder Cards */}
-                            {showFolderNavigation && folders.map((folder) => {
-                                const isSelected = selectedFolderIds.has(folder.id);
-                                return (
-                                    <div
-                                        key={`folder-${folder.id}`}
-                                        style={{
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            padding: '1rem',
-                                            borderRadius: '8px',
-                                            border: `1px solid ${isSelected ? '#6366f1' : '#23263a'}`,
-                                            backgroundColor: isSelected ? '#1e1b4b' : '#151823',
-                                            transition: 'all 0.15s',
-                                            position: 'relative',
-                                            cursor: 'pointer',
-                                        }}
-                                        onDoubleClick={() => handleEnterFolder(folder)}
-                                    >
-                                        {/* Checkbox */}
-                                        <div
-                                            onClick={(e) => { e.stopPropagation(); toggleFolderSelection(folder.id); }}
-                                            style={{
-                                                position: 'absolute',
-                                                top: '0.75rem',
-                                                left: '0.75rem',
-                                                width: '18px',
-                                                height: '18px',
-                                                borderRadius: '4px',
-                                                border: `2px solid ${isSelected ? '#6366f1' : '#2f3349'}`,
-                                                backgroundColor: isSelected ? '#6366f1' : 'rgba(26, 26, 26, 0.8)',
-                                                cursor: 'pointer',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                transition: 'all 0.15s',
-                                                zIndex: 1,
-                                            }}
-                                        >
-                                            {isSelected && (
-                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                                                    <polyline points="20 6 9 17 4 12" />
-                                                </svg>
-                                            )}
-                                        </div>
+                )}
+            </Card>
+        );
+    } else {
+        const shared = {
+            files,
+            folders,
+            selectedFiles: current?.files,
+            selectedFolders: current?.folders,
+            onToggle: toggle,
+            onPreview: openPreview,
+            onSend: send,
+            fileMenu,
+            folderMenu,
+            showFolderOf: query !== '' && !folderId,
+        };
+        content = (
+            <div className={cn('transition-opacity', stale && 'opacity-60')} aria-busy={stale || undefined}>
+                {view === 'table' ? (
+                    <FilesTable {...shared} allSelected={allSelected} someSelected={selectedCount > 0} onToggleAll={toggleAll} sortBy={sortBy} thSort={thSort} />
+                ) : (
+                    <FilesGrid {...shared} />
+                )}
+            </div>
+        );
+    }
 
-                                        {/* Folder Icon */}
-                                        <div 
-                                            onClick={() => handleEnterFolder(folder)}
-                                            style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                height: '80px',
-                                                marginBottom: '0.75rem',
-                                                backgroundColor: '#0b0c11',
-                                                borderRadius: '6px',
-                                                cursor: 'pointer',
-                                            }}
-                                        >
-                                            <svg width="48" height="48" viewBox="0 0 24 24" fill="#818cf8" stroke="none">
-                                                <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                                            </svg>
-                                        </div>
+    const totalPages = ready?.totalPages ?? 1;
 
-                                        {/* Folder Name */}
-                                        <h3 
-                                            onClick={() => handleEnterFolder(folder)}
-                                            style={{
-                                                fontWeight: 500,
-                                                color: '#e0e0e0',
-                                                overflow: 'hidden',
-                                                textOverflow: 'ellipsis',
-                                                whiteSpace: 'nowrap',
-                                                margin: 0,
-                                                fontSize: '0.9rem',
-                                                marginBottom: '0.5rem',
-                                                cursor: 'pointer',
-                                            }}
-                                        >
-                                            {folder.name}
-                                        </h3>
+    return (
+        <div
+            className="relative flex flex-col gap-6"
+            onDragEnter={onDragEnter}
+            onDragOver={(event) => dragging && event.preventDefault()}
+            onDragLeave={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false);
+            }}
+            onDrop={(event) => void onDrop(event)}
+        >
+            <PageHeader
+                title="Files"
+                description="Files stay private until you deliver them."
+                actions={
+                    <>
+                        <Button icon={<FolderPlus {...ICON} />} onClick={() => setDialog({ type: 'new-folder' })} disabled={location.status !== 'ready'}>
+                            New folder
+                        </Button>
+                        <Button variant="primary" icon={<Upload {...ICON} />} onClick={onUpload} disabled={location.status !== 'ready'}>
+                            Upload
+                        </Button>
+                    </>
+                }
+            />
 
-                                        {/* Meta info */}
-                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                                            <span style={{ fontSize: '0.7rem', color: '#818cf8', padding: '0.1rem 0.4rem', borderRadius: '3px', backgroundColor: 'rgba(99, 102, 241, 0.1)' }}>Folder</span>
-                                        </div>
+            <div className="flex flex-col gap-3">
+                <Breadcrumb items={crumbs} />
 
-                                        {/* Date */}
-                                        <span style={{ fontSize: '0.7rem', color: '#6b7280', marginBottom: '0.75rem' }}>{formatDateTime(folder.createdAt)}</span>
-
-                                        {/* Actions */}
-                                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.25rem', borderTop: '1px solid #23263a', paddingTop: '0.75rem', marginTop: 'auto' }}>
-                                            <button onClick={(e) => { e.stopPropagation(); handleRenameFolder(folder); }} title="Rename" style={{ padding: '0.4rem', backgroundColor: 'transparent', border: 'none', borderRadius: '3px', cursor: 'pointer', color: '#6b7280' }}>
-                                                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                                            </button>
-                                            <button onClick={(e) => { e.stopPropagation(); confirmDeleteFolder(folder); }} title="Delete" style={{ padding: '0.4rem', backgroundColor: 'transparent', border: 'none', borderRadius: '3px', cursor: 'pointer', color: '#ef4444' }}>
-                                                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                            </button>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                            {/* File Cards */}
-                            {files.map((file) => {
-                                const typeInfo = getFileTypeInfo(file.mimeType);
-                                const isSelected = selectedFileIds.has(file.id);
-                                return (
-                                    <div
-                                        key={file.id}
-                                        style={{
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            padding: '1rem',
-                                            borderRadius: '8px',
-                                            border: `1px solid ${isSelected ? '#6366f1' : '#23263a'}`,
-                                            backgroundColor: isSelected ? '#1e1b4b' : '#151823',
-                                            transition: 'all 0.15s',
-                                            position: 'relative',
-                                        }}
-                                    >
-                                        {/* Checkbox */}
-                                        <div
-                                            onClick={() => toggleFileSelection(file.id)}
-                                            style={{
-                                                position: 'absolute',
-                                                top: '0.75rem',
-                                                left: '0.75rem',
-                                                width: '18px',
-                                                height: '18px',
-                                                borderRadius: '4px',
-                                                border: `2px solid ${isSelected ? '#6366f1' : '#2f3349'}`,
-                                                backgroundColor: isSelected ? '#6366f1' : 'rgba(26, 26, 26, 0.8)',
-                                                cursor: 'pointer',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                transition: 'all 0.15s',
-                                                zIndex: 1,
-                                            }}
-                                        >
-                                            {isSelected && (
-                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                                                    <polyline points="20 6 9 17 4 12" />
-                                                </svg>
-                                            )}
-                                        </div>
-
-                                        {/* File Icon/Thumbnail */}
-                                        <div style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            height: '80px',
-                                            marginBottom: '0.75rem',
-                                            backgroundColor: '#0b0c11',
-                                            borderRadius: '6px',
-                                        }}>
-                                            <FileTypeIcon category={typeInfo.category} size={36} />
-                                        </div>
-
-                                        {/* File Name */}
-                                        <h3 style={{
-                                            fontWeight: 500,
-                                            color: '#e0e0e0',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                            whiteSpace: 'nowrap',
-                                            margin: 0,
-                                            fontSize: '0.9rem',
-                                            marginBottom: '0.5rem',
-                                        }}>
-                                            {file.originalFilename}
-                                        </h3>
-
-                                        {/* Meta info */}
-                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                                            <span style={{ fontSize: '0.75rem', color: '#9ca3af' }}>{formatFileSize(file.fileSize)}</span>
-                                            <span style={{ fontSize: '0.7rem', color: '#6b7280', padding: '0.1rem 0.4rem', borderRadius: '3px', backgroundColor: '#0b0c11' }}>{typeInfo.category}</span>
-                                        </div>
-
-                                        {/* Folder badge */}
-                                        {file.folderName && (
-                                            <div style={{ marginBottom: '0.5rem' }}>
-                                                <span style={{
-                                                    fontSize: '0.7rem',
-                                                    color: '#818cf8',
-                                                    padding: '0.15rem 0.4rem',
-                                                    borderRadius: '3px',
-                                                    backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                                                    display: 'inline-flex',
-                                                    alignItems: 'center',
-                                                    gap: '0.25rem',
-                                                }}>
-                                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="#818cf8" stroke="none"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
-                                                    {file.folderName}
-                                                </span>
-                                            </div>
-                                        )}
-
-                                        {/* Date */}
-                                        <span style={{ fontSize: '0.7rem', color: '#6b7280', marginBottom: '0.75rem' }}>{formatDateTime(file.createdAt)}</span>
-
-                                        {/* Actions */}
-                                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.25rem', borderTop: '1px solid #23263a', paddingTop: '0.75rem', marginTop: 'auto' }}>
-                                            <button onClick={() => copyShortLink(file.shortCode)} title="Copy link" style={{ padding: '0.4rem', backgroundColor: 'transparent', border: 'none', borderRadius: '3px', cursor: 'pointer', color: '#6b7280' }}>
-                                                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
-                                            </button>
-                                            <button onClick={() => handleManageAccess(file)} title="Manage access" aria-label={`Share ${file.originalFilename}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', padding: '0.3rem 0.65rem', marginRight: '0.25rem', backgroundColor: 'rgba(99, 102, 241, 0.12)', border: '1px solid rgba(129, 140, 248, 0.35)', borderRadius: '6px', cursor: 'pointer', color: '#c7d2fe', fontSize: '0.75rem', fontWeight: 600 }}>
-                                                <Share2 size={14} aria-hidden />
-                                                Share
-                                            </button>
-                                            <button onClick={() => confirmDelete(file)} title="Delete" style={{ padding: '0.4rem', backgroundColor: 'transparent', border: 'none', borderRadius: '3px', cursor: 'pointer', color: '#ef4444' }}>
-                                                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                            </button>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
-                </>
-            )}
-
-            {enablePagination && totalPages > 1 && (
-                <div
-                    style={{
-                        marginTop: '1.5rem',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        flexWrap: 'wrap',
-                        gap: '1rem',
-                        padding: '1rem',
-                        backgroundColor: '#151823',
-                        borderRadius: '6px',
-                        border: '1px solid #23263a',
-                    }}
-                >
-                    <div style={{ fontSize: '0.875rem', color: '#9ca3af', minWidth: 0 }}>
-                        Page {currentPage} of {totalPages}
+                {selectedCount > 0 ? (
+                    <div role="toolbar" aria-label="Selected items" className="flex min-h-8 flex-wrap items-center gap-2">
+                        <span className="mr-1 text-body-sm font-medium tabular-nums text-strong" aria-live="polite">
+                            {selectedCount} selected
+                        </span>
+                        {selectedFiles.length > 0 ? (
+                            <Button icon={<Send {...ICON} />} onClick={() => send(selectedFiles.map((f) => f.id))}>
+                                Send
+                            </Button>
+                        ) : (
+                            <Tooltip content="Select files to send. Folders can't be sent yet.">
+                                <Button icon={<Send {...ICON} />} disabled>
+                                    Send
+                                </Button>
+                            </Tooltip>
+                        )}
+                        <Button icon={<FolderInput {...ICON} />} onClick={() => setDialog({ type: 'move', files: selectedFiles, folders: selectedFolders })}>
+                            Move
+                        </Button>
+                        <Button
+                            variant="danger"
+                            icon={<Trash2 {...ICON} />}
+                            onClick={() => setDialog({ type: 'delete-selection', files: selectedFiles, folders: selectedFolders })}
+                        >
+                            Delete
+                        </Button>
+                        <Button variant="ghost" className="ml-auto" icon={<X {...ICON} />} onClick={clearSelection}>
+                            Clear selection
+                        </Button>
                     </div>
+                ) : (
+                    <Toolbar>
+                        <div className="w-full sm:w-72">
+                            <Input
+                                aria-label={folderId ? `Search in ${locationName ?? 'this folder'}` : 'Search all files'}
+                                placeholder={folderId ? `Search in ${locationName ?? 'this folder'}` : 'Search all files'}
+                                leading={<Search {...ICON} />}
+                                value={search}
+                                onChange={(event) => {
+                                    setSearch(event.target.value);
+                                    setPage(1);
+                                }}
+                                onKeyDown={(event) => {
+                                    if (event.key === 'Escape' && search) setSearch('');
+                                }}
+                                trailing={
+                                    search ? (
+                                        <IconButton
+                                            size="sm"
+                                            label="Clear search"
+                                            icon={<X {...ICON} />}
+                                            onClick={() => {
+                                                setSearch('');
+                                                setPage(1);
+                                            }}
+                                        />
+                                    ) : undefined
+                                }
+                            />
+                        </div>
+                        <div className="min-w-0 flex-1 sm:w-36 sm:flex-none">
+                            <Select
+                                aria-label="File type"
+                                value={type}
+                                onChange={(event) => {
+                                    setType(event.target.value as FileTypeFilter);
+                                    setPage(1);
+                                }}
+                            >
+                                {TYPE_OPTIONS.map((option) => (
+                                    <option key={option.value} value={option.value}>
+                                        {option.label}
+                                    </option>
+                                ))}
+                            </Select>
+                        </div>
+                        <div className="min-w-0 flex-1 sm:w-40 sm:flex-none">
+                            <Select
+                                aria-label="Sort files"
+                                value={`${sort.key}-${sort.dir}`}
+                                onChange={(event) => {
+                                    const option = SORT_OPTIONS.find((o) => o.value === event.target.value);
+                                    if (option) onSort(option.sort);
+                                    setPage(1);
+                                }}
+                            >
+                                {SORT_OPTIONS.map((option) => (
+                                    <option key={option.value} value={option.value}>
+                                        {option.label}
+                                    </option>
+                                ))}
+                            </Select>
+                        </div>
+                        <SegmentedControl
+                            className="sm:ml-auto"
+                            label="View"
+                            value={view}
+                            onChange={viewStore.set}
+                            options={[
+                                { value: 'table', label: <span className="sr-only sm:not-sr-only">Table</span>, icon: <List {...ICON} /> },
+                                { value: 'grid', label: <span className="sr-only sm:not-sr-only">Grid</span>, icon: <LayoutGrid {...ICON} /> },
+                            ]}
+                        />
+                    </Toolbar>
+                )}
 
-                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                        <button
-                            onClick={() => setCurrentPage(1)}
-                            disabled={currentPage === 1}
-                            style={{
-                                padding: '0.5rem 0.75rem',
-                                fontSize: '0.8rem',
-                                color: currentPage === 1 ? '#555' : '#9ca3af',
-                                backgroundColor: 'transparent',
-                                border: '1px solid #23263a',
-                                borderRadius: '4px',
-                                cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
-                                transition: 'all 0.2s',
-                                fontWeight: 500,
-                            }}
-                            onMouseEnter={(e) => {
-                                if (currentPage !== 1) {
-                                    e.currentTarget.style.backgroundColor = '#0b0c11';
-                                    e.currentTarget.style.color = '#e0e0e0';
-                                }
-                            }}
-                            onMouseLeave={(e) => {
-                                if (currentPage !== 1) {
-                                    e.currentTarget.style.backgroundColor = 'transparent';
-                                    e.currentTarget.style.color = '#9ca3af';
-                                }
-                            }}
-                        >
-                            First
-                        </button>
+                {content}
 
-                        <button
-                            onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                            disabled={currentPage === 1}
-                            style={{
-                                padding: '0.5rem 0.75rem',
-                                fontSize: '0.8rem',
-                                color: currentPage === 1 ? '#555' : '#9ca3af',
-                                backgroundColor: 'transparent',
-                                border: '1px solid #23263a',
-                                borderRadius: '4px',
-                                cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
-                                transition: 'all 0.2s',
-                                fontWeight: 500,
-                            }}
-                            onMouseEnter={(e) => {
-                                if (currentPage !== 1) {
-                                    e.currentTarget.style.backgroundColor = '#0b0c11';
-                                    e.currentTarget.style.color = '#e0e0e0';
-                                }
-                            }}
-                            onMouseLeave={(e) => {
-                                if (currentPage !== 1) {
-                                    e.currentTarget.style.backgroundColor = 'transparent';
-                                    e.currentTarget.style.color = '#9ca3af';
-                                }
-                            }}
-                        >
-                            Previous
-                        </button>
+                {ready && (files.length > 0 || folders.length > 0) && (
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <p className="text-caption tabular-nums text-tertiary">
+                            {[folders.length > 0 && count(folders.length, 'folder'), ready.total > 0 && count(ready.total, 'file')].filter(Boolean).join(' · ')}
+                            {query && !folderId ? ' in all folders' : ''}
+                        </p>
+                        {totalPages > 1 && (
+                            <div className="flex items-center gap-2">
+                                <span className="text-caption tabular-nums text-secondary">
+                                    Page {page} of {totalPages}
+                                </span>
+                                <Button size="sm" icon={<ChevronLeft {...ICON} />} disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+                                    Previous
+                                </Button>
+                                <Button size="sm" iconRight={<ChevronRight {...ICON} />} disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+                                    Next
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
 
-                        <button
-                            onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                            disabled={currentPage === totalPages}
-                            style={{
-                                padding: '0.5rem 0.75rem',
-                                fontSize: '0.8rem',
-                                color: currentPage === totalPages ? '#555' : '#9ca3af',
-                                backgroundColor: 'transparent',
-                                border: '1px solid #23263a',
-                                borderRadius: '4px',
-                                cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
-                                transition: 'all 0.2s',
-                                fontWeight: 500,
-                            }}
-                            onMouseEnter={(e) => {
-                                if (currentPage !== totalPages) {
-                                    e.currentTarget.style.backgroundColor = '#0b0c11';
-                                    e.currentTarget.style.color = '#e0e0e0';
-                                }
-                            }}
-                            onMouseLeave={(e) => {
-                                if (currentPage !== totalPages) {
-                                    e.currentTarget.style.backgroundColor = 'transparent';
-                                    e.currentTarget.style.color = '#9ca3af';
-                                }
-                            }}
-                        >
-                            Next
-                        </button>
-
-                        <button
-                            onClick={() => setCurrentPage(totalPages)}
-                            disabled={currentPage === totalPages}
-                            style={{
-                                padding: '0.5rem 0.75rem',
-                                fontSize: '0.8rem',
-                                color: currentPage === totalPages ? '#555' : '#9ca3af',
-                                backgroundColor: 'transparent',
-                                border: '1px solid #23263a',
-                                borderRadius: '4px',
-                                cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
-                                transition: 'all 0.2s',
-                                fontWeight: 500,
-                            }}
-                            onMouseEnter={(e) => {
-                                if (currentPage !== totalPages) {
-                                    e.currentTarget.style.backgroundColor = '#0b0c11';
-                                    e.currentTarget.style.color = '#e0e0e0';
-                                }
-                            }}
-                            onMouseLeave={(e) => {
-                                if (currentPage !== totalPages) {
-                                    e.currentTarget.style.backgroundColor = 'transparent';
-                                    e.currentTarget.style.color = '#9ca3af';
-                                }
-                            }}
-                        >
-                            Last
-                        </button>
+            {dragging && (
+                <div aria-hidden className="pointer-events-none absolute -inset-2 z-20 flex items-center justify-center rounded-lg border border-dashed border-gray-8 bg-canvas/90">
+                    <div className="flex flex-col items-center gap-3 text-center">
+                        <span className="flex h-10 w-10 items-center justify-center rounded-md border border-default bg-raised text-secondary">
+                            <Upload aria-hidden strokeWidth={1.75} className="h-5 w-5" />
+                        </span>
+                        <p className="text-h3 text-strong">Drop to upload to {locationName}</p>
                     </div>
                 </div>
             )}
 
-            {showViewAll && totalCount > (limit || 0) && (
-                <div style={{ marginTop: '1rem', textAlign: 'center' }}>
-                    <Link
-                        href={viewAllHref}
-                        style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            padding: '0.5rem 1rem',
-                            fontSize: '0.875rem',
-                            color: '#6366f1',
-                            backgroundColor: 'transparent',
-                            border: '1px solid #23263a',
-                            borderRadius: '6px',
-                            textDecoration: 'none',
-                            transition: 'all 0.2s',
-                        }}
-                    >
-                        View All {totalCount} Files
-                        <svg style={{ width: '16px', height: '16px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                    </Link>
-                </div>
-            )}
-
-            {selectedFile && (
-                <AccessManager
-                    file={selectedFile}
-                    isOpen={showAccessManager}
-                    onClose={() => {
-                        setShowAccessManager(false);
-                        setSelectedFile(null);
-                    }}
+            {/* Dialogs: one at a time */}
+            <PromptDialog
+                open={dialog?.type === 'new-folder'}
+                onClose={() => setDialog(null)}
+                title="New folder"
+                label="Folder name"
+                placeholder="Contracts"
+                submitLabel="Create folder"
+                validate={(value) =>
+                    (ready?.folders ?? []).some((f) => f.name.toLowerCase() === value.trim().toLowerCase())
+                        ? `There's already a folder named ${value.trim()} here.`
+                        : null
+                }
+                onSubmit={createFolder}
+            />
+            <PromptDialog
+                open={dialog?.type === 'rename-file'}
+                onClose={() => setDialog(null)}
+                title="Rename file"
+                label="Name"
+                initialValue={dialog?.type === 'rename-file' ? dialog.file.originalFilename : ''}
+                submitLabel="Rename file"
+                onSubmit={(name) => (dialog?.type === 'rename-file' ? renameFile(dialog.file, name) : undefined)}
+            />
+            <PromptDialog
+                open={dialog?.type === 'rename-folder'}
+                onClose={() => setDialog(null)}
+                title="Rename folder"
+                label="Folder name"
+                initialValue={dialog?.type === 'rename-folder' ? dialog.folder.name : ''}
+                submitLabel="Rename folder"
+                onSubmit={(name) => (dialog?.type === 'rename-folder' ? renameFolder(dialog.folder, name) : undefined)}
+            />
+            <ConfirmDialog
+                open={dialog?.type === 'delete-file'}
+                onClose={() => setDialog(null)}
+                destructive
+                title={dialog?.type === 'delete-file' ? `Delete ${dialog.file.originalFilename}?` : ''}
+                confirmLabel="Delete file"
+                onConfirm={() => (dialog?.type === 'delete-file' ? deleteItems([dialog.file], []) : undefined)}
+            >
+                Anyone with a delivery that includes it will lose access to this file. This can&apos;t be undone.
+            </ConfirmDialog>
+            <ConfirmDialog
+                open={dialog?.type === 'delete-folder'}
+                onClose={() => setDialog(null)}
+                destructive
+                title={dialog?.type === 'delete-folder' ? `Delete ${dialog.folder.name}?` : ''}
+                confirmLabel="Delete folder"
+                onConfirm={() => (dialog?.type === 'delete-folder' ? deleteItems([], [dialog.folder]) : undefined)}
+            >
+                The folder and any folders inside it are deleted. The files in them move to All files, so no delivery loses a file.
+            </ConfirmDialog>
+            <ConfirmDialog
+                open={dialog?.type === 'delete-selection'}
+                onClose={() => setDialog(null)}
+                destructive
+                title={dialog?.type === 'delete-selection' ? `Delete ${describeItems(dialog.files.length, dialog.folders.length)}?` : ''}
+                confirmLabel={dialog?.type === 'delete-selection' ? `Delete ${describeItems(dialog.files.length, dialog.folders.length)}` : 'Delete'}
+                onConfirm={() => (dialog?.type === 'delete-selection' ? deleteItems(dialog.files, dialog.folders) : undefined)}
+            >
+                {dialog?.type === 'delete-selection' && (
+                    <>
+                        {dialog.files.length > 0 && 'Anyone with a delivery that includes these files will lose access to them. '}
+                        {dialog.folders.length > 0 && 'Files inside the folders move to All files. '}
+                        {dialog.files.length > 0 && "This can't be undone."}
+                    </>
+                )}
+            </ConfirmDialog>
+            {dialog?.type === 'move' && (
+                <MoveDialog
+                    files={dialog.files.map((f) => ({ id: f.id, name: f.originalFilename, folderId: f.folderId ?? null }))}
+                    folders={dialog.folders.map((f) => ({ id: f.id, name: f.name, parentId: f.parentId }))}
+                    onClose={() => setDialog(null)}
+                    onDone={onMoved}
                 />
             )}
-
-            {/* Delete Confirmation Dialog */}
-            <ConfirmDialog
-                isOpen={deleteConfirm.isOpen}
-                onClose={() => setDeleteConfirm({ isOpen: false, fileId: null, fileName: '', type: 'file' })}
-                onConfirm={() => deleteConfirm.fileId && handleDelete(deleteConfirm.fileId, deleteConfirm.type)}
-                title={`Delete ${deleteConfirm.type === 'folder' ? 'Folder' : 'File'}`}
-                message={`Are you sure you want to delete "${deleteConfirm.fileName}"?${deleteConfirm.type === 'folder' ? ' All subfolders will also be deleted and files will be moved to root.' : ''} This action cannot be undone.`}
-                confirmText="Delete"
-                cancelText="Cancel"
-                variant="danger"
-            />
-
-            {/* Bulk Delete Confirmation Dialog */}
-            <ConfirmDialog
-                isOpen={bulkDeleteConfirm}
-                onClose={() => setBulkDeleteConfirm(false)}
-                onConfirm={handleBulkDelete}
-                title="Delete Selected Items"
-                message={`Are you sure you want to delete ${selectedFileIds.size + selectedFolderIds.size} selected items? This action cannot be undone.`}
-                confirmText="Delete All"
-                cancelText="Cancel"
-                variant="danger"
-            />
-
-            {/* Create/Rename Folder Dialog */}
-            <PromptDialog
-                isOpen={folderPrompt.isOpen}
-                onClose={() => setFolderPrompt({ isOpen: false, isLoading: false, mode: 'create' })}
-                onSubmit={handleFolderSubmit}
-                title={folderPrompt.mode === 'rename' ? 'Rename Folder' : 'Create New Folder'}
-                message={folderPrompt.mode === 'rename' ? 'Enter a new name for the folder.' : 'Enter a name for the new folder.'}
-                placeholder="Folder name"
-                submitText={folderPrompt.mode === 'rename' ? 'Rename' : 'Create'}
-                isLoading={folderPrompt.isLoading}
-                defaultValue={folderPrompt.initialValue}
-            />
-
-            {/* Move Dialog */}
-            <Modal
-                isOpen={moveDialog.isOpen}
-                onClose={() => setMoveDialog({ isOpen: false, isLoading: false })}
-                title="Move Items"
-            >
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    <p style={{ margin: 0, fontSize: '0.875rem', color: '#9ca3af' }}>
-                        Select a destination folder for {selectedFileIds.size + selectedFolderIds.size} selected items:
-                    </p>
-                    <div style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid #23263a', borderRadius: '6px' }}>
-                        <button
-                            onClick={() => setMoveTargetFolder(null)}
-                            style={{
-                                width: '100%',
-                                padding: '0.75rem',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.5rem',
-                                backgroundColor: moveTargetFolder === null ? '#1e1b4b' : 'transparent',
-                                border: 'none',
-                                borderBottom: '1px solid #12141c',
-                                cursor: 'pointer',
-                                textAlign: 'left',
-                            }}
-                        >
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                                <polyline points="9 22 9 12 15 12 15 22" />
-                            </svg>
-                            <span style={{ color: '#e0e0e0', fontWeight: 500 }}>Root (Home)</span>
-                        </button>
-                        {allFolders
-                            .filter((f) => !selectedFolderIds.has(f.id))
-                            .map((folder) => (
-                                <button
-                                    key={folder.id}
-                                    onClick={() => setMoveTargetFolder(folder.id)}
-                                    style={{
-                                        width: '100%',
-                                        padding: '0.75rem',
-                                        paddingLeft: folder.parentId ? '1.5rem' : '0.75rem',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '0.5rem',
-                                        backgroundColor: moveTargetFolder === folder.id ? '#1e1b4b' : 'transparent',
-                                        border: 'none',
-                                        borderBottom: '1px solid #12141c',
-                                        cursor: 'pointer',
-                                        textAlign: 'left',
-                                    }}
-                                >
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="#818cf8" stroke="none">
-                                        <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                                    </svg>
-                                    <span style={{ color: '#e0e0e0' }}>{folder.name}</span>
-                                </button>
-                            ))}
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                        <button
-                            onClick={() => setMoveDialog({ isOpen: false, isLoading: false })}
-                            disabled={moveDialog.isLoading}
-                            style={{
-                                padding: '0.5rem 1rem',
-                                fontSize: '0.875rem',
-                                color: '#9ca3af',
-                                backgroundColor: 'transparent',
-                                border: '1px solid #23263a',
-                                borderRadius: '4px',
-                                cursor: 'pointer',
-                            }}
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            onClick={handleMove}
-                            disabled={moveDialog.isLoading}
-                            style={{
-                                padding: '0.5rem 1rem',
-                                fontSize: '0.875rem',
-                                color: '#ffffff',
-                                backgroundColor: '#4f46e5',
-                                border: 'none',
-                                borderRadius: '4px',
-                                cursor: moveDialog.isLoading ? 'not-allowed' : 'pointer',
-                                opacity: moveDialog.isLoading ? 0.7 : 1,
-                            }}
-                        >
-                            {moveDialog.isLoading ? 'Moving...' : 'Move Here'}
-                        </button>
-                    </div>
-                </div>
-            </Modal>
-        </>
+            {preview && <FilePreviewDialog key={preview.key} file={preview.file} onClose={() => setPreview(null)} />}
+        </div>
     );
+}
+
+// Table and grid --------------------------------------------------------------------------------
+
+interface ItemsProps {
+    files: FileMetadata[];
+    folders: Folder[];
+    selectedFiles?: Set<string>;
+    selectedFolders?: Set<string>;
+    onToggle: (kind: 'files' | 'folders', id: string) => void;
+    onPreview: (file: FileMetadata) => void;
+    onSend: (ids: string[]) => void;
+    fileMenu: (file: FileMetadata, withSend?: boolean) => MenuItem[];
+    folderMenu: (folder: Folder) => MenuItem[];
+    /** Searching across All files: say which folder each file is in */
+    showFolderOf: boolean;
+}
+
+function FilesTable({
+    files,
+    folders,
+    selectedFiles,
+    selectedFolders,
+    onToggle,
+    onPreview,
+    onSend,
+    fileMenu,
+    folderMenu,
+    showFolderOf,
+    allSelected,
+    someSelected,
+    onToggleAll,
+    sortBy,
+    thSort,
+}: ItemsProps & {
+    allSelected: boolean;
+    someSelected: boolean;
+    onToggleAll: () => void;
+    sortBy: (key: SortKey) => void;
+    thSort: (key: SortKey) => SortDirection;
+}) {
+    return (
+        <Card flush className="overflow-hidden">
+            <Table>
+                <THead>
+                    <tr>
+                        <TH className="w-10 pr-0">
+                            <Checkbox aria-label="Select all" checked={allSelected} indeterminate={someSelected && !allSelected} onChange={onToggleAll} />
+                        </TH>
+                        <TH sort={thSort('name')} onSort={() => sortBy('name')}>
+                            Name
+                        </TH>
+                        <TH numeric className="hidden sm:table-cell" sort={thSort('size')} onSort={() => sortBy('size')}>
+                            Size
+                        </TH>
+                        <TH className="hidden sm:table-cell" sort={thSort('modified')} onSort={() => sortBy('modified')}>
+                            Modified
+                        </TH>
+                        <TH className="w-px">
+                            <span className="sr-only">Actions</span>
+                        </TH>
+                    </tr>
+                </THead>
+                <TBody>
+                    {folders.map((folder) => {
+                        const selected = selectedFolders?.has(folder.id) ?? false;
+                        return (
+                            <TR key={folder.id} selected={selected} className="hover:bg-raised">
+                                <TD className="pr-0">
+                                    <Checkbox aria-label={`Select ${folder.name}`} checked={selected} onChange={() => onToggle('folders', folder.id)} />
+                                </TD>
+                                <TD strong className="w-full max-w-0">
+                                    <Link
+                                        href={folderHref(folder.id)}
+                                        className="flex min-w-0 items-center gap-2.5 rounded-sm font-medium text-primary underline-offset-4 hover:text-strong hover:underline focus-ring"
+                                    >
+                                        <FolderIcon aria-hidden strokeWidth={1.75} className="h-4 w-4 shrink-0 text-secondary" />
+                                        <span className="truncate">{folder.name}</span>
+                                    </Link>
+                                </TD>
+                                <TD numeric className="hidden whitespace-nowrap text-tertiary sm:table-cell">
+                                    <span aria-hidden>—</span>
+                                </TD>
+                                <TD className="hidden whitespace-nowrap sm:table-cell">
+                                    <time dateTime={folder.updatedAt} title={formatFullDate(folder.updatedAt)}>
+                                        {formatShortDate(folder.updatedAt)}
+                                    </time>
+                                </TD>
+                                <TD className="whitespace-nowrap">
+                                    <div className="flex items-center justify-end gap-1">
+                                        <Menu label={`More actions for ${folder.name}`} items={folderMenu(folder)} />
+                                    </div>
+                                </TD>
+                            </TR>
+                        );
+                    })}
+                    {files.map((file) => {
+                        const selected = selectedFiles?.has(file.id) ?? false;
+                        const folderName = showFolderOf ? file.folderName : null;
+                        return (
+                            <TR key={file.id} selected={selected} className="hover:bg-raised">
+                                <TD className="pr-0">
+                                    <Checkbox aria-label={`Select ${file.originalFilename}`} checked={selected} onChange={() => onToggle('files', file.id)} />
+                                </TD>
+                                <TD strong className="w-full max-w-0">
+                                    <div className="flex min-w-0 items-center gap-2.5">
+                                        <FileTypeIcon mimeType={file.mimeType} name={file.originalFilename} />
+                                        <div className="min-w-0">
+                                            <button
+                                                type="button"
+                                                onClick={() => onPreview(file)}
+                                                title={file.originalFilename}
+                                                className="block max-w-full truncate rounded-sm text-left text-primary underline-offset-4 hover:text-strong hover:underline focus-ring"
+                                            >
+                                                {file.originalFilename}
+                                            </button>
+                                            <p className={cn('truncate text-caption tabular-nums text-tertiary', !folderName && 'sm:hidden')}>
+                                                <span className="sm:hidden">
+                                                    {formatSize(file.fileSize)} · {formatShortDate(file.updatedAt)}
+                                                    {folderName && ' · '}
+                                                </span>
+                                                {folderName && `In ${folderName}`}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </TD>
+                                <TD numeric className="hidden whitespace-nowrap sm:table-cell">
+                                    {formatSize(file.fileSize)}
+                                </TD>
+                                <TD className="hidden whitespace-nowrap sm:table-cell">
+                                    <time dateTime={file.updatedAt} title={formatFullDate(file.updatedAt)}>
+                                        {formatShortDate(file.updatedAt)}
+                                    </time>
+                                </TD>
+                                <TD className="whitespace-nowrap">
+                                    <div className="flex items-center justify-end gap-1">
+                                        <Button size="sm" icon={<Send {...ICON} />} aria-label={`Send ${file.originalFilename}`} onClick={() => onSend([file.id])}>
+                                            Send
+                                        </Button>
+                                        <Menu label={`More actions for ${file.originalFilename}`} items={fileMenu(file)} />
+                                    </div>
+                                </TD>
+                            </TR>
+                        );
+                    })}
+                </TBody>
+            </Table>
+        </Card>
+    );
+}
+
+function FilesGrid({ files, folders, selectedFiles, selectedFolders, onToggle, onPreview, fileMenu, folderMenu, showFolderOf }: ItemsProps) {
+    const anySelected = (selectedFiles?.size ?? 0) + (selectedFolders?.size ?? 0) > 0;
+    return (
+        <div className="flex flex-col gap-6">
+            {folders.length > 0 && (
+                <section aria-label="Folders">
+                    <h2 className="mb-2 text-caption font-medium text-secondary">Folders</h2>
+                    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                        {folders.map((folder) => {
+                            const selected = selectedFolders?.has(folder.id) ?? false;
+                            return (
+                                <li
+                                    key={folder.id}
+                                    className={cn(
+                                        'group relative flex h-12 items-center gap-2.5 rounded-lg border pl-3 pr-1 transition-colors',
+                                        selected ? 'border-gray-8 bg-raised' : 'border-default bg-surface hover:border-strong'
+                                    )}
+                                >
+                                    <Checkbox
+                                        aria-label={`Select ${folder.name}`}
+                                        checked={selected}
+                                        onChange={() => onToggle('folders', folder.id)}
+                                        className="relative z-10"
+                                    />
+                                    <FolderIcon aria-hidden strokeWidth={1.75} className="h-4 w-4 shrink-0 text-secondary" />
+                                    <Link
+                                        href={folderHref(folder.id)}
+                                        className="min-w-0 flex-1 truncate rounded-sm text-body-sm font-medium text-primary after:absolute after:inset-0 after:rounded-lg focus-ring"
+                                    >
+                                        {folder.name}
+                                    </Link>
+                                    <div className="relative z-10">
+                                        <Menu label={`More actions for ${folder.name}`} items={folderMenu(folder)} />
+                                    </div>
+                                </li>
+                            );
+                        })}
+                    </ul>
+                </section>
+            )}
+            {files.length > 0 && (
+                <section aria-label="Files">
+                    {folders.length > 0 && <h2 className="mb-2 text-caption font-medium text-secondary">Files</h2>}
+                    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                        {files.map((file) => {
+                            const selected = selectedFiles?.has(file.id) ?? false;
+                            return (
+                                <li
+                                    key={file.id}
+                                    className={cn(
+                                        'group relative flex flex-col overflow-hidden rounded-lg border transition-colors',
+                                        selected ? 'border-gray-8 bg-raised' : 'border-default bg-surface hover:border-strong'
+                                    )}
+                                >
+                                    <button
+                                        type="button"
+                                        onClick={() => onPreview(file)}
+                                        aria-label={`Preview ${file.originalFilename}`}
+                                        className="flex aspect-[4/3] items-center justify-center bg-inset focus-ring [outline-offset:-2px]"
+                                    >
+                                        <FileTypeIcon mimeType={file.mimeType} name={file.originalFilename} className="h-8 w-8 text-tertiary" />
+                                    </button>
+                                    <div
+                                        className={cn(
+                                            'absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-md border border-default bg-surface transition-opacity',
+                                            !selected && !anySelected && 'sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100'
+                                        )}
+                                    >
+                                        <Checkbox aria-label={`Select ${file.originalFilename}`} checked={selected} onChange={() => onToggle('files', file.id)} />
+                                    </div>
+                                    <div className="flex items-start gap-1 border-t border-subtle py-2 pl-3 pr-1">
+                                        <div className="min-w-0 flex-1 py-0.5">
+                                            <p className="truncate text-body-sm text-primary" title={file.originalFilename}>
+                                                {file.originalFilename}
+                                            </p>
+                                            <p className="truncate text-caption tabular-nums text-tertiary">
+                                                {showFolderOf && file.folderName
+                                                    ? `In ${file.folderName}`
+                                                    : `${formatSize(file.fileSize)} · ${formatShortDate(file.updatedAt)}`}
+                                            </p>
+                                        </div>
+                                        <Menu label={`More actions for ${file.originalFilename}`} items={fileMenu(file, true)} />
+                                    </div>
+                                </li>
+                            );
+                        })}
+                    </ul>
+                </section>
+            )}
+        </div>
+    );
+}
+
+function TableSkeleton() {
+    const widths = ['w-48', 'w-36', 'w-56', 'w-40', 'w-32', 'w-52', 'w-44', 'w-28'];
+    return (
+        <Card flush className="overflow-hidden" aria-label="Loading files" role="status">
+            <Table>
+                <THead>
+                    <tr>
+                        <TH className="w-10 pr-0">
+                            <Skeleton className="h-4 w-4 rounded-sm" />
+                        </TH>
+                        <TH>Name</TH>
+                        <TH numeric className="hidden sm:table-cell">
+                            Size
+                        </TH>
+                        <TH className="hidden sm:table-cell">Modified</TH>
+                        <TH className="w-px">
+                            <span className="sr-only">Actions</span>
+                        </TH>
+                    </tr>
+                </THead>
+                <TBody>
+                    {widths.map((width) => (
+                        <TR key={width}>
+                            <TD className="pr-0">
+                                <Skeleton className="h-4 w-4 rounded-sm" />
+                            </TD>
+                            <TD className="w-full">
+                                <div className="flex items-center gap-2.5">
+                                    <Skeleton className="h-4 w-4 shrink-0" />
+                                    <Skeleton className={cn('h-3 max-w-full', width)} />
+                                </div>
+                            </TD>
+                            <TD className="hidden sm:table-cell">
+                                <Skeleton className="ml-auto h-3 w-14" />
+                            </TD>
+                            <TD className="hidden sm:table-cell">
+                                <Skeleton className="h-3 w-12" />
+                            </TD>
+                            <TD>
+                                <div className="flex items-center justify-end gap-1">
+                                    <Skeleton className="h-7 w-[4.25rem]" />
+                                    <Skeleton className="h-7 w-7" />
+                                </div>
+                            </TD>
+                        </TR>
+                    ))}
+                </TBody>
+            </Table>
+        </Card>
+    );
+}
+
+function GridSkeleton() {
+    return (
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5" aria-label="Loading files" role="status">
+            {Array.from({ length: 10 }, (_, i) => (
+                <li key={i} className="overflow-hidden rounded-lg border border-default bg-surface">
+                    <Skeleton className="aspect-[4/3] w-full rounded-none" />
+                    <div className="flex flex-col gap-2 border-t border-subtle p-3">
+                        <Skeleton className="h-3 w-3/4" />
+                        <Skeleton className="h-3 w-1/2" />
+                    </div>
+                </li>
+            ))}
+        </ul>
+    );
+}
+
+// Helpers ---------------------------------------------------------------------------------------
+
+function filterFolders(folders: Folder[], query: string, type: FileTypeFilter): Folder[] {
+    if (type !== 'all') return [];
+    if (!query) return folders;
+    const q = query.toLowerCase();
+    return folders.filter((f) => f.name.toLowerCase().includes(q));
+}
+
+function sortFolders(folders: Folder[], sort: Sort): Folder[] {
+    const sorted = [...folders];
+    if (sort.key === 'modified') {
+        sorted.sort((a, b) => a.updatedAt.localeCompare(b.updatedAt) * (sort.dir === 'asc' ? 1 : -1));
+    } else {
+        const dir = sort.key === 'name' && sort.dir === 'desc' ? -1 : 1;
+        sorted.sort((a, b) => a.name.localeCompare(b.name) * dir);
+    }
+    return sorted;
 }
