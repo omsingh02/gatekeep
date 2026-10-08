@@ -1,5 +1,3 @@
-import { formatFileSize } from '@/lib/utils/fileTypes';
-
 /** "1 file", "3 files", "1 folder" */
 export function count(n: number, singular: string, plural = `${singular}s`): string {
     return `${n} ${n === 1 ? singular : plural}`;
@@ -12,10 +10,20 @@ export function describeItems(files: number, folders: number): string {
     return count(files, 'file');
 }
 
-/** "2.3 MB" (bytes under 1 KB read "512 bytes") */
+const UNITS = ['KB', 'MB', 'GB', 'TB'];
+
+/** "512 bytes", "4.1 KB", "2.3 MB", "196 MB": one decimal under 100, none above. */
 export function formatSize(bytes: number | null | undefined): string {
-    if (!bytes) return '0 bytes';
-    return formatFileSize(bytes).replace('Bytes', 'bytes');
+    if (!bytes || bytes < 0) return '0 bytes';
+    if (bytes < 1024) return `${bytes} ${bytes === 1 ? 'byte' : 'bytes'}`;
+    let value = bytes / 1024;
+    let unit = 0;
+    while (value >= 1024 && unit < UNITS.length - 1) {
+        value /= 1024;
+        unit += 1;
+    }
+    const rounded = value >= 100 ? Math.round(value).toString() : (Math.round(value * 10) / 10).toString();
+    return `${rounded} ${UNITS[unit]}`;
 }
 
 /** Compact date for tables: "2:05 PM" today, "Oct 6" this year, "Oct 6, 2025" before. */

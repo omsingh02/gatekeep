@@ -120,7 +120,6 @@ export default function Overview() {
                 <Card flush className="overflow-hidden">
                     <CardHeader
                         title="Recent files"
-                        description="The files you added or changed most recently."
                         actions={
                             <Button variant="ghost" size="sm" iconRight={<ArrowRight {...ICON} />} onClick={() => router.push('/admin/files')}>
                                 View all
@@ -144,7 +143,7 @@ export default function Overview() {
                             {!data
                                 ? ['w-48', 'w-36', 'w-56', 'w-40', 'w-32'].map((width) => (
                                       <TR key={width}>
-                                          <TD className="w-full">
+                                          <TD className="w-full max-w-0">
                                               <div className="flex items-center gap-2.5">
                                                   <Skeleton className="h-4 w-4 shrink-0" />
                                                   <Skeleton className={cn('h-3 max-w-full', width)} />
@@ -157,7 +156,7 @@ export default function Overview() {
                                               <Skeleton className="h-3 w-12" />
                                           </TD>
                                           <TD>
-                                              <Skeleton className="ml-auto h-7 w-[4.25rem]" />
+                                              <Skeleton className="ml-auto h-7 w-[4.75rem]" />
                                           </TD>
                                       </TR>
                                   ))

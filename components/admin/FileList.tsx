@@ -454,7 +454,7 @@ function FolderBrowser({ folderId, location, target, view, sort, onSort, reloadK
             </Card>
         );
     } else if (!ready) {
-        content = view === 'grid' ? <GridSkeleton /> : <TableSkeleton />;
+        content = view === 'grid' ? <GridSkeleton /> : <TableSkeleton sortBy={sortBy} thSort={thSort} />;
     } else if (files.length === 0 && folders.length === 0) {
         content = (
             <Card flush>
@@ -816,7 +816,7 @@ function FilesTable({
                 <THead>
                     <tr>
                         <TH className="w-10 pr-0">
-                            <Checkbox aria-label="Select all" checked={allSelected} indeterminate={someSelected && !allSelected} onChange={onToggleAll} />
+                            <Checkbox className="flex" aria-label="Select all" checked={allSelected} indeterminate={someSelected && !allSelected} onChange={onToggleAll} />
                         </TH>
                         <TH sort={thSort('name')} onSort={() => sortBy('name')}>
                             Name
@@ -838,7 +838,7 @@ function FilesTable({
                         return (
                             <TR key={folder.id} selected={selected} className="hover:bg-raised">
                                 <TD className="pr-0">
-                                    <Checkbox aria-label={`Select ${folder.name}`} checked={selected} onChange={() => onToggle('folders', folder.id)} />
+                                    <Checkbox className="flex" aria-label={`Select ${folder.name}`} checked={selected} onChange={() => onToggle('folders', folder.id)} />
                                 </TD>
                                 <TD strong className="w-full max-w-0">
                                     <Link
@@ -867,11 +867,11 @@ function FilesTable({
                     })}
                     {files.map((file) => {
                         const selected = selectedFiles?.has(file.id) ?? false;
-                        const folderName = showFolderOf ? file.folderName : null;
+                        const folderName = showFolderOf ? (file.folderName ?? 'All files') : null;
                         return (
                             <TR key={file.id} selected={selected} className="hover:bg-raised">
                                 <TD className="pr-0">
-                                    <Checkbox aria-label={`Select ${file.originalFilename}`} checked={selected} onChange={() => onToggle('files', file.id)} />
+                                    <Checkbox className="flex" aria-label={`Select ${file.originalFilename}`} checked={selected} onChange={() => onToggle('files', file.id)} />
                                 </TD>
                                 <TD strong className="w-full max-w-0">
                                     <div className="flex min-w-0 items-center gap-2.5">
@@ -942,7 +942,7 @@ function FilesGrid({ files, folders, selectedFiles, selectedFolders, onToggle, o
                                         aria-label={`Select ${folder.name}`}
                                         checked={selected}
                                         onChange={() => onToggle('folders', folder.id)}
-                                        className="relative z-10"
+                                        className="relative z-10 flex"
                                     />
                                     <FolderIcon aria-hidden strokeWidth={1.75} className="h-4 w-4 shrink-0 text-secondary" />
                                     <Link
@@ -988,7 +988,7 @@ function FilesGrid({ files, folders, selectedFiles, selectedFolders, onToggle, o
                                             !selected && !anySelected && 'sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100'
                                         )}
                                     >
-                                        <Checkbox aria-label={`Select ${file.originalFilename}`} checked={selected} onChange={() => onToggle('files', file.id)} />
+                                        <Checkbox className="flex" aria-label={`Select ${file.originalFilename}`} checked={selected} onChange={() => onToggle('files', file.id)} />
                                     </div>
                                     <div className="flex items-start gap-1 border-t border-subtle py-2 pl-3 pr-1">
                                         <div className="min-w-0 flex-1 py-0.5">
@@ -996,8 +996,8 @@ function FilesGrid({ files, folders, selectedFiles, selectedFolders, onToggle, o
                                                 {file.originalFilename}
                                             </p>
                                             <p className="truncate text-caption tabular-nums text-tertiary">
-                                                {showFolderOf && file.folderName
-                                                    ? `In ${file.folderName}`
+                                                {showFolderOf
+                                                    ? `In ${file.folderName ?? 'All files'}`
                                                     : `${formatSize(file.fileSize)} · ${formatShortDate(file.updatedAt)}`}
                                             </p>
                                         </div>
@@ -1013,7 +1013,7 @@ function FilesGrid({ files, folders, selectedFiles, selectedFolders, onToggle, o
     );
 }
 
-function TableSkeleton() {
+function TableSkeleton({ sortBy, thSort }: { sortBy: (key: SortKey) => void; thSort: (key: SortKey) => SortDirection }) {
     const widths = ['w-48', 'w-36', 'w-56', 'w-40', 'w-32', 'w-52', 'w-44', 'w-28'];
     return (
         <Card flush className="overflow-hidden" aria-label="Loading files" role="status">
@@ -1023,11 +1023,15 @@ function TableSkeleton() {
                         <TH className="w-10 pr-0">
                             <Skeleton className="h-4 w-4 rounded-sm" />
                         </TH>
-                        <TH>Name</TH>
-                        <TH numeric className="hidden sm:table-cell">
+                        <TH sort={thSort('name')} onSort={() => sortBy('name')}>
+                            Name
+                        </TH>
+                        <TH numeric className="hidden sm:table-cell" sort={thSort('size')} onSort={() => sortBy('size')}>
                             Size
                         </TH>
-                        <TH className="hidden sm:table-cell">Modified</TH>
+                        <TH className="hidden sm:table-cell" sort={thSort('modified')} onSort={() => sortBy('modified')}>
+                            Modified
+                        </TH>
                         <TH className="w-px">
                             <span className="sr-only">Actions</span>
                         </TH>
@@ -1039,7 +1043,7 @@ function TableSkeleton() {
                             <TD className="pr-0">
                                 <Skeleton className="h-4 w-4 rounded-sm" />
                             </TD>
-                            <TD className="w-full">
+                            <TD className="w-full max-w-0">
                                 <div className="flex items-center gap-2.5">
                                     <Skeleton className="h-4 w-4 shrink-0" />
                                     <Skeleton className={cn('h-3 max-w-full', width)} />
@@ -1053,7 +1057,7 @@ function TableSkeleton() {
                             </TD>
                             <TD>
                                 <div className="flex items-center justify-end gap-1">
-                                    <Skeleton className="h-7 w-[4.25rem]" />
+                                    <Skeleton className="h-7 w-[4.75rem]" />
                                     <Skeleton className="h-7 w-7" />
                                 </div>
                             </TD>
