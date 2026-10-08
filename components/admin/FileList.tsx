@@ -857,7 +857,7 @@ function FilesTable({
                                         {formatShortDate(folder.updatedAt)}
                                     </time>
                                 </TD>
-                                <TD className="whitespace-nowrap">
+                                <TD className="whitespace-nowrap py-1.5!">
                                     <div className="flex items-center justify-end gap-1">
                                         <Menu label={`More actions for ${folder.name}`} items={folderMenu(folder)} />
                                     </div>
@@ -903,7 +903,7 @@ function FilesTable({
                                         {formatShortDate(file.updatedAt)}
                                     </time>
                                 </TD>
-                                <TD className="whitespace-nowrap">
+                                <TD className="whitespace-nowrap py-1.5!">
                                     <div className="flex items-center justify-end gap-1">
                                         <Button size="sm" icon={<Send {...ICON} />} aria-label={`Send ${file.originalFilename}`} onClick={() => onSend([file.id])}>
                                             Send
@@ -1055,10 +1055,10 @@ function TableSkeleton({ sortBy, thSort }: { sortBy: (key: SortKey) => void; thS
                             <TD className="hidden sm:table-cell">
                                 <Skeleton className="h-3 w-12" />
                             </TD>
-                            <TD>
+                            <TD className="py-1.5!">
                                 <div className="flex items-center justify-end gap-1">
                                     <Skeleton className="h-7 w-[4.75rem]" />
-                                    <Skeleton className="h-7 w-7" />
+                                    <Skeleton className="h-8 w-8" />
                                 </div>
                             </TD>
                         </TR>
