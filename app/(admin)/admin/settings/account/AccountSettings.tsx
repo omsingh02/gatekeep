@@ -51,10 +51,16 @@ function ChangePassword() {
                 else toast.error(message);
                 return;
             }
+            const { signedIn } = (await res.json().catch(() => ({}))) as { signedIn?: boolean };
             setCurrent('');
             setNext({ password: '', confirm: '' });
             setErrors({});
-            toast.success('Password changed');
+            if (signedIn === false) {
+                // Every session ended with the change and this one couldn't be renewed
+                window.location.assign('/login');
+                return;
+            }
+            toast.success('Password changed. Other browsers and devices are signed out.');
         } catch {
             toast.error("We couldn't reach Gatekeep. Check your connection and try again.");
         } finally {
@@ -65,7 +71,7 @@ function ChangePassword() {
     return (
         <SettingsSection
             title="Change password"
-            description="You'll stay signed in here. Use Sign out everywhere below to end other sessions."
+            description="Changing it signs you out on your other browsers and devices. You'll stay signed in here."
             onSubmit={onSubmit}
             saveLabel="Change password"
             saving={saving}

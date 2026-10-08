@@ -186,7 +186,7 @@ export default function ResetPasswordPage() {
     }
 
     return (
-        <AuthCard title="Choose a new password" description="Use at least 10 characters. You'll stay signed in on this browser." footer={backToSignIn}>
+        <AuthCard title="Choose a new password" description="Choose one you don't use anywhere else. You'll stay signed in on this browser." footer={backToSignIn}>
             <form noValidate onSubmit={onSubmit} className="mt-6 flex flex-col gap-4">
                 <NewPasswordFields size="lg" values={values} onChange={setValues} errors={errors} />
                 {formError && <Callout tone="danger">{formError}</Callout>}
