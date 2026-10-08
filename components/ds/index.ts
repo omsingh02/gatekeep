@@ -3,7 +3,7 @@
  * Import from '@/components/ds'. Never style screens with raw hex values or inline styles.
  */
 export { cn } from './cn';
-export { Button, IconButton, type ButtonProps, type ButtonVariant, type ButtonSize, type IconButtonProps } from './Button';
+export { Button, IconButton, buttonStyles, type ButtonProps, type ButtonVariant, type ButtonSize, type IconButtonProps } from './Button';
 export { Spinner } from './Spinner';
 export { Field, useField, type FieldProps } from './Field';
 export { Input, Textarea, type InputProps, type TextareaProps, type ControlSize } from './Input';

@@ -21,7 +21,8 @@ export function defaultSettings(ownerId: string): OwnerSettings {
         notify_downloaded: false,
         notify_denied: true,
         notify_uploaded: true,
-        homepage: 'branded',
+        // No settings saved yet: a fresh install shows the product page at `/` so it explains itself
+        homepage: 'landing',
         created_at: new Date(0).toISOString(),
         updated_at: new Date(0).toISOString(),
     };
@@ -31,6 +32,37 @@ export function defaultSettings(ownerId: string): OwnerSettings {
 export async function getOwnerSettings(ownerId: string): Promise<OwnerSettings> {
     const { data } = await createAdminClient().from('owner_settings').select('*').eq('owner_id', ownerId).maybeSingle();
     return data ?? defaultSettings(ownerId);
+}
+
+export type InstanceHomepage =
+    | { mode: 'landing' }
+    | { mode: 'branded'; name: string | null; person: string | null; logoUrl: string | null };
+
+/**
+ * What `/` shows. The product page until the owner has saved settings, then their choice
+ * (Settings → Branding → Homepage). Falls back to the product page if the database can't be
+ * reached, so a half-configured install still explains itself. Never exposes the owner's email.
+ */
+export async function getInstanceHomepage(): Promise<InstanceHomepage> {
+    try {
+        const { data, error } = await createAdminClient()
+            .from('owner_settings')
+            .select('homepage, display_name, organization, logo_path')
+            .order('created_at', { ascending: true })
+            .limit(1)
+            .maybeSingle();
+        if (error || !data || data.homepage !== 'branded') return { mode: 'landing' };
+        const organization = data.organization?.trim() || null;
+        const person = data.display_name?.trim() || null;
+        return {
+            mode: 'branded',
+            name: organization ?? person,
+            person: organization && person ? person : null,
+            logoUrl: logoUrl(data),
+        };
+    } catch {
+        return { mode: 'landing' };
+    }
 }
 
 export function logoUrl(settings: Pick<OwnerSettings, 'logo_path'>): string | null {

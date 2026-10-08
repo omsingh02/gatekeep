@@ -9,8 +9,11 @@ const inter = Inter({
   variable: "--font-inter",
 });
 
+const siteTitle = "Gatekeep — Secure file delivery with receipts";
 const siteDescription =
-  "Open-source, self-hosted file sharing. Short links, a password per recipient, expiry and download limits, in-browser previews and a full audit log.";
+  "Send files to named people, see who opened them and take access back at any time. Open-source, self-hosted file delivery with a receipt for everything.";
+const socialDescription =
+  "Send it. See who opened it. Take it back. Open-source, self-hosted file delivery for people who send files that matter.";
 
 // Absolute base for OG/Twitter image URLs; tolerate a value without a protocol
 const appUrl = (() => {
@@ -21,25 +24,25 @@ const appUrl = (() => {
 
 export const metadata: Metadata = {
   metadataBase: new URL(appUrl),
-  title: "Gatekeep — Share files with exactly the people you choose",
+  title: siteTitle,
   description: siteDescription,
   applicationName: "Gatekeep",
   authors: [{ name: "Om Singh" }],
   openGraph: {
     type: "website",
     siteName: "Gatekeep",
-    title: "Gatekeep — Share files with exactly the people you choose",
-    description: siteDescription,
+    title: siteTitle,
+    description: socialDescription,
   },
   twitter: {
     card: "summary_large_image",
-    title: "Gatekeep — Share files with exactly the people you choose",
-    description: siteDescription,
+    title: siteTitle,
+    description: socialDescription,
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#07080c",
+  themeColor: "#1a1a1a",
 };
 
 export default function RootLayout({

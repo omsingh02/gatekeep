@@ -29,6 +29,14 @@ const iconSizes: Record<ButtonSize, string> = {
     lg: 'h-10 w-10',
 };
 
+/**
+ * Button classes for links that look like buttons (navigation, external CTAs). Prefer `Button`
+ * for actions; use this only when the element must be an `<a>`.
+ */
+export function buttonStyles({ variant = 'secondary', size = 'md', fullWidth = false }: { variant?: ButtonVariant; size?: ButtonSize; fullWidth?: boolean } = {}): string {
+    return cn(base, variants[variant], variant !== 'link' && sizes[size], fullWidth && 'w-full');
+}
+
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
     variant?: ButtonVariant;
     size?: ButtonSize;
