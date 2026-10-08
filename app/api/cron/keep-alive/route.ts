@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logError, logInfo } from '@/lib/utils/logger';
+import { runDailyJobs } from '@/lib/deliveries/daily';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * Daily Vercel Cron job (see vercel.json) that runs a tiny query so the
- * Supabase free-tier project is never paused for inactivity.
+ * Daily Vercel Cron job (see vercel.json). Runs a tiny query so the Supabase free-tier project is
+ * never paused for inactivity, then the daily jobs: "access ending soon" emails, removing old
+ * email codes, and owner emails for request uploads nobody was told about yet.
  *
  * Vercel sends `Authorization: Bearer $CRON_SECRET`; anything else is rejected.
  */
@@ -29,5 +31,7 @@ export async function GET(request: NextRequest) {
     }
 
     logInfo('/api/cron/keep-alive', 'db-ping', { latencyMs });
-    return NextResponse.json({ ok: true, latencyMs });
+    const jobs = await runDailyJobs();
+    logInfo('/api/cron/keep-alive', 'daily-jobs', jobs);
+    return NextResponse.json({ ok: true, latencyMs, ...jobs });
 }
