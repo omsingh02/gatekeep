@@ -260,6 +260,8 @@ export type Database = {
             cleanup_expired_data: { Args: Record<never, never>; Returns: undefined };
             migrate_v1_to_v2: { Args: Record<never, never>; Returns: undefined };
             gatekeep_schema_version: { Args: Record<never, never>; Returns: string };
+            gk_count_download: { Args: { p_recipient_id: string }; Returns: number };
+            gk_count_open: { Args: { p_recipient_id: string }; Returns: number };
         };
         Enums: Record<never, never>;
         CompositeTypes: Record<never, never>;
