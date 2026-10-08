@@ -43,6 +43,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             };
 
             const check = (row: { removed_at: string | null; ends_at: string | null; session_expires_at: string | null; session_token_hash: string | null }) => {
+                if (closed) return;
                 const status = row.session_token_hash !== sessionHash ? 'expired' : evaluateSession(row);
                 if (status === 'ok') return;
                 const message =
@@ -55,6 +56,18 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
                 close();
             };
 
+            const recheck = async () => {
+                if (closed) return;
+                const { data } = await admin
+                    .from('delivery_recipients')
+                    .select('removed_at, ends_at, session_expires_at, session_token_hash')
+                    .eq('id', recipient.id)
+                    .maybeSingle();
+                if (closed) return;
+                if (data) check(data);
+                else close();
+            };
+
             channel = admin
                 .channel(`gk_recipient_${recipient.id}`)
                 .on(
@@ -62,20 +75,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
                     { event: 'UPDATE', schema: 'public', table: 'delivery_recipients', filter: `id=eq.${recipient.id}` },
                     (payload) => check(payload.new as Parameters<typeof check>[0]),
                 )
-                .subscribe();
+                // A change made while the channel was still joining isn't delivered: look once it's live
+                .subscribe((status) => {
+                    if (status === 'SUBSCRIBED') void recheck();
+                });
 
             // Fallback if realtime is unavailable, and to catch end dates passing
-            timers.push(
-                setInterval(async () => {
-                    const { data } = await admin
-                        .from('delivery_recipients')
-                        .select('removed_at, ends_at, session_expires_at, session_token_hash')
-                        .eq('id', recipient.id)
-                        .maybeSingle();
-                    if (data) check(data);
-                    else close();
-                }, 30_000),
-            );
+            timers.push(setInterval(() => void recheck(), 30_000));
             timers.push(setInterval(() => !closed && controller.enqueue(encoder.encode(': heartbeat\n\n')), 25_000));
             request.signal.addEventListener('abort', close);
         },

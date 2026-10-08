@@ -172,7 +172,7 @@ test('removing access switches an open page to "access removed" without a reload
         const rid = recipients.find((r) => r.label === person)!.id;
         expect((await state.owner!.delete(`/api/deliveries/${delivery.id}/recipients/${rid}`)).ok()).toBeTruthy();
 
-        await expect(page.getByRole('heading', { name: 'Your access was removed' })).toBeVisible({ timeout: 40_000 });
+        await expect(page.getByRole('heading', { name: 'Your access was removed' })).toBeVisible();
         await expect(page.getByText('Avery Stone removed your access to this delivery.')).toBeVisible();
         await expect(page.getByRole('heading', { level: 1, name: delivery.title })).toHaveCount(0);
         await expect(page.getByRole('textbox')).toHaveCount(0);

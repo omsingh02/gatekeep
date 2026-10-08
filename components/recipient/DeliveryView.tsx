@@ -199,7 +199,7 @@ export function DeliveryView({ code, view, onDownloads, onFailure, onSignedOut }
                     />
                     <div className="flex items-center justify-between gap-3">
                         <p className="text-caption text-tertiary">Keep this page open until your browser saves the zip.</p>
-                        <Button variant="ghost" onClick={() => abortRef.current?.abort()}>
+                        <Button variant="ghost" size="lg" onClick={() => abortRef.current?.abort()}>
                             Cancel
                         </Button>
                     </div>
