@@ -2,7 +2,8 @@
  * Every email Gatekeep sends, written to docs/VOICE.md. Builders are pure: they take the facts
  * and return subject + HTML + text. None of them ever contains a password.
  */
-import { renderEmail, type EmailContent } from './template';
+import { renderEmail } from './template';
+import { env } from '@/lib/env';
 import { formatDateTime, plural } from '@/lib/deliveries/format';
 import type { AccessMethod, DeliveryKind } from '@/lib/types';
 
@@ -21,8 +22,36 @@ export interface Sender {
     logoUrl?: string | null;
 }
 
-function build(subject: string, content: EmailContent): BuiltEmail {
-    return { subject, ...renderEmail(content) };
+interface Content {
+    preheader: string;
+    heading: string;
+    paragraphs?: string[];
+    quote?: { from: string; text: string };
+    rows?: { label: string; value: string }[];
+    code?: string;
+    button?: { label: string; url: string };
+    /** Small print after the main content */
+    after?: string[];
+    footer?: string[];
+}
+
+/** Render with the Gatekeep Mono email layout (lib/email/template.ts). */
+function build(subject: string, content: Content): BuiltEmail {
+    return {
+        subject,
+        ...renderEmail({
+            appUrl: env.app.url,
+            preheader: content.preheader,
+            heading: content.heading,
+            paragraphs: content.paragraphs,
+            quote: content.quote ? { text: content.quote.text, attribution: `— ${content.quote.from}` } : undefined,
+            rows: content.rows?.map((row) => [row.label, row.value] as [string, string]),
+            code: content.code,
+            button: content.button,
+            note: content.after?.length ? content.after.join('\n\n') : undefined,
+            footer: content.footer,
+        }),
+    };
 }
 
 function quoteTitle(title: string): string {
@@ -61,7 +90,7 @@ export function inviteEmail(input: {
     const isRequest = input.kind === 'request';
     const verify =
         input.method === 'email_code'
-            ? `When you open it, we'll send a 6-digit code to **${input.recipientEmail}** to confirm it's you.`
+            ? `When you open it, we'll send a 6-digit code to ${input.recipientEmail} to confirm it's you.`
             : `You'll need the password ${sender.name} gives you. It isn't in this email.`;
 
     const rows: { label: string; value: string }[] = [];
@@ -77,9 +106,8 @@ export function inviteEmail(input: {
         preheader: isRequest
             ? `Upload them securely to ${sender.name}. ${input.method === 'email_code' ? "You'll confirm your email with a code." : "You'll need the password they give you."}`
             : `${plural(input.fileNames.length, 'file')} from ${sender.label}. ${input.method === 'email_code' ? "You'll confirm your email with a code." : "You'll need the password they give you."}`,
-        brand: { name: sender.label, logoUrl: sender.logoUrl },
         heading: isRequest ? `${sender.name} asked you to upload files` : `${sender.name} sent you files`,
-        paragraphs: [`**${input.title}**`],
+        paragraphs: [`${input.title}`],
         quote: input.message ? { from: sender.name, text: input.message } : undefined,
         rows,
         button: { label: isRequest ? 'Upload files' : 'Open delivery', url: input.url },
@@ -91,8 +119,7 @@ export function inviteEmail(input: {
 export function codeEmail(input: { sender: Sender; title: string; code: string }): BuiltEmail {
     return build(`${input.code} is your code for ${quoteTitle(input.title)}`, {
         preheader: 'Enter it to open the delivery. It works once and expires in 10 minutes.',
-        brand: { name: input.sender.label, logoUrl: input.sender.logoUrl },
-        heading: `Your code for **${input.title}**`,
+        heading: `Your code for ${input.title}`,
         paragraphs: [`Enter this code to open the delivery from ${input.sender.label}:`],
         code: input.code,
         after: [
@@ -106,9 +133,8 @@ export function accessEndingEmail(input: { sender: Sender; title: string; url: s
     const when = formatDateTime(input.endsAt);
     return build(`Your access to ${quoteTitle(input.title)} ends soon`, {
         preheader: `Download what you need before ${when}.`,
-        brand: { name: input.sender.label, logoUrl: input.sender.logoUrl },
         heading: `Your access ends ${when}`,
-        paragraphs: [`Your access to **${input.title}** from ${input.sender.label} ends on **${when}**.`],
+        paragraphs: [`Your access to ${input.title} from ${input.sender.label} ends on ${when}.`],
         button: { label: 'Open delivery', url: input.url },
         after: [`Need more time? Reply to this email to ask ${input.sender.name}.`],
         footer: recipientFooter(input.sender),
@@ -118,8 +144,7 @@ export function accessEndingEmail(input: { sender: Sender; title: string; url: s
 export function accessRemovedEmail(input: { sender: Sender; title: string }): BuiltEmail {
     return build(`${input.sender.name} stopped sharing ${quoteTitle(input.title)}`, {
         preheader: "The link won't open for you anymore.",
-        brand: { name: input.sender.label, logoUrl: input.sender.logoUrl },
-        heading: `${input.sender.name} stopped sharing **${input.title}**`,
+        heading: `${input.sender.name} stopped sharing ${input.title}`,
         paragraphs: [`${input.sender.label} removed your access. The link won't open for you anymore.`],
         after: [`If you think this is a mistake, reply to this email to reach ${input.sender.name}.`],
         footer: [`Sent with Gatekeep on behalf of ${input.sender.label}.`],
@@ -152,7 +177,7 @@ export function openedEmail(input: {
         });
     return build(`${input.actor} opened ${quoteTitle(input.title)}`, {
         preheader: `${formatDateTime(input.at)}${input.ip ? ` · from ${input.ip}` : ''}`,
-        heading: `**${input.actor}** opened **${input.title}**`,
+        heading: `${input.actor} opened ${input.title}`,
         rows,
         button: { label: 'See activity', url: input.activityUrl },
         after: ["You get this the first time each person opens a delivery in a day. If you didn't expect it, you can remove their access from the delivery."],
@@ -172,7 +197,7 @@ export function downloadedEmail(input: {
     const what = input.fileName ?? 'all files';
     return build(`${input.actor} downloaded ${input.fileName ? quoteTitle(input.fileName) : `everything in ${quoteTitle(input.title)}`}`, {
         preheader: `${formatDateTime(input.at)} · ${input.downloads.limit ? `${input.downloads.used} of ${input.downloads.limit} downloads used` : plural(input.downloads.used, 'download')}`,
-        heading: `**${input.actor}** downloaded ${input.fileName ? `**${input.fileName}**` : 'all files'}`,
+        heading: `${input.actor} downloaded ${input.fileName ? `${input.fileName}` : 'all files'}`,
         rows: [
             { label: 'Delivery', value: input.title },
             { label: 'Downloaded', value: what },
@@ -198,9 +223,9 @@ export function deniedEmail(input: {
 }): BuiltEmail {
     return build(`${plural(input.count, 'denied attempt')} on ${quoteTitle(input.title)}`, {
         preheader: `In the last ${input.minutes} minutes. Repeated wrong attempts are throttled automatically.`,
-        heading: `Someone was denied access to **${input.title}**`,
+        heading: `Someone was denied access to ${input.title}`,
         paragraphs: [
-            `There were **${plural(input.count, 'denied attempt')}** in the last ${input.minutes} minutes. Gatekeep throttles repeated attempts automatically, and people who already have access aren't affected.`,
+            `There were ${plural(input.count, 'denied attempt')} in the last ${input.minutes} minutes. Gatekeep throttles repeated attempts automatically, and people who already have access aren't affected.`,
         ],
         rows: [
             { label: 'Reasons', value: input.reasons.join(', ') || '—' },
@@ -222,7 +247,7 @@ export function uploadedEmail(input: {
 }): BuiltEmail {
     return build(`${input.actor} uploaded ${plural(input.fileNames.length, 'file')} to ${quoteTitle(input.title)}`, {
         preheader: filesValue(input.fileNames),
-        heading: `**${input.actor}** uploaded ${plural(input.fileNames.length, 'file')}`,
+        heading: `${input.actor} uploaded ${plural(input.fileNames.length, 'file')}`,
         rows: [
             { label: 'Request', value: input.title },
             { label: input.fileNames.length === 1 ? 'File' : 'Files', value: filesValue(input.fileNames) },
@@ -237,7 +262,7 @@ export function passwordResetEmail(input: { email: string; instanceUrl: string; 
     return build('Reset your Gatekeep password', {
         preheader: 'This link works once and expires in 1 hour.',
         heading: 'Reset your password',
-        paragraphs: [`Someone asked to reset the password for **${input.email}** on ${input.instanceUrl}.`],
+        paragraphs: [`Someone asked to reset the password for ${input.email} on ${input.instanceUrl}.`],
         button: { label: 'Choose a new password', url: input.resetUrl },
         after: ["The link works once and expires in 1 hour. If you didn't ask for this, ignore this email. Your password won't change."],
         footer: ['Sent by your Gatekeep.'],

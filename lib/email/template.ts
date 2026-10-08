@@ -1,30 +1,37 @@
 /**
- * The one email layout Gatekeep uses: light, flat and inline-styled, because dark emails render
- * poorly in many clients (see docs/DESIGN.md → Email). Every email has an HTML and a matching
- * plain-text version.
+ * Gatekeep Mono email layout (docs/DESIGN.md → Email): a light, table-based, inline-styled
+ * template that renders consistently in Gmail, Outlook and Apple Mail, plus a matching
+ * plain-text version. This file only provides layout primitives; the wording of each email
+ * lives with the code that sends it and follows docs/VOICE.md.
  *
- * Text fields are plain strings; `**bold**` is the only markup and is rendered as <strong>.
- * Everything is HTML-escaped, so values from users (file names, messages) are safe to pass.
+ * Every string is HTML-escaped. Links must be http(s) or mailto.
  */
 
+export interface EmailButton {
+    label: string;
+    url: string;
+}
+
 export interface EmailContent {
-    /** Hidden preview line shown after the subject in most inboxes */
-    preheader: string;
+    /** Absolute base URL of this instance, used for the logo image */
+    appUrl: string;
+    /** Hidden preview line shown by inbox lists after the subject */
+    preheader?: string;
     heading: string;
+    /** Body paragraphs (plain text; line breaks inside a paragraph are kept) */
     paragraphs?: string[];
-    /** Label/value pairs, e.g. Files, Access ends */
-    rows?: { label: string; value: string }[];
-    /** A one-time code, shown large in a monospace box */
+    /** Optional quoted message from the sender, shown in a bordered block */
+    quote?: { text: string; attribution?: string };
+    /** The single primary action */
+    button?: EmailButton;
+    /** Label/value pairs, e.g. [['Files', '3'], ['Access ends', 'Oct 14']] */
+    rows?: Array<[string, string]>;
+    /** A one-time code or similar value, shown large in a mono box */
     code?: string;
-    /** A quoted message from the sender */
-    quote?: { from: string; text: string };
-    button?: { label: string; url: string };
-    /** Smaller paragraphs after the button */
-    after?: string[];
-    /** Footer lines: why they got this and who to contact */
+    /** Small print under the main content (e.g. why they got this email) */
+    note?: string;
+    /** Footer lines; defaults to "Sent by Gatekeep" */
     footer?: string[];
-    /** Sender branding shown at the top. Without a logo, the name is shown as text. */
-    brand?: { name: string; logoUrl?: string | null };
 }
 
 export interface RenderedEmail {
@@ -32,21 +39,21 @@ export interface RenderedEmail {
     text: string;
 }
 
-const COLORS = {
-    canvas: '#f5f5f5',
+const C = {
+    page: '#f5f5f5',
     card: '#ffffff',
     border: '#e5e5e5',
     text: '#1a1a1a',
-    muted: '#5c5c5c',
-    faint: '#8a8a8a',
-    codeBg: '#f5f5f5',
+    secondary: '#525252',
+    tertiary: '#737373',
+    inset: '#f5f5f5',
 };
 
-const FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+const FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif";
 const MONO = "ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace";
 
 export function escapeHtml(value: string): string {
-    return value
+    return String(value)
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
@@ -54,80 +61,79 @@ export function escapeHtml(value: string): string {
         .replace(/'/g, '&#39;');
 }
 
-/** Escape, then turn **bold** into <strong>. */
-function inline(value: string): string {
-    return escapeHtml(value).replace(/\*\*(.+?)\*\*/g, '<strong style="font-weight:600;color:' + COLORS.text + '">$1</strong>');
+/** Returns the URL if it is safe to put in an href, otherwise throws. */
+export function safeUrl(url: string): string {
+    const trimmed = String(url).trim();
+    if (!/^(https?:\/\/|mailto:)/i.test(trimmed)) {
+        throw new Error(`Refusing to render an email link that isn't http(s) or mailto: ${trimmed.slice(0, 40)}`);
+    }
+    return trimmed;
 }
 
-/** Plain-text version of the inline markup. */
-function plain(value: string): string {
-    return value.replace(/\*\*(.+?)\*\*/g, '$1');
-}
-
-function safeUrl(url: string): string {
-    return /^https?:\/\//i.test(url) ? escapeHtml(url) : '#';
-}
-
-function paragraph(text: string, size = 15, color = COLORS.text): string {
-    return `<p style="margin:0 0 16px;font-size:${size}px;line-height:1.55;color:${color}">${inline(text)}</p>`;
-}
+const nl2br = (value: string) => escapeHtml(value).replace(/\r?\n/g, '<br>');
 
 export function renderEmail(content: EmailContent): RenderedEmail {
+    const appUrl = content.appUrl.replace(/\/$/, '');
+    const footer = content.footer ?? ['Sent by Gatekeep'];
+    const buttonUrl = content.button ? safeUrl(content.button.url) : null;
+
     const parts: string[] = [];
 
-    if (content.brand) {
-        const brand = content.brand.logoUrl
-            ? `<img src="${safeUrl(content.brand.logoUrl)}" alt="${escapeHtml(content.brand.name)}" height="32" style="display:block;height:32px;max-width:180px;border:0">`
-            : `<span style="font-size:15px;font-weight:600;color:${COLORS.text}">${escapeHtml(content.brand.name)}</span>`;
-        parts.push(`<div style="margin:0 0 24px">${brand}</div>`);
-    }
-
     parts.push(
-        `<h1 style="margin:0 0 16px;font-size:20px;line-height:1.35;font-weight:600;color:${COLORS.text}">${inline(content.heading)}</h1>`,
+        `<h1 style="margin:0 0 16px;font-family:${FONT};font-size:20px;line-height:28px;font-weight:600;color:${C.text};">${escapeHtml(content.heading)}</h1>`
     );
 
-    for (const p of content.paragraphs ?? []) parts.push(paragraph(p));
+    for (const p of content.paragraphs ?? []) {
+        parts.push(`<p style="margin:0 0 14px;font-family:${FONT};font-size:15px;line-height:24px;color:${C.text};">${nl2br(p)}</p>`);
+    }
 
     if (content.quote) {
         parts.push(
-            `<div style="margin:0 0 20px;padding:12px 16px;border-left:3px solid ${COLORS.border};background:${COLORS.codeBg}">` +
-                `<p style="margin:0 0 4px;font-size:13px;color:${COLORS.muted}">${escapeHtml(content.quote.from)} wrote:</p>` +
-                `<p style="margin:0;font-size:15px;line-height:1.55;color:${COLORS.text};white-space:pre-line">${escapeHtml(content.quote.text)}</p>` +
-                `</div>`,
+            `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0 18px;border-collapse:collapse;"><tr><td style="border-left:3px solid ${C.border};padding:4px 0 4px 14px;font-family:${FONT};font-size:15px;line-height:24px;color:${C.secondary};">${nl2br(content.quote.text)}${
+                content.quote.attribution
+                    ? `<div style="margin-top:6px;font-size:13px;line-height:20px;color:${C.tertiary};">${escapeHtml(content.quote.attribution)}</div>`
+                    : ''
+            }</td></tr></table>`
+        );
+    }
+
+    if (content.code) {
+        parts.push(
+            `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:6px 0 20px;border-collapse:separate;"><tr><td style="background:${C.inset};border:1px solid ${C.border};border-radius:6px;padding:12px 20px;font-family:${MONO};font-size:26px;line-height:32px;letter-spacing:6px;font-weight:600;color:${C.text};">${escapeHtml(content.code)}</td></tr></table>`
+        );
+    }
+
+    if (content.button && buttonUrl) {
+        parts.push(
+            `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 22px;border-collapse:separate;"><tr><td style="background:${C.text};border-radius:6px;"><a href="${escapeHtml(buttonUrl)}" style="display:inline-block;padding:11px 20px;font-family:${FONT};font-size:15px;line-height:20px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:6px;">${escapeHtml(content.button.label)}</a></td></tr></table>`
         );
     }
 
     if (content.rows?.length) {
         const rows = content.rows
             .map(
-                (row) =>
-                    `<tr><td style="padding:8px 0;border-top:1px solid ${COLORS.border};font-size:14px;color:${COLORS.muted};width:38%;vertical-align:top">${escapeHtml(row.label)}</td>` +
-                    `<td style="padding:8px 0;border-top:1px solid ${COLORS.border};font-size:14px;color:${COLORS.text};vertical-align:top">${inline(row.value)}</td></tr>`,
+                ([label, value], i) =>
+                    `<tr><td style="padding:10px 0;${i ? `border-top:1px solid ${C.border};` : ''}font-family:${FONT};font-size:14px;line-height:20px;color:${C.tertiary};white-space:nowrap;vertical-align:top;">${escapeHtml(label)}</td><td style="padding:10px 0 10px 16px;${i ? `border-top:1px solid ${C.border};` : ''}font-family:${FONT};font-size:14px;line-height:20px;color:${C.text};text-align:right;">${nl2br(value)}</td></tr>`
             )
             .join('');
-        parts.push(`<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;border-collapse:collapse;border-bottom:1px solid ${COLORS.border}">${rows}</table>`);
-    }
-
-    if (content.code) {
         parts.push(
-            `<div style="margin:0 0 20px;padding:16px;border:1px solid ${COLORS.border};border-radius:6px;background:${COLORS.codeBg};text-align:center">` +
-                `<span style="font-family:${MONO};font-size:30px;letter-spacing:8px;font-weight:600;color:${COLORS.text}">${escapeHtml(content.code)}</span></div>`,
+            `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0 18px;border-collapse:collapse;border-top:1px solid ${C.border};border-bottom:1px solid ${C.border};">${rows}</table>`
         );
     }
 
-    if (content.button) {
+    if (buttonUrl) {
         parts.push(
-            `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:4px 0 24px"><tr><td style="border-radius:6px;background:${COLORS.text}">` +
-                `<a href="${safeUrl(content.button.url)}" style="display:inline-block;padding:12px 20px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:6px">${escapeHtml(content.button.label)}</a>` +
-                `</td></tr></table>`,
+            `<p style="margin:0 0 14px;font-family:${FONT};font-size:13px;line-height:20px;color:${C.tertiary};">If the button doesn't work, copy this link into your browser:<br><a href="${escapeHtml(buttonUrl)}" style="color:${C.secondary};word-break:break-all;">${escapeHtml(buttonUrl)}</a></p>`
         );
     }
 
-    for (const p of content.after ?? []) parts.push(paragraph(p, 14, COLORS.muted));
+    if (content.note) {
+        parts.push(`<p style="margin:8px 0 0;font-family:${FONT};font-size:13px;line-height:20px;color:${C.tertiary};">${nl2br(content.note)}</p>`);
+    }
 
-    const footer = (content.footer ?? [])
-        .map((line) => `<p style="margin:0 0 6px;font-size:12px;line-height:1.5;color:${COLORS.faint}">${inline(line)}</p>`)
-        .join('');
+    const preheader = content.preheader
+        ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all;">${escapeHtml(content.preheader)}${'&#847;&zwnj;&nbsp;'.repeat(40)}</div>`
+        : '';
 
     const html = `<!DOCTYPE html>
 <html lang="en">
@@ -135,36 +141,44 @@ export function renderEmail(content: EmailContent): RenderedEmail {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light only">
-<title>${escapeHtml(content.heading.replace(/\*\*/g, ''))}</title>
+<meta name="supported-color-schemes" content="light">
+<title>${escapeHtml(content.heading)}</title>
 </head>
-<body style="margin:0;padding:0;background:${COLORS.canvas};font-family:${FONT}">
-<div style="display:none;max-height:0;overflow:hidden;opacity:0">${escapeHtml(content.preheader)}</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${COLORS.canvas}">
-<tr><td align="center" style="padding:32px 16px">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px">
-<tr><td style="padding:32px;background:${COLORS.card};border:1px solid ${COLORS.border};border-radius:8px">
+<body style="margin:0;padding:0;background:${C.page};">
+${preheader}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.page};border-collapse:collapse;">
+<tr><td align="center" style="padding:32px 16px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;border-collapse:collapse;">
+<tr><td style="padding:0 0 16px;">
+<table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;"><tr>
+<td style="vertical-align:middle;"><img src="${escapeHtml(appUrl)}/brand/logo-mark-email.png" width="28" height="28" alt="" style="display:block;border:0;border-radius:6px;"></td>
+<td style="padding-left:10px;vertical-align:middle;font-family:${FONT};font-size:16px;line-height:20px;font-weight:600;color:${C.text};">Gatekeep</td>
+</tr></table>
+</td></tr>
+<tr><td style="background:${C.card};border:1px solid ${C.border};border-radius:8px;padding:28px 28px 22px;">
 ${parts.join('\n')}
 </td></tr>
-<tr><td style="padding:20px 8px 0">${footer}</td></tr>
+<tr><td style="padding:16px 4px 0;font-family:${FONT};font-size:12px;line-height:18px;color:${C.tertiary};">
+${footer.map((line) => escapeHtml(line)).join('<br>')}
+</td></tr>
 </table>
 </td></tr>
 </table>
 </body>
 </html>`;
 
-    const lines: string[] = [];
-    if (content.brand) lines.push(content.brand.name, '');
-    lines.push(plain(content.heading), '');
-    for (const p of content.paragraphs ?? []) lines.push(plain(p), '');
-    if (content.quote) lines.push(`${content.quote.from} wrote:`, ...content.quote.text.split('\n').map((l) => `> ${l}`), '');
-    if (content.rows?.length) {
-        for (const row of content.rows) lines.push(`${row.label}: ${plain(row.value)}`);
-        lines.push('');
-    }
-    if (content.code) lines.push(content.code, '');
-    if (content.button) lines.push(`${content.button.label}: ${content.button.url}`, '');
-    for (const p of content.after ?? []) lines.push(plain(p), '');
-    if (content.footer?.length) lines.push('--', ...content.footer.map(plain));
+    const text = [
+        content.heading,
+        '',
+        ...(content.paragraphs ?? []).flatMap((p) => [p, '']),
+        ...(content.quote ? [content.quote.text.split('\n').map((l) => `> ${l}`).join('\n'), ...(content.quote.attribution ? [`  ${content.quote.attribution}`] : []), ''] : []),
+        ...(content.code ? [content.code, ''] : []),
+        ...(content.button && buttonUrl ? [`${content.button.label}: ${buttonUrl}`, ''] : []),
+        ...(content.rows?.length ? [...content.rows.map(([label, value]) => `${label}: ${value}`), ''] : []),
+        ...(content.note ? [content.note, ''] : []),
+        '--',
+        ...footer,
+    ].join('\n');
 
-    return { html, text: lines.join('\n').replace(/\n{3,}/g, '\n\n').trim() + '\n' };
+    return { html, text };
 }

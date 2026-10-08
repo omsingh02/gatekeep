@@ -1,5 +1,117 @@
 @import "tailwindcss";
 
+/*
+ * Gatekeep Mono (docs/DESIGN.md): dark, neutral grey, colour only for status.
+ * Components in components/ds use only these tokens. The legacy variables in :root below are
+ * kept until every screen is migrated (v2 Phase B), then removed together with Tailwind's
+ * default palette (`--color-*: initial;`).
+ */
+@theme {
+  /* Neutral scale: pure grey (R = G = B), no blue tint */
+  --color-gray-0: #111111;
+  --color-gray-1: #1a1a1a;
+  --color-gray-2: #212121;
+  --color-gray-3: #2a2a2a;
+  --color-gray-4: #333333;
+  --color-gray-5: #3a3a3a;
+  --color-gray-6: #4a4a4a;
+  --color-gray-7: #737373;
+  --color-gray-8: #a3a3a3;
+  --color-gray-9: #e0e0e0;
+  --color-gray-10: #f5f5f5;
+
+  /* Surfaces: bg-canvas, bg-surface, bg-raised, bg-inset */
+  --color-canvas: #1a1a1a;
+  --color-surface: #212121;
+  --color-raised: #2a2a2a;
+  --color-inset: #111111;
+
+  /* Status: the only colour in the product */
+  --color-success: #4ade80;
+  --color-success-bg: rgb(74 222 128 / 0.1);
+  --color-success-border: rgb(74 222 128 / 0.25);
+  --color-warning: #fbbf24;
+  --color-warning-bg: rgb(251 191 36 / 0.1);
+  --color-warning-border: rgb(251 191 36 / 0.25);
+  --color-danger: #f87171;
+  --color-danger-bg: rgb(248 113 113 / 0.1);
+  --color-danger-border: rgb(248 113 113 / 0.25);
+  --color-danger-solid: #dc2626;
+  --color-danger-solid-hover: #b91c1c;
+
+  /* Shape */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+
+  /* Elevation: only floating layers get shadows */
+  --shadow-overlay: 0 8px 24px rgb(0 0 0 / 0.35);
+  --shadow-dialog: 0 16px 48px rgb(0 0 0 / 0.45);
+
+  /* Type scale (text-display, text-h1 … text-caption) */
+  --text-display: 40px;
+  --text-display--line-height: 44px;
+  --text-display--letter-spacing: -0.02em;
+  --text-display--font-weight: 600;
+  --text-h1: 24px;
+  --text-h1--line-height: 32px;
+  --text-h1--font-weight: 600;
+  --text-h2: 18px;
+  --text-h2--line-height: 26px;
+  --text-h2--font-weight: 600;
+  --text-h3: 15px;
+  --text-h3--line-height: 22px;
+  --text-h3--font-weight: 600;
+  --text-body: 14px;
+  --text-body--line-height: 20px;
+  --text-body-sm: 13px;
+  --text-body-sm--line-height: 18px;
+  --text-caption: 12px;
+  --text-caption--line-height: 16px;
+
+  --font-mono: ui-monospace, "JetBrains Mono", SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Layout widths (max-w-app, max-w-marketing, max-w-card) */
+  --container-app: 1280px;
+  --container-marketing: 1120px;
+  --container-card: 400px;
+}
+
+/*
+ * Semantic text and border colours. These are explicit utilities because Tailwind's colour
+ * namespace is shared across bg/text/border, and text-strong and border-strong need different
+ * values.
+ */
+@utility text-strong {
+  color: var(--color-gray-10);
+}
+@utility text-primary {
+  color: var(--color-gray-9);
+}
+@utility text-secondary {
+  color: var(--color-gray-8);
+}
+@utility text-tertiary {
+  color: var(--color-gray-7);
+}
+@utility border-subtle {
+  border-color: var(--color-gray-4);
+}
+@utility border-default {
+  border-color: var(--color-gray-5);
+}
+@utility border-strong {
+  border-color: var(--color-gray-6);
+}
+
+/* The neutral keyboard focus ring, for components that suppress the base outline */
+@utility focus-ring {
+  &:focus-visible {
+    outline: 2px solid rgb(255 255 255 / 0.45);
+    outline-offset: 2px;
+  }
+}
+
 /* Font loaded via next/font in layout.tsx for better performance */
 
 :root {
@@ -58,8 +170,9 @@
     background: var(--text-muted);
   }
 
+  /* Neutral focus ring everywhere (Gatekeep Mono); never colour-only */
   *:focus-visible {
-    outline: 2px solid var(--primary);
+    outline: 2px solid rgb(255 255 255 / 0.45);
     outline-offset: 2px;
   }
 
@@ -93,6 +206,36 @@
 
 .animate-shake {
   animation: shake 0.5s ease-in-out;
+}
+
+/* Gatekeep Mono skeleton shimmer and overlay entrance (respecting reduced motion) */
+@keyframes ds-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes ds-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes ds-pop-in {
+  from { opacity: 0; transform: translateY(4px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ds-shimmer {
+    background-image: linear-gradient(90deg, transparent 0%, rgb(255 255 255 / 0.04) 50%, transparent 100%);
+    background-size: 200% 100%;
+    animation: ds-shimmer 1.6s ease-in-out infinite;
+  }
+  .ds-fade-in {
+    animation: ds-fade-in 120ms ease-out;
+  }
+  .ds-pop-in {
+    animation: ds-pop-in 140ms ease-out;
+  }
 }
 
 /* Landing page: slow floating motion for the hero share card */

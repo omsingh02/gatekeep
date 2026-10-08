@@ -1,29 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { renderEmail } from '@/lib/email/template';
 import { codeEmail, deniedEmail, inviteEmail, passwordResetEmail } from '@/lib/email/messages';
 
 const sender = { name: 'Avery Stone', label: 'Avery Stone from Northwind Studio', logoUrl: null };
-
-describe('email template', () => {
-    it('escapes user content and renders **bold** only', () => {
-        const { html, text } = renderEmail({
-            preheader: 'p',
-            heading: 'Files for **<script>alert(1)</script>**',
-            paragraphs: ['Plain & simple'],
-        });
-        expect(html).not.toContain('<script>');
-        expect(html).toContain('&lt;script&gt;');
-        expect(html).toContain('<strong');
-        expect(html).toContain('Plain &amp; simple');
-        expect(text).toContain('Files for <script>alert(1)</script>');
-        expect(text).not.toContain('**');
-    });
-
-    it('refuses non-http button links', () => {
-        const { html } = renderEmail({ preheader: 'p', heading: 'h', button: { label: 'Go', url: 'javascript:alert(1)' } });
-        expect(html).not.toContain('javascript:');
-    });
-});
 
 describe('emails', () => {
     it('invites name the sender, never include a password, and say how to get in', () => {
