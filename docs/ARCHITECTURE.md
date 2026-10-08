@@ -105,6 +105,11 @@ Sessions aren't carried over, so recipients unlock once more. A link the 1.x das
   - An in-memory limiter adds a per-instance first line.
   - The limits hold across serverless instances because they're counted in the database.
 - **Files:** a private bucket served only through short-lived [signed URLs](#signed-urls), issued after the recipient's access is re-checked. Request uploads are checked against type, size and count limits, and the size is read from Storage.
+- **Database API:**
+  - Every database function the app calls (counters, file deletion, the 1.x conversion) runs as `SECURITY DEFINER`. It is executable only by the service role, which only the server holds.
+  - Functions are server-only by default: a new one has to be granted on purpose.
+  - The `anon` role has no table access, so signed-out visitors can't reach the database API at all. The owner's session reads tables under row-level security.
+  - `e2e/security.spec.ts` checks all of this with the public key.
 - **Headers:** CSP, HSTS, X-Frame-Options, nosniff, Referrer- and Permissions-Policy (`next.config.ts`).
 
 ### Signed URLs

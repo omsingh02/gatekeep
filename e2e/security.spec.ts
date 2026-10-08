@@ -225,3 +225,54 @@ test('files can be moved into a folder and back', async ({ page }) => {
     expect(back.ok()).toBeTruthy();
     expect((await back.json()).file.folder_id).toBeNull();
 });
+
+test("the database API only serves Gatekeep's server: no privileged functions or tables for the public key", async () => {
+    const env = localSupabaseEnv();
+    const service = serviceClient();
+    const { data: file } = await service.from('files').select('id, uploaded_by').is('deleted_at', null).limit(1).single();
+    expect(file).toBeTruthy();
+    const { data: recipient } = await service.from('delivery_recipients').select('id, download_count').limit(1).single();
+    expect(recipient).toBeTruthy();
+
+    // What an outsider has: the public anon key from the site's JavaScript, the owner's id (part of the
+    // public logo URL) and a file id (visible to recipients)
+    const anon = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
+        auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const calls: [string, Record<string, unknown>][] = [
+        ['soft_delete_file', { p_file_id: file!.id, p_user_id: file!.uploaded_by }],
+        ['delete_file_cascade', { p_file_id: file!.id, p_user_id: file!.uploaded_by }],
+        ['complete_file_deletion', { p_file_id: file!.id }],
+        ['cleanup_soft_deleted_files', { older_than_hours: 0 }],
+        ['gk_count_download', { p_recipient_id: recipient!.id }],
+        ['gk_count_open', { p_recipient_id: recipient!.id }],
+        ['migrate_v1_to_v2', {}],
+    ];
+    for (const [fn, args] of calls) {
+        const { error } = await anon.rpc(fn, args);
+        expect(error, `anon can call ${fn}`).not.toBeNull();
+    }
+
+    // Signed in as the owner, the functions are still server-only (the app calls them with the service role)
+    const owner = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
+        auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const { error: signInError } = await owner.auth.signInWithPassword(DEMO.admin);
+    expect(signInError).toBeNull();
+    for (const [fn, args] of calls) {
+        const { error } = await owner.rpc(fn, args);
+        expect(error, `a signed-in account can call ${fn}`).not.toBeNull();
+    }
+
+    // Tables aren't readable with the public key at all, not even as empty results
+    for (const table of ['files', 'deliveries', 'delivery_recipients', 'activity', 'verification_codes', 'owner_settings']) {
+        const { error } = await anon.from(table).select('*').limit(1);
+        expect(error, `anon can read ${table}`).not.toBeNull();
+    }
+
+    // Nothing changed
+    const { data: after } = await service.from('files').select('deleted_at').eq('id', file!.id).single();
+    expect(after!.deleted_at).toBeNull();
+    const { data: recipientAfter } = await service.from('delivery_recipients').select('download_count').eq('id', recipient!.id).single();
+    expect(recipientAfter!.download_count).toBe(recipient!.download_count);
+});

@@ -5,6 +5,35 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [2.0.1] — 2026-10-09
+
+**Security fix. Upgrade promptly.** Apply the new migration (`20261009000200_lock-down-database-api.sql`)
+in the SQL editor or with `npx supabase db push`, then deploy. See
+[Later upgrades](docs/DEPLOYMENT.md#later-upgrades).
+
+### Security
+
+- **Privileged database functions were callable with the public key.** Supabase serves every function in the
+  `public` schema at `/rest/v1/rpc/…` and grants it to the `anon` and `authenticated` roles. 2.0 only revoked
+  `PUBLIC`, and 1.x granted two of them to signed-in users. With the anon key (shipped to every browser), a
+  file id (visible to recipients) and the owner's id (part of the public logo URL), someone could:
+  - soft-delete or delete the owner's files;
+  - purge files waiting in the trash;
+  - use up a recipient's download allowance, given their id;
+  - run the 1.x conversion.
+
+  These functions are now callable only by the service role, which is how the app has always called them.
+  Functions added later are server-only by default. A new end-to-end test makes the same calls with the
+  public key and with the owner's session, and checks that every one is refused.
+- **Signed-out visitors can no longer see tables through the database API.** Row-level security already
+  hid every row. The `anon` role now has no table access at all, which also hides the schema from GraphQL.
+- **Removed a 1.x policy** that let any role insert into the read-only access log.
+- **Pinned the search path** of the last two functions without one.
+
+### Performance
+
+- Indexes for four foreign keys that had none. Also drops a duplicate 1.x index.
+
 ## [2.0.0] — 2026-10-08
 
 Gatekeep becomes **secure file delivery with receipts** ([docs/PRODUCT.md](docs/PRODUCT.md)). Files are no
