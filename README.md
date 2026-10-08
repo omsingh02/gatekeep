@@ -6,8 +6,8 @@
 </p>
 
 <p align="center">
-  <b>Secure file delivery with receipts.</b><br />
-  Send it. See who opened it. Take it back.
+  <b>Send it. See who opened it. Take it back.</b><br />
+  Open-source, self-hosted file delivery for people who send files that matter.
 </p>
 
 <p align="center">
