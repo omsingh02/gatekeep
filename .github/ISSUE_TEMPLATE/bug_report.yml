@@ -20,8 +20,8 @@ body:
       label: Steps to reproduce
       placeholder: |
         1. Upload a file
-        2. Grant access to …
-        3. Open the share link …
+        2. Send a delivery to …
+        3. Open the delivery link …
     validations:
       required: true
   - type: dropdown
@@ -35,7 +35,7 @@ body:
     id: version
     attributes:
       label: Gatekeep version or commit
-      placeholder: v1.0.0
+      placeholder: v2.0.0
   - type: textarea
     id: logs
     attributes:

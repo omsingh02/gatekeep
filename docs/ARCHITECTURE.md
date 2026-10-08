@@ -30,7 +30,7 @@ Gatekeep v2 is built around **deliveries**: one link that sends files to (or req
 | `app/api/account` | `password` (change, confirming the current one), `forgot-password` (recovery link to `/reset-password`) |
 | `app/api/status` | What's set up: email, cron secret, sign-ups, storage, migrations, owner |
 | `app/api/cron/keep-alive` | Daily: DB ping, "access ending soon" emails, purge old codes, notify about pending request uploads |
-| `app/api/files`, `app/api/folders` | Owner file library (upload via presign + confirm, move, rename, delete, folders) |
+| `app/api/files`, `app/api/folders` | Owner file library (upload via presign + confirm, move, rename, delete, folders); `files/[id]/url` signs a preview or download URL for the owner |
 | `lib/deliveries/` | The domain: link codes, sessions, email codes, activity + throttles, notifications, settings, parsing/serialization, uploads, CSV, status, daily jobs |
 | `lib/email/` | `transport.ts` (Resend or in-memory for tests), `template.ts` (the one light email layout), `messages.ts` (every email) |
 | `lib/auth/owner.ts` | Who the owner is (`app_metadata.role = 'owner'` or `OWNER_EMAILS`) |
@@ -54,7 +54,7 @@ Every table has row-level security with owner-scoped policies. The server uses t
 ## Key flows
 
 ### Sending a delivery
-1. The owner uploads files to the library (`/api/files/presign` → browser uploads straight to Storage → `/api/files/confirm`).
+1. The owner uploads files to the library (`/api/files/presign` → browser uploads straight to Storage → `/api/files/confirm`). Files are private content with no link of their own (`short_code` stays null); only deliveries have links.
 2. `POST /api/deliveries` creates the delivery with its files and recipients in one call. Each password recipient gets their **own** generated password, returned once to the owner and never emailed. Email recipients get an invite that names the sender, links to the delivery and explains how they'll get in. It contains no secret.
 
 ### Recipient sign-in
@@ -64,7 +64,7 @@ Every table has row-level security with owner-scoped policies. The server uses t
    - **Credentials are checked first.** "Not on this delivery" and "wrong code/password" answer identically, with a dummy bcrypt check for timing.
    - **Then** the recipient's end date is checked.
    - On success it sets an httpOnly, SameSite=Strict `gk_{code}` cookie (24 hours) and records `opened`.
-4. Signed in, the page lists files. `POST /api/d/{code}/files/{id}` returns a 60-second signed URL; `preview` is free, and `download` counts atomically. **Download all** counts as one download and returns per-file URLs; the browser builds the zip.
+4. Signed in, the page lists files. `POST /api/d/{code}/files/{id}` with `action: preview | download` re-checks access and returns a signed URL (see [Signed URLs](#signed-urls)); `preview` is free, and `download` counts atomically. **Download all** counts as one download and returns per-file URLs (5 minutes, fetched one after another); the browser builds the zip.
 5. `GET /api/d/{code}/stream` (SSE) watches the recipient row via Realtime, with a 30-second polling fallback. It tells an open page the moment access is removed or ends.
 
 ### Requests (receiving files)
@@ -93,7 +93,7 @@ Migration `20261009000000_deliveries.sql` runs `migrate_v1_to_v2()`, which can s
 - Every v1 grant becomes a password recipient; a public grant becomes "anyone".
 - The v1 access log is copied into `activity`.
 
-Sessions aren't carried over, so recipients unlock once more. A link created by the v1 dashboard after the upgrade is converted the first time `/api/d/{code}` sees it.
+Sessions aren't carried over, so recipients unlock once more. A link the 1.x dashboard created after the migration ran (before 2.0 was deployed) is converted the first time someone opens it: `/{code}` and `/api/d/{code}` look for a v1 file with that code and run `migrate_v1_to_v2()` again. Only v1 files have a short code, so this never turns a 2.0 upload into a delivery. The upgrade steps are in [DEPLOYMENT.md](DEPLOYMENT.md#upgrading-from-1x-to-20).
 
 ## Security model
 
@@ -104,9 +104,22 @@ Sessions aren't carried over, so recipients unlock once more. A link created by 
   - Failed guesses are counted in `activity`: 20 per IP and 100 per delivery per 15 minutes. Code requests: 10 per IP per 10 minutes.
   - An in-memory limiter adds a per-instance first line.
   - The limits hold across serverless instances because they're counted in the database.
-- **Files:** a private bucket served only through short-lived signed URLs after the recipient's access is re-checked. Request uploads are checked against type, size and count limits, and the size is read from Storage.
+- **Files:** a private bucket served only through short-lived [signed URLs](#signed-urls), issued after the recipient's access is re-checked. Request uploads are checked against type, size and count limits, and the size is read from Storage.
 - **Headers:** CSP, HSTS, X-Frame-Options, nosniff, Referrer- and Permissions-Policy (`next.config.ts`).
 
-## v1 routes during the transition
+### Signed URLs
 
-The recipient page at `/{code}` is the v2 delivery page (`app/[shortCode]/page.tsx` + `components/recipient/`), for v1 links too. The v1 dashboard and its routes (`/api/access`, `/api/verify`, `/api/access/download|stream`, `/api/analytics`) still work on top of the v1 tables (`file_access`, `access_log`). They're replaced by the v2 screens and removed, together with those tables, in v2.1. Until then, a grant changed in the v1 dashboard after its link was converted isn't reflected on the delivery: change access on the delivery instead.
+Files never pass through the app: the browser fetches them from Storage with a signed URL that the app issues after checking access (`lib/utils/signedUrls.ts`). Anyone holding a URL can use it until it expires, and removing someone's access can't recall a URL they already have, so lifetimes are kept as short as each use allows:
+
+| URL | Lifetime | Why |
+|---|---|---|
+| Download (owner or recipient) | 60 seconds | Only has to start the download; a download in progress isn't cut off when its URL expires |
+| Preview of an image, PDF, text or Office file | 60 seconds | Loaded once, straight away |
+| Preview of **video or audio** | 15 minutes | Browsers fetch media in ranges while it plays and on every seek, so each of those requests needs a URL that still works |
+| Download all | 5 minutes | The browser fetches the files one after another into the zip |
+
+**The trade-off for media.** A 60-second media URL broke seeking deep into a long video after the first minute. A 15-minute URL keeps most viewing working without a round trip, at the cost of a wider window: the delivery page still closes the moment access is removed, but a media URL copied out of it keeps working for up to 15 minutes instead of one. Previews never count as downloads, but every URL issued is on the record as `previewed`. Even 15 minutes runs out during a long film, so the preview players (`components/product/ResumableMedia.tsx`, used by the recipient's preview stage and the owner's file preview) handle expiry too: when the media element fails after it had loaded, they ask for a fresh URL, which re-checks access (a removed recipient gets the removed page instead) and is recorded as another preview, then carry on from the same `currentTime`, still playing if it was. Media that never loaded, or fails again within 10 seconds of a fresh URL, shows an error with **Try again** instead of looping.
+
+## v1 data after the upgrade
+
+Every link, at `/{code}`, is served by the delivery page (`app/[shortCode]/page.tsx` + `components/recipient/`) and the recipient API, for 1.x links too. The 1.x API (`/api/access`, `/api/verify`, `/api/analytics`) and its screens are gone. The 1.x tables `file_access` and `access_log` are kept, read-only, for one release: `migrate_v1_to_v2()` reads them (at upgrade, and to convert a late 1.x link), and nothing else does. Their types in `lib/types.ts` are marked `@deprecated`. v2.1 drops the tables, the `legacy_*` columns and the late-link conversion.
