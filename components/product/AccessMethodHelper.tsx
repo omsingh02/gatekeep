@@ -24,6 +24,8 @@ export interface AccessMethodHelperProps {
     variant?: 'dialog' | 'inline';
     /** dialog variant: the trigger's text */
     triggerLabel?: string;
+    /** dialog variant: a quiet text link (default, for forms) or a secondary button (FAQ) */
+    triggerStyle?: 'link' | 'button';
     /** Replaces the apply button under the recommendation (e.g. a link to the guide on the website) */
     renderAction?: (method: AccessMethodChoice) => ReactNode;
     /** `website`: speaks about "your Gatekeep" instead of "this Gatekeep" */
@@ -239,6 +241,7 @@ function HelperFlow({
 export function AccessMethodHelper({
     variant = 'dialog',
     triggerLabel = 'Help me choose',
+    triggerStyle = 'link',
     onApply,
     renderAction,
     audience,
@@ -267,9 +270,15 @@ export function AccessMethodHelper({
 
     return (
         <>
-            <Button variant="link" size="sm" className={cn('text-caption font-medium text-secondary', className)} onClick={() => setOpen(true)}>
-                {triggerLabel}
-            </Button>
+            {triggerStyle === 'button' ? (
+                <Button className={className} onClick={() => setOpen(true)}>
+                    {triggerLabel}
+                </Button>
+            ) : (
+                <Button variant="link" size="sm" className={cn('text-caption font-medium text-secondary', className)} onClick={() => setOpen(true)}>
+                    {triggerLabel}
+                </Button>
+            )}
             <Dialog
                 open={open}
                 onClose={() => setOpen(false)}

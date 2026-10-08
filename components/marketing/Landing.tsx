@@ -617,7 +617,7 @@ function Faq() {
                         the secret to travel on a different channel than the link. In those cases, use a password and send it separately.
                     </p>
                     <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
-                        <AccessHelper variant="dialog" className="text-body" />
+                        <AccessHelper variant="dialog" />
                         <TextLink href={ACCESS_METHODS_URL}>Read the guide</TextLink>
                     </div>
                 </>

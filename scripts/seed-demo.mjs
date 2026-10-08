@@ -284,6 +284,7 @@ async function main() {
         display_name: 'Avery Stone',
         organization: 'Northwind Studio',
         recipient_message: 'Files from Northwind Studio. Reach me at avery@northwind.example with any questions.',
+        homepage: 'landing',
     });
     if (settingsError) throw settingsError;
 

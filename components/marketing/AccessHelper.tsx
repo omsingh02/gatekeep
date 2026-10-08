@@ -32,6 +32,7 @@ export function AccessHelper({ variant = 'inline', className }: { variant?: 'inl
     return (
         <AccessMethodHelper
             variant={variant}
+            triggerStyle="button"
             audience="website"
             renderAction={(method) => <GuideLink method={method} />}
             className={className}

@@ -62,16 +62,16 @@ test('the product page answers "email code or password?" in a few questions', as
     const helper = page.locator('#access').getByRole('region', { name: 'Which should I use?' });
 
     // Knows the email, can send email, no second channel: email code
-    await helper.getByRole('button', { name: 'Yes' }).click();
+    await helper.getByRole('button', { name: 'Yes', exact: true }).click();
     await expect(helper.getByText('Can your Gatekeep send email?')).toBeVisible();
-    await helper.getByRole('button', { name: 'Yes' }).click();
-    await helper.getByRole('button', { name: 'No' }).click();
+    await helper.getByRole('button', { name: 'Yes', exact: true }).click();
+    await helper.getByRole('button', { name: 'No', exact: true }).click();
     await expect(helper.getByTestId('access-method-result')).toContainText('Use an email code');
     await expect(helper.getByRole('link', { name: 'How email codes work' })).toHaveAttribute('href', /ACCESS-METHODS\.md#email-code-recommended$/);
 
     // No email address: a password, after one question
     await helper.getByRole('button', { name: 'Start over' }).click();
-    await helper.getByRole('button', { name: 'No' }).click();
+    await helper.getByRole('button', { name: 'No', exact: true }).click();
     await expect(helper.getByTestId('access-method-result')).toContainText('Use a password');
     await expect(helper.getByRole('link', { name: 'How passwords work' })).toBeVisible();
 
