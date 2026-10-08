@@ -6,7 +6,7 @@
  */
 
 import { Resend } from 'resend';
-import { env } from './env';
+import { env } from '../env';
 
 // Initialize Resend client (lazy - only when needed)
 let resendClient: Resend | null = null;
