@@ -112,7 +112,17 @@ export default function FileUploader({ open, onClose, target, uploads }: FileUpl
                 <span className="flex h-10 w-10 items-center justify-center rounded-md border border-default bg-raised text-secondary">
                     <Upload aria-hidden strokeWidth={1.75} className="h-5 w-5" />
                 </span>
-                <p className="mt-3 text-body text-primary">{dragging ? 'Drop to upload' : 'Drop files or a folder here'}</p>
+                <p className="mt-3 text-body text-primary">
+                    {dragging ? (
+                        'Drop to upload'
+                    ) : (
+                        <>
+                            {/* Phones can't drag and drop (as on the request page) */}
+                            <span className="hidden sm:inline">Drop files or a folder here</span>
+                            <span className="sm:hidden">Choose files to upload</span>
+                        </>
+                    )}
+                </p>
                 <p className="mt-1 text-caption text-tertiary">Up to {formatSize(getMaxFileSize())} per file</p>
                 <div className="mt-4 flex flex-wrap justify-center gap-2">
                     <Button variant="secondary" icon={<Upload {...ICON} />} onClick={() => fileInput.current?.click()}>

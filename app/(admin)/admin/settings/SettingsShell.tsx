@@ -41,8 +41,16 @@ function Shell({ children }: { children: ReactNode }) {
         <div className="flex flex-col gap-6">
             <PageHeader title="Settings" description="How you appear to recipients, your defaults and how this Gatekeep is set up." />
             <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
-                <div ref={mobileNav} className="lg:hidden">
-                    <TabNav label="Settings sections" items={items} onNavigate={onNavigate} className="-mx-1 border-b border-subtle px-1" />
+                {/* Like the dashboard tabs: scrolls sideways without a scrollbar, the right edge fades to show there's more */}
+                <div ref={mobileNav} className="border-b border-subtle lg:hidden">
+                    <div className="[mask-image:linear-gradient(to_right,black_calc(100%-24px),transparent)]">
+                        <TabNav
+                            label="Settings sections"
+                            items={items}
+                            onNavigate={onNavigate}
+                            className="-mx-1 -mb-px px-1 pr-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                        />
+                    </div>
                 </div>
                 <TabNav
                     label="Settings sections"
