@@ -21,17 +21,19 @@ if (!url || !serviceKey) {
 }
 
 const rl = createInterface({ input: process.stdin, output: process.stdout });
-const ask = (question, hidden = false) => new Promise((resolve) => {
-    if (hidden) {
-        // Echo nothing while the password is typed
-        rl._writeToOutput = (s) => { if (s.includes(question)) rl.output.write(s); };
-    }
-    rl.question(question, (answer) => {
-        rl._writeToOutput = (s) => rl.output.write(s);
-        if (hidden) rl.output.write('\n');
-        resolve(answer.trim());
-    });
-});
+// Read answers line by line. rl.question() drops lines that arrive before it is called,
+// which breaks piped input (scripts, Docker, CI) — an async iterator queues them instead.
+const lines = rl[Symbol.asyncIterator]();
+let muted = false;
+rl._writeToOutput = (s) => { if (!muted) rl.output.write(s); }; // hide typed password characters
+const ask = async (question, hidden = false) => {
+    rl.output.write(question);
+    muted = hidden;
+    const { value = '' } = await lines.next();
+    muted = false;
+    if (hidden) rl.output.write('\n');
+    return value.trim();
+};
 
 const email = await ask('Admin email: ');
 const password = await ask('Password (min 8 chars): ', true);
