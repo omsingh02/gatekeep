@@ -7,7 +7,7 @@ import { Skeleton, ConfirmDialog, PromptDialog, Modal, useToast, EmptyState, Fil
 import { FileMetadata, FileTypeFilter, DateFilter, Folder } from '@/lib/types';
 import { formatFileSize, getFileTypeInfo } from '@/lib/utils/fileTypes';
 import { formatDateTime } from '@/lib/utils/date';
-import { useDebouncedValue, useIsMobile } from '@/lib/utils/hooks';
+import { useDebouncedValue } from '@/lib/utils/hooks';
 import AccessManager from './AccessManager';
 
 type ViewMode = 'table' | 'grid';
@@ -38,19 +38,19 @@ export default function FileList({
     const [showAccessManager, setShowAccessManager] = useState(false);
 
     // Responsive: detect mobile to default to grid view
-    const isMobile = useIsMobile(768);
 
     // View mode state - default to grid on mobile
     const [viewMode, setViewMode] = useState<ViewMode>('table');
     const [hasSetInitialViewMode, setHasSetInitialViewMode] = useState(false);
 
-    // Set initial view mode based on screen size (only once on mount)
+    // Set initial view mode based on screen size (only once on mount). useIsMobile is still
+    // false on this first pass (it measures in its own effect), so read the width directly.
     useEffect(() => {
         if (!hasSetInitialViewMode) {
-            setViewMode(isMobile ? 'grid' : 'table');
+            setViewMode(window.innerWidth < 768 ? 'grid' : 'table');
             setHasSetInitialViewMode(true);
         }
-    }, [isMobile, hasSetInitialViewMode]);
+    }, [hasSetInitialViewMode]);
 
     // Selection state
     const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set());
