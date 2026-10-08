@@ -153,6 +153,8 @@ export function SignIn({ code, kind, sender, access, notice, onSignedIn, onBlock
     };
 
     const verb = kind === 'request' ? 'asked you for files' : 'sent you files';
+    // A request is something they upload to, so it isn't called a delivery
+    const noun = kind === 'request' ? 'request' : 'delivery';
     const intro =
         mode === 'email'
             ? `Enter your email address and we'll send you a code to ${kind === 'request' ? 'continue' : 'open them'}.`
@@ -229,7 +231,7 @@ export function SignIn({ code, kind, sender, access, notice, onSignedIn, onBlock
                                 />
                             </Field>
                             <Button type="submit" variant="primary" size="lg" fullWidth loading={busy}>
-                                Open delivery
+                                Open {noun}
                             </Button>
                             <div className="flex flex-wrap items-center justify-between gap-x-4">
                                 <Button
@@ -300,7 +302,7 @@ export function SignIn({ code, kind, sender, access, notice, onSignedIn, onBlock
                                 />
                             </Field>
                             <Button type="submit" variant="primary" size="lg" fullWidth loading={busy}>
-                                Unlock delivery
+                                Unlock {noun}
                             </Button>
                         </>
                     )}
@@ -320,8 +322,8 @@ export function SignIn({ code, kind, sender, access, notice, onSignedIn, onBlock
                 <p className="flex items-start gap-2 border-t border-subtle pt-4 text-caption text-tertiary">
                     <Lock {...ICON} className="mt-px h-3.5 w-3.5 shrink-0" />
                     {access.emailCode || access.password
-                        ? `Only people ${sender.name} added can open this delivery.`
-                        : `Only people with the password can open this delivery.`}
+                        ? `Only people ${sender.name} added can open this ${noun}.`
+                        : `Only people with the password can open this ${noun}.`}
                 </p>
             </Card>
         </CardPage>

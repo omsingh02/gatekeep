@@ -188,7 +188,7 @@ export function RecipientApp({ code, kind, sender: initialSender, access, initia
         case 'gone':
             return (
                 <StateCard icon={FileQuestion} title="This link doesn't lead anywhere">
-                    This delivery isn&apos;t available anymore. Ask {sender.name} to send it again.
+                    This {kind === 'request' ? 'request' : 'delivery'} isn&apos;t available anymore. Ask {sender.name} to send it again.
                 </StateCard>
             );
         case 'error':
@@ -196,7 +196,7 @@ export function RecipientApp({ code, kind, sender: initialSender, access, initia
                 <StateCard
                     icon={WifiOff}
                     sender={sender}
-                    title="We couldn't load this delivery"
+                    title={kind === 'request' ? "We couldn't load this request" : "We couldn't load this delivery"}
                     action={
                         <Button
                             variant="primary"
