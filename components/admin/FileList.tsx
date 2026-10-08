@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
+import { Share2 } from 'lucide-react';
 import { Skeleton, ConfirmDialog, PromptDialog, Modal, useToast, EmptyState, FileTypeIcon } from '@/components/ui';
 import { FileMetadata, FileTypeFilter, DateFilter, Folder } from '@/lib/types';
 import { formatFileSize, getFileTypeInfo } from '@/lib/utils/fileTypes';
@@ -65,7 +66,7 @@ export default function FileList({
     const [folders, setFolders] = useState<Folder[]>([]);
     const [currentFolder, setCurrentFolder] = useState<{ id: string | null; name: string }>({ id: null, name: 'Home' });
     const [breadcrumbs, setBreadcrumbs] = useState<Array<{ id: string | null; name: string }>>([{ id: null, name: 'Home' }]);
-    const [isFoldersLoading, setIsFoldersLoading] = useState(false);
+    const [, setIsFoldersLoading] = useState(false);
 
     // Dialog state
     const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; fileId: string | null; fileName: string; type: 'file' | 'folder' }>({
@@ -124,7 +125,7 @@ export default function FileList({
             } else {
                 setFolders([]);
             }
-        } catch (error) {
+        } catch {
             setFolders([]);
         } finally {
             setIsFoldersLoading(false);
@@ -176,7 +177,7 @@ export default function FileList({
                 setTotalCount(data.totalCount || data.files?.length || 0);
                 setTotalPages(data.totalPages || 1);
             }
-        } catch (error) {
+        } catch {
             // Error handled silently
         } finally {
             setIsLoading(false);
@@ -207,7 +208,7 @@ export default function FileList({
             } else {
                 toast.error(`Failed to delete ${type}`);
             }
-        } catch (error) {
+        } catch {
             toast.error(`Failed to delete ${type}`);
         } finally {
             setDeleteConfirm({ isOpen: false, fileId: null, fileName: '', type: 'file' });
@@ -279,7 +280,7 @@ export default function FileList({
 
             setFolderPrompt({ isOpen: false, isLoading: false, mode: 'create' });
             await fetchFolders();
-        } catch (error) {
+        } catch {
             toast.error(folderPrompt.mode === 'rename' ? 'Failed to rename folder' : 'Failed to create folder');
         } finally {
             setFolderPrompt((prev) => ({ ...prev, isLoading: false }));
@@ -345,7 +346,7 @@ export default function FileList({
                 const data = await response.json();
                 setAllFolders(data.folders || []);
             }
-        } catch (error) {
+        } catch {
             // Silently fail
         }
     }, []);
@@ -382,7 +383,7 @@ export default function FileList({
             clearSelection();
             await fetchFiles();
             await fetchFolders();
-        } catch (error) {
+        } catch {
             toast.error('Failed to move some items');
         } finally {
             setMoveDialog({ isOpen: false, isLoading: false });
@@ -403,7 +404,7 @@ export default function FileList({
             clearSelection();
             await fetchFiles();
             await fetchFolders();
-        } catch (error) {
+        } catch {
             toast.error('Failed to delete some items');
         } finally {
             setBulkDeleteConfirm(false);
@@ -998,11 +999,11 @@ export default function FileList({
                                                         <button
                                                             onClick={() => handleManageAccess(file)}
                                                             title="Manage access"
-                                                            style={{ padding: '0.3rem', backgroundColor: 'transparent', border: 'none', borderRadius: '3px', cursor: 'pointer', color: '#6b7280' }}
+                                                            aria-label={`Share ${file.originalFilename}`}
+                                                            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', padding: '0.3rem 0.65rem', marginRight: '0.25rem', backgroundColor: 'rgba(99, 102, 241, 0.12)', border: '1px solid rgba(129, 140, 248, 0.35)', borderRadius: '6px', cursor: 'pointer', color: '#c7d2fe', fontSize: '0.75rem', fontWeight: 600 }}
                                                         >
-                                                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                                            </svg>
+                                                            <Share2 size={13} aria-hidden />
+                                                            Share
                                                         </button>
                                                         <button
                                                             onClick={() => confirmDelete(file)}
@@ -1232,8 +1233,9 @@ export default function FileList({
                                             <button onClick={() => copyShortLink(file.shortCode)} title="Copy link" style={{ padding: '0.4rem', backgroundColor: 'transparent', border: 'none', borderRadius: '3px', cursor: 'pointer', color: '#6b7280' }}>
                                                 <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
                                             </button>
-                                            <button onClick={() => handleManageAccess(file)} title="Manage access" style={{ padding: '0.4rem', backgroundColor: 'transparent', border: 'none', borderRadius: '3px', cursor: 'pointer', color: '#6b7280' }}>
-                                                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                                            <button onClick={() => handleManageAccess(file)} title="Manage access" aria-label={`Share ${file.originalFilename}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', padding: '0.3rem 0.65rem', marginRight: '0.25rem', backgroundColor: 'rgba(99, 102, 241, 0.12)', border: '1px solid rgba(129, 140, 248, 0.35)', borderRadius: '6px', cursor: 'pointer', color: '#c7d2fe', fontSize: '0.75rem', fontWeight: 600 }}>
+                                                <Share2 size={14} aria-hidden />
+                                                Share
                                             </button>
                                             <button onClick={() => confirmDelete(file)} title="Delete" style={{ padding: '0.4rem', backgroundColor: 'transparent', border: 'none', borderRadius: '3px', cursor: 'pointer', color: '#ef4444' }}>
                                                 <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>

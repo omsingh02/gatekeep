@@ -170,8 +170,9 @@ async function captureAdmin(browser) {
     await page.keyboard.press('Escape');
     await page.reload();
 
-    // Analytics tab of the dashboard
-    await page.getByRole('button', { name: /^analytics$/i }).click();
+    // Analytics page
+    await page.goto(`${APP_URL}/admin/analytics`);
+    await page.getByText('Most Accessed Files').waitFor({ timeout: 20000 });
     await page.waitForLoadState('networkidle').catch(() => {});
     await settle(page, 1500);
     await shot(page, 'analytics');

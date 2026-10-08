@@ -1,16 +1,12 @@
 'use client';
 
-import { useState, useEffect, lazy, Suspense } from 'react';
-import { Card, LoadingSpinner } from '@/components/ui';
+import { useState, useEffect } from 'react';
+import { LoadingSpinner } from '@/components/ui';
 import FileUploader from '@/components/admin/FileUploader';
 import FileList from '@/components/admin/FileList';
 import ShareList from '@/components/admin/ShareList';
 
-// Lazy load analytics - only loaded when user clicks the tab
-const AnalyticsDashboard = lazy(() => import('@/components/admin/AnalyticsDashboard'));
-
 export default function DashboardPage() {
-    const [activeTab, setActiveTab] = useState<'overview' | 'analytics'>('overview');
     const [stats, setStats] = useState({
         totalFiles: 0,
         totalSize: 0,
@@ -30,7 +26,7 @@ export default function DashboardPage() {
                 const data = await response.json();
                 setStats(data);
             }
-        } catch (error) {
+        } catch {
             // Error handled silently
         } finally {
             setIsLoading(false);
@@ -43,62 +39,20 @@ export default function DashboardPage() {
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            {/* Header with Tabs */}
+            {/* Header */}
             <div>
                 <h1 style={{
                     fontSize: '1.5rem',
                     fontWeight: 600,
                     color: '#e0e0e0',
                     margin: 0,
-                    marginBottom: '1rem',
-                }}>Dashboard</h1>
-                
-                <div style={{
-                    display: 'flex',
-                    gap: '0.5rem',
-                    padding: '0.25rem',
-                    backgroundColor: '#0b0c11',
-                    borderRadius: '8px',
-                    border: '1px solid #12141c',
-                    width: 'fit-content',
-                }}>
-                    <button
-                        onClick={() => setActiveTab('overview')}
-                        style={{
-                            padding: '0.625rem 1.25rem',
-                            fontSize: '0.875rem',
-                            fontWeight: 500,
-                            color: activeTab === 'overview' ? '#ffffff' : '#9ca3af',
-                            backgroundColor: activeTab === 'overview' ? '#12141c' : 'transparent',
-                            border: activeTab === 'overview' ? '1px solid #23263a' : '1px solid transparent',
-                            borderRadius: '6px',
-                            cursor: 'pointer',
-                            transition: 'all 0.15s',
-                        }}
-                    >
-                        Overview
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('analytics')}
-                        style={{
-                            padding: '0.625rem 1.25rem',
-                            fontSize: '0.875rem',
-                            fontWeight: 500,
-                            color: activeTab === 'analytics' ? '#ffffff' : '#9ca3af',
-                            backgroundColor: activeTab === 'analytics' ? '#12141c' : 'transparent',
-                            border: activeTab === 'analytics' ? '1px solid #23263a' : '1px solid transparent',
-                            borderRadius: '6px',
-                            cursor: 'pointer',
-                            transition: 'all 0.15s',
-                        }}
-                    >
-                        Analytics
-                    </button>
-                </div>
+                    marginBottom: '0.5rem',
+                }}>Overview</h1>
+                <p style={{ fontSize: '0.875rem', color: '#9ca3af', margin: 0 }}>
+                    Upload files, then share each one with exactly the people who need it.
+                </p>
             </div>
 
-            {activeTab === 'overview' ? (
-                <>
             {/* Stats Grid */}
             <div style={{
                 display: 'grid',
@@ -270,16 +224,6 @@ export default function DashboardPage() {
                 }}>Recent Shares</h2>
                 <ShareList key={refreshKey} limit={5} showViewAll={true} viewAllHref="/admin/access" />
             </div>
-                </>
-            ) : (
-                <Suspense fallback={
-                    <div style={{ textAlign: 'center', padding: '3rem' }}>
-                        <LoadingSpinner />
-                    </div>
-                }>
-                    <AnalyticsDashboard />
-                </Suspense>
-            )}
         </div>
     );
 }

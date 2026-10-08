@@ -46,3 +46,6 @@ next-env.d.ts
 # supabase cli
 supabase/.temp
 !.env.demo.example
+
+# Claude Code agent worktrees
+.claude/worktrees/
