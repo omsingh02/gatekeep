@@ -68,7 +68,8 @@ export function Menu({ items, label, trigger, align = 'end', header, className }
     }, [open]);
 
     useEffect(() => {
-        if (open) listRef.current?.querySelector<HTMLElement>(`[data-index="${actionable[active]?.i}"]`)?.focus();
+        // preventScroll: focusing inside the fixed list must not scroll the page or a table, which would close it
+        if (open) listRef.current?.querySelector<HTMLElement>(`[data-index="${actionable[active]?.i}"]`)?.focus({ preventScroll: true });
     }, [open, active, actionable]);
 
     const close = (refocus = true) => {
