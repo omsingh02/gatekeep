@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { listActivity, parseActivityFilters, type ActivityItem } from '@/lib/deliveries/activity-query';
 import { toCsv } from '@/lib/deliveries/csv';
-import { jsonError, requireOwner, serverError } from '@/lib/deliveries/http';
+import { jsonError, requireOwner, serverError } from '@/lib/api/http';
 
 const ROUTE = '/api/activity/export';
 const MAX_ROWS = 50_000;

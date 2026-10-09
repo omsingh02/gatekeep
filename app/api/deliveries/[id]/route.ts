@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { isUuid, jsonError, readJson, requireOwner, serverError } from '@/lib/deliveries/http';
+import { isUuid, jsonError, readJson, requireOwner, serverError } from '@/lib/api/http';
 import { deliveryDetail, loadOwnedDelivery, ownedFileIds, replaceDeliveryFiles } from '@/lib/deliveries/owner';
 import type { Database } from '@/lib/types';
 

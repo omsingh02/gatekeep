@@ -7,7 +7,7 @@ import { passwordResetEmail } from '@/lib/email/messages';
 import { rateLimit } from '@/lib/utils/ratelimit';
 import { logWarning } from '@/lib/utils/logger';
 import { clientInfo, runAfterResponse } from '@/lib/deliveries/activity';
-import { jsonError, readJson, serverError } from '@/lib/deliveries/http';
+import { jsonError, readJson, serverError } from '@/lib/api/http';
 
 const ROUTE = '/api/account/forgot-password';
 const MESSAGE = 'If that email belongs to the owner of this Gatekeep, we sent it a link to reset the password. It works for 1 hour.';

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { recordActivity } from '@/lib/deliveries/activity';
 import { RECIPIENT_MESSAGES } from '@/lib/deliveries/labels';
-import { serverError } from '@/lib/deliveries/http';
+import { serverError } from '@/lib/api/http';
 import { requireRecipient, resolveDelivery } from '@/lib/deliveries/recipient-api';
 
 /** Long enough for the browser to start fetching every file for the zip. */

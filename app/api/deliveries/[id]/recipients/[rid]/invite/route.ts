@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emailConfigured } from '@/lib/email/transport';
-import { isUuid, jsonError, requireOwner, serverError } from '@/lib/deliveries/http';
+import { isUuid, jsonError, requireOwner, serverError } from '@/lib/api/http';
 import { loadOwnedDelivery, sendInvite } from '@/lib/deliveries/owner';
 import { getSender } from '@/lib/deliveries/settings';
 

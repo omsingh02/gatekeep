@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { recordActivity } from '@/lib/deliveries/activity';
 import { RECIPIENT_MESSAGES } from '@/lib/deliveries/labels';
-import { isUuid, readJson, serverError } from '@/lib/deliveries/http';
+import { isUuid, readJson, serverError } from '@/lib/api/http';
 import { requireRecipient, resolveDelivery } from '@/lib/deliveries/recipient-api';
 import { signedUrlSeconds } from '@/lib/utils/signedUrls';
 

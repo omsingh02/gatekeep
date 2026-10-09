@@ -5,17 +5,32 @@ import { validateAuth } from '@/lib/utils/validation';
 import { getSignedIn } from '@/lib/auth/twoFactor';
 import { logError } from '@/lib/utils/logger';
 
-/** The signed-in owner, or the 401/403 response to return. */
+/**
+ * Helpers every API route shares. The conventions they implement (auth, error shape and codes,
+ * envelopes, pagination, ids) are written up in docs/ARCHITECTURE.md → API conventions.
+ */
+
+/** Every error response: a sentence written for people (docs/VOICE.md) and a stable code for programs. */
+export interface ApiErrorBody {
+    error: string;
+    code: string;
+}
+
+/**
+ * The signed-in owner, or the 401/403 response to return. The session is checked with the auth
+ * server, and an account with two-factor sign-in must have entered its code in this session.
+ */
 export async function requireOwner(route: string, method: string): Promise<User | NextResponse> {
     const supabase = await createClient();
     return validateAuth(await getSignedIn(supabase), route, method);
 }
 
-export function jsonError(error: string, status: number, code?: string): NextResponse {
-    return NextResponse.json(code ? { error, code } : { error }, { status });
+export function jsonError(error: string, status: number, code: string): NextResponse<ApiErrorBody> {
+    return NextResponse.json({ error, code }, { status });
 }
 
-export function serverError(route: string, userId: string | undefined, action: string, err: unknown): NextResponse {
+/** Log an unexpected error and answer 500 ERR_SERVER, without internals. */
+export function serverError(route: string, userId: string | undefined, action: string, err: unknown): NextResponse<ApiErrorBody> {
     logError(route, userId, action, err);
     return jsonError('Something went wrong on our side. Try again in a moment.', 500, 'ERR_SERVER');
 }

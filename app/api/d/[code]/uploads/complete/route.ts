@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { runAfterResponse } from '@/lib/deliveries/activity';
-import { serverError } from '@/lib/deliveries/http';
+import { serverError } from '@/lib/api/http';
 import { notifyUploads } from '@/lib/deliveries/notifications';
 import { requireRecipient, resolveDelivery } from '@/lib/deliveries/recipient-api';
 

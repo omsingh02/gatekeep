@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sanitizeFilename } from '@/lib/utils/sanitization';
 import { recordActivity } from '@/lib/deliveries/activity';
-import { readJson, serverError } from '@/lib/deliveries/http';
+import { readJson, serverError } from '@/lib/api/http';
 import { requireRecipient, resolveDelivery } from '@/lib/deliveries/recipient-api';
 import { UPLOAD_PATH, uploadProblem } from '@/lib/deliveries/uploads';
 

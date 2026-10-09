@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient as createServerSupabase } from '@/lib/supabase/server';
 import { env } from '@/lib/env';
 import { rateLimit } from '@/lib/utils/ratelimit';
-import { jsonError, readJson, requireOwner, serverError } from '@/lib/deliveries/http';
+import { jsonError, readJson, requireOwner, serverError } from '@/lib/api/http';
 import { OWNER_PASSWORD_MIN } from '@/lib/utils/passwordStrength';
 import { cleanCode, codeError, codeProblem, hasTwoFactor } from '@/lib/auth/twoFactor';
 

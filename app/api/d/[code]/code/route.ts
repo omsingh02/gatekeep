@@ -6,7 +6,7 @@ import { rateLimit } from '@/lib/utils/ratelimit';
 import { sanitizeUserIdentifier } from '@/lib/utils/sanitization';
 import { clientInfo, codeRequestsThrottled, recordActivity, runAfterResponse } from '@/lib/deliveries/activity';
 import { RECIPIENT_MESSAGES } from '@/lib/deliveries/labels';
-import { readJson, serverError } from '@/lib/deliveries/http';
+import { readJson, serverError } from '@/lib/api/http';
 import { resolveDelivery } from '@/lib/deliveries/recipient-api';
 import { getSender } from '@/lib/deliveries/settings';
 import { issueCode } from '@/lib/deliveries/verification';

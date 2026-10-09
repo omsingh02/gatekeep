@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { jsonError, requireOwner, serverError } from '@/lib/deliveries/http';
+import { jsonError, requireOwner, serverError } from '@/lib/api/http';
 import { getOwnerSettings, logoUrl } from '@/lib/deliveries/settings';
 
 const ROUTE = '/api/settings/logo';
