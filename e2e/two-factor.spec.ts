@@ -122,7 +122,7 @@ test('turning it on in Settings → Account', async ({ browser, baseURL }) => {
 
         // The QR code, and the setup key for people who can't scan it
         await expect(section.getByRole('img', { name: 'QR code that adds Gatekeep to your authenticator app' })).toHaveAttribute('src', /^data:image\/svg\+xml/);
-        await expect(section.getByText(/whoever manages this Gatekeep's server can turn two-factor sign-in off/)).toContainText('npm run reset-two-factor');
+        await expect(section.getByText(/Whoever manages this Gatekeep's server can turn two-factor sign-in off/)).toContainText('npm run reset-two-factor');
         secret = (await section.getByLabel('Setup key').innerText()).trim();
         expect(secret).toMatch(/^[A-Z2-7]{16,}$/);
         const pending = await factorsOf(userId);
