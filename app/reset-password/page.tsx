@@ -6,9 +6,11 @@ import { ArrowLeft, CheckCircle2, Link2Off } from 'lucide-react';
 import { Button, Callout, Skeleton } from '@/components/ds';
 import { AuthCard, AuthFooterLink } from '@/components/account/AuthCard';
 import { NewPasswordFields, validateNewPassword } from '@/components/account/NewPasswordFields';
+import { TwoFactorCodeStep } from '@/components/account/TwoFactorCodeStep';
+import { getSignedIn, needsTwoFactorCode } from '@/lib/auth/twoFactor';
 import { createClient } from '@/lib/supabase/client';
 
-type State = 'checking' | 'ready' | 'invalid' | 'done';
+type State = 'checking' | 'code' | 'ready' | 'invalid' | 'done';
 
 /** Set after a reset link is verified, so a reload of this page keeps the form instead of "link expired". */
 const RECOVERY_FLAG = 'gatekeep-password-recovery';
@@ -66,7 +68,9 @@ async function startRecovery(): Promise<boolean> {
     return false;
 }
 
-function updateError(err: { code?: string; message?: string }): { field?: string; form?: string; expired?: boolean } {
+function updateError(err: { code?: string; message?: string }): { field?: string; form?: string; expired?: boolean; codeNeeded?: boolean } {
+    // Supabase only changes the password of an account with two-factor sign-in after its code
+    if (err.code === 'insufficient_aal') return { codeNeeded: true };
     if (err.code === 'same_password') return { field: 'Choose a password you haven’t used here before.' };
     if (err.code === 'weak_password') return { field: 'Choose a longer password, with a few unrelated words.' };
     if (err.code === 'session_not_found' || err.code === 'session_expired' || err.code === 'bad_jwt') return { expired: true };
@@ -88,9 +92,12 @@ export default function ResetPasswordPage() {
         if (started.current) return;
         started.current = true;
         startRecovery()
-            .then((ok) => {
-                if (ok) window.sessionStorage.setItem(RECOVERY_FLAG, '1');
-                setState(ok ? 'ready' : 'invalid');
+            .then(async (ok) => {
+                if (!ok) return setState('invalid');
+                window.sessionStorage.setItem(RECOVERY_FLAG, '1');
+                // The link proves the email address; with two-factor sign-in on, the code comes next
+                const { data } = await getSignedIn(createClient());
+                setState(needsTwoFactorCode(data.user, data.aal) ? 'code' : 'ready');
             })
             .catch(() => setState('invalid'));
     }, []);
@@ -110,6 +117,8 @@ export default function ResetPasswordPage() {
                 if (mapped.expired) {
                     window.sessionStorage.removeItem(RECOVERY_FLAG);
                     setState('invalid');
+                } else if (mapped.codeNeeded) {
+                    setState('code');
                 } else if (mapped.field) setErrors({ password: mapped.field });
                 else setFormError(mapped.form ?? null);
                 return;
@@ -143,6 +152,20 @@ export default function ResetPasswordPage() {
                     <Skeleton className="mt-1 h-10 w-full" />
                 </div>
             </AuthCard>
+        );
+    }
+
+    if (state === 'code') {
+        return (
+            <TwoFactorCodeStep
+                description="Enter the 6-digit code from your authenticator app, then choose a new password."
+                submitLabel="Continue"
+                onVerified={() => setState('ready')}
+                onSignedOut={() => {
+                    window.sessionStorage.removeItem(RECOVERY_FLAG);
+                    router.push('/login');
+                }}
+            />
         );
     }
 

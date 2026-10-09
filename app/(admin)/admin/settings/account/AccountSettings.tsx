@@ -6,8 +6,10 @@ import { LogOut } from 'lucide-react';
 import { Button, ConfirmDialog, Field, Input, useToast } from '@/components/ds';
 import { NewPasswordFields, validateNewPassword } from '@/components/account/NewPasswordFields';
 import { createClient } from '@/lib/supabase/client';
+import { cleanCode } from '@/lib/auth/twoFactor';
 import { readError, useDirtySection, type OwnerSettings } from '../SettingsContext';
 import { SettingsSection, WithSettings } from '../SettingsShell';
+import { TwoFactorSettings, useTwoFactor } from './TwoFactorSettings';
 
 function SignInEmail({ email }: { email: string | null }) {
     return (
@@ -19,11 +21,12 @@ function SignInEmail({ email }: { email: string | null }) {
     );
 }
 
-function ChangePassword() {
+function ChangePassword({ twoFactorOn }: { twoFactorOn: boolean }) {
     const toast = useToast();
     const [current, setCurrent] = useState('');
     const [next, setNext] = useState({ password: '', confirm: '' });
-    const [errors, setErrors] = useState<{ current?: string; password?: string; confirm?: string }>({});
+    const [code, setCode] = useState('');
+    const [errors, setErrors] = useState<{ current?: string; password?: string; confirm?: string; code?: string }>({});
     const [saving, setSaving] = useState(false);
     const dirty = Boolean(current || next.password || next.confirm);
     useDirtySection('account', dirty);
@@ -33,6 +36,7 @@ function ChangePassword() {
         const found: typeof errors = { ...validateNewPassword(next) };
         if (!current) found.current = 'Enter your current password.';
         else if (next.password && next.password === current) found.password = 'Choose a password you haven’t used here before.';
+        if (twoFactorOn && code.length !== 6) found.code = 'Enter the 6-digit code from your authenticator app.';
         setErrors(found);
         if (Object.keys(found).length) return;
 
@@ -41,19 +45,23 @@ function ChangePassword() {
             const res = await fetch('/api/account/password', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ currentPassword: current, newPassword: next.password }),
+                body: JSON.stringify({ currentPassword: current, newPassword: next.password, ...(twoFactorOn ? { code } : {}) }),
             });
             if (!res.ok) {
                 const body = await res.clone().json().catch(() => null);
                 const message = await readError(res);
                 if (body?.code === 'ERR_WRONG_PASSWORD') setErrors({ current: message });
-                else if (res.status === 400) setErrors({ password: message });
+                else if (body?.code === 'ERR_WRONG_CODE' || body?.code === 'ERR_CODE_REQUIRED') {
+                    setErrors({ code: message });
+                    setCode('');
+                } else if (res.status === 400) setErrors({ password: message });
                 else toast.error(message);
                 return;
             }
             const { signedIn } = (await res.json().catch(() => ({}))) as { signedIn?: boolean };
             setCurrent('');
             setNext({ password: '', confirm: '' });
+            setCode('');
             setErrors({});
             if (signedIn === false) {
                 // Every session ended with the change and this one couldn't be renewed
@@ -86,6 +94,19 @@ function ChangePassword() {
                 <Input type="password" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} />
             </Field>
             <NewPasswordFields values={next} onChange={setNext} errors={errors} />
+            {twoFactorOn && (
+                <Field label="Code from your authenticator app" helper="Two-factor sign-in is on, so changing your password takes a code too." error={errors.code}>
+                    <Input
+                        mono
+                        value={code}
+                        onChange={(e) => setCode(cleanCode(e.target.value))}
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        placeholder="123456"
+                        className="max-w-40 tracking-[0.2em]"
+                    />
+                </Field>
+            )}
         </SettingsSection>
     );
 }
@@ -126,10 +147,12 @@ function SignOutEverywhere() {
 }
 
 function AccountSections({ settings }: { settings: OwnerSettings }) {
+    const twoFactor = useTwoFactor();
     return (
         <div className="flex flex-col gap-6">
             <SignInEmail email={settings.ownerEmail} />
-            <ChangePassword />
+            <ChangePassword twoFactorOn={twoFactor.state.status === 'on'} />
+            <TwoFactorSettings twoFactor={twoFactor} />
             <SignOutEverywhere />
         </div>
     );
