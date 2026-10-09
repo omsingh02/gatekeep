@@ -18,6 +18,10 @@ Include steps to reproduce and the impact. You'll get an acknowledgement within 
 - **Owner only.** Only the owner account can use the dashboard and owner APIs; any other signed-in account
   gets 403. `npm run create-admin` marks its account as the owner; on instances upgraded from 1.x, set
   `OWNER_EMAILS` to the owner's sign-in email.
+- **Turn on two-factor sign-in** (**Settings → Account**). Signing in then takes a code from an authenticator
+  app as well as the password, so a leaked or guessed password isn't enough. **Settings → System status** shows
+  a warning while it's off. If you lose the phone, anyone with the server's environment can turn it off with
+  `npm run reset-two-factor` (see [Lost authenticator app](#lost-authenticator-app)). Keep that key safe.
 - **Turn off sign-ups** in Supabase (**Authentication → Providers → Email → Allow new users to sign up: off**).
   Owner-only access already keeps other accounts out, but there's no reason to let anyone create one.
 - **Keep secrets server-side.** `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY` and `CRON_SECRET` must never be
@@ -52,8 +56,34 @@ Include steps to reproduce and the impact. You'll get an acknowledgement within 
 - **Request uploads** are checked for type, size and count, and the size is read from Storage.
 - **Every attempt leaves a receipt:** opens, previews, downloads, uploads and denied attempts are recorded with
   time, IP address and browser, and can be exported as CSV (with formula-injection protection).
-- **The owner account:** changing the password confirms the current one and signs out every other browser;
-  password reset links go only to the owner's email.
+- **The owner account:** changing the password confirms the current one (and, with two-factor sign-in on, a
+  fresh code) and signs out every other browser; password reset links go only to the owner's email.
+- **Two-factor sign-in** (Supabase Auth's authenticator-app factor). It's per account, and once a code from the
+  app has been confirmed, a session that has only entered the password (Supabase's `aal1`) reaches nothing:
+  - `proxy.ts` sends every dashboard page back to the code step;
+  - owner APIs answer 403 with `ERR_TWO_FACTOR_REQUIRED`;
+  - the database refuses it too. Restrictive row-level security policies on every table the signed-in role can
+    reach, and on the `files` and `branding` buckets, require `aal2` for an account with a verified factor. The
+    anon key is public, so without them the password alone would be enough to sign in with supabase-js and use
+    the database API directly.
+
+  A reset link also ends at the code step: Supabase only changes the password of such an account after the code.
+  Turning it off takes a fresh code. Turning it on signs out any other browser that only entered the password.
 - **Headers:** CSP, HSTS, X-Frame-Options, nosniff, Referrer-Policy and Permissions-Policy.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#security-model) for details.
+
+## Lost authenticator app
+
+Whoever runs the server can turn two-factor sign-in off for an account. With `NEXT_PUBLIC_SUPABASE_URL` and
+`SUPABASE_SERVICE_ROLE_KEY` in `.env.local` (or the environment):
+
+```bash
+npm run reset-two-factor                            # asks for the email, then for "yes"
+printf 'owner@example.com\nyes\n' | npm run reset-two-factor   # the same, without prompts
+```
+
+It removes the account's authenticator apps through Supabase's admin API, after showing what it found and asking
+to confirm. The account then signs in with its password alone; set two-factor sign-in up again straight away. If
+the password might be known to someone else too, also run `npm run create-admin` with the same email to set a new
+one: that signs out every browser and device.

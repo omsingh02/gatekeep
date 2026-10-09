@@ -27,13 +27,14 @@ Gatekeep v2 is built around **deliveries**: one link that sends files to (or req
 | `app/api/d/[code]` | Recipient: delivery view, `code` (request an email code), `session` (sign in/out), `files/[fileId]` (preview/download URL), `download-all`, `uploads` (+ `confirm`, `complete`) for requests, `stream` (SSE for live removal) |
 | `app/api/activity` | Owner: activity feed (filters, cursor pagination), `summary` (period totals and deliveries open now) and `export` (CSV) |
 | `app/api/settings` | Owner settings; `logo` upload to the public `branding` bucket |
-| `app/api/account` | `password` (change, confirming the current one), `forgot-password` (recovery link to `/reset-password`) |
-| `app/api/status` | What's set up: email, cron secret, sign-ups, storage, migrations, owner |
+| `app/api/account` | `password` (change, confirming the current one, and a code when two-factor sign-in is on), `forgot-password` (recovery link to `/reset-password`) |
+| `app/api/status` | What's set up: email, cron secret, sign-ups, storage, migrations, owner, two-factor sign-in |
 | `app/api/cron/keep-alive` | Daily: DB ping, "access ending soon" emails, purge old codes, notify about pending request uploads |
 | `app/api/files`, `app/api/folders` | Owner file library (upload via presign + confirm, move, rename, delete, folders); `files/[id]/url` signs a preview or download URL for the owner |
 | `lib/deliveries/` | The domain: link codes, sessions, email codes, activity + throttles, notifications, settings, parsing/serialization, uploads, CSV, status, daily jobs |
 | `lib/email/` | `transport.ts` (Resend or in-memory for tests), `template.ts` (the one light email layout), `messages.ts` (every email) |
 | `lib/auth/owner.ts` | Who the owner is (`app_metadata.role = 'owner'` or `OWNER_EMAILS`) |
+| `lib/auth/twoFactor.ts` | Two-factor sign-in: whether an account has it on, the session's `aal`, `getSignedIn()` for `proxy.ts` and `validateAuth`, code wording |
 | `lib/types.ts` | `Database` type mirroring the migrations; update it with every migration |
 
 ## Data model
@@ -98,6 +99,18 @@ Sessions aren't carried over, so recipients unlock once more. A link the 1.x das
 ## Security model
 
 - **Owner only:** `validateAuth` rejects any signed-in account that isn't the owner (403). `proxy.ts` and the admin layout redirect such accounts to `/login`.
+- **Two-factor sign-in** (Supabase Auth TOTP, set up in Settings → Account):
+  - Supabase marks each session `aal1` (password only) or `aal2` (password and a code). An account with a verified factor needs `aal2` everywhere, checked per account, so it works for any number of accounts.
+  - `getSignedIn()` (`lib/auth/twoFactor.ts`) checks the session's token with the auth server, which also returns the account's factors, and reads that token's `aal`.
+  - `proxy.ts` and the admin layout send a password-only session from `/admin/**` (and `/login`) to `/login?step=code`.
+  - `validateAuth` answers 403 `ERR_TWO_FACTOR_REQUIRED`. Without an `aal` it fails closed.
+  - The database: migration `20261009000300` adds a RESTRICTIVE policy, *Two-factor sign-in needs the code*, to every public table the `authenticated` role can reach, and one to `storage.objects` for the `files` and `branding` buckets. Both call `private.gk_two_factor_ok()`, Supabase's documented "require `aal2` if the user has a verified factor" check. It's a SECURITY DEFINER function in a schema the API doesn't serve, because `authenticated` can't read `auth.mfa_factors`. This matters because the anon key is public: without it, the password alone could sign in with supabase-js and use the REST API. **A new public table needs the same policy:** re-run the migration, or add it in the new one.
+  - The server's service-role client bypasses row-level security, so recipient flows are unaffected.
+  - Setup (`app/(admin)/admin/settings/account/TwoFactorSettings.tsx`) enrolls with `mfa.enroll`, shows the QR code and setup key, and only counts as on after `challengeAndVerify`. Unfinished setups are removed before a new one, on cancel and on leaving the page.
+  - Turning it off takes a fresh code (Supabase only removes a verified factor from an `aal2` session).
+  - A reset link (`/reset-password`) asks for the code before the new password: Supabase refuses to change the password of such an account from an `aal1` session.
+  - Changing the password in Settings takes a code too: a throwaway session signs in, enters the code and changes the password itself (ending every other session), and the browser takes that session over, so it stays `aal2`.
+  - Lost phone: `npm run reset-two-factor` removes the account's factors with the service role (`auth.admin.mfa`). See [SECURITY.md](../SECURITY.md#lost-authenticator-app).
 - **Recipients:** sign in per delivery with an email code or password. Sessions are random tokens, stored hashed and sent as httpOnly cookies. Codes are hashed and bound to the recipient. Nothing about a recipient's access (end date, downloads) is revealed before their credentials match.
 - **No enumeration:** code requests, sign-in failures and forgot-password all answer identically whether or not the person exists.
 - **Throttling:**
@@ -109,7 +122,7 @@ Sessions aren't carried over, so recipients unlock once more. A link the 1.x das
   - Every database function the app calls (counters, file deletion, the 1.x conversion) runs as `SECURITY DEFINER`. It is executable only by the service role, which only the server holds.
   - Functions are server-only by default: a new one has to be granted on purpose.
   - The `anon` role has no table access, so signed-out visitors can't reach the database API at all. The owner's session reads tables under row-level security.
-  - `e2e/security.spec.ts` checks all of this with the public key.
+  - `e2e/security.spec.ts` checks all of this with the public key, and `e2e/two-factor.spec.ts` checks two-factor sign-in at every layer (UI, proxy, owner API, REST and Storage with the public key).
 - **Headers:** CSP, HSTS, X-Frame-Options, nosniff, Referrer- and Permissions-Policy (`next.config.ts`).
 
 ### Signed URLs

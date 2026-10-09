@@ -19,6 +19,9 @@ For your own server, see [DOCKER.md](DOCKER.md) after steps 1–3.
 
    No CLI? Paste each file in `supabase/migrations/` into the SQL editor, **in filename order**.
 3. **Authentication → Providers → Email**: turn off *Allow new users to sign up*. Only the admin signs in.
+4. **Authentication → Multi-Factor**: keep **Authenticator app (TOTP)** enabled (the default on supabase.com),
+   for two-factor sign-in. Self-hosted Supabase: set `GOTRUE_MFA_TOTP_ENROLL_ENABLED=true` and
+   `GOTRUE_MFA_TOTP_VERIFY_ENABLED=true` on the auth service.
 
 ## 2. Environment variables
 
@@ -45,8 +48,8 @@ In Supabase → **Authentication → URL Configuration**:
   links straight to that page (using `NEXT_PUBLIC_APP_URL`), so it works without this entry, but the entry
   lets recovery emails sent by Supabase itself (for example from the Supabase dashboard) land there too.
 
-Settings → **System status** in the dashboard checks email, the daily job, sign-ups, storage and
-migrations, and says what to change for each.
+Settings → **System status** in the dashboard checks email, the daily job, sign-ups, storage, migrations and
+two-factor sign-in, and says what to change for each.
 
 ## 3. Owner account
 
@@ -58,6 +61,24 @@ Only the **owner** can use the dashboard. `create-admin` marks the account it cr
 A signed-in account that isn't the owner is sent back to the sign-in page, and the admin APIs return 403,
 so even if sign-ups are enabled on your Supabase project, nobody else can use your instance. Keep sign-ups
 off anyway (step 1).
+
+### Two-factor sign-in
+
+Once you're signed in, turn it on in **Settings → Account → Two-factor sign-in**: scan the QR code with an
+authenticator app (or enter the setup key) and confirm with a code. From then on, signing in takes the password
+and a code from the app, and the database itself refuses a session that only entered the password.
+
+**Lost the phone?** On a machine with the project's keys in `.env.local` (or the environment):
+
+```bash
+npm run reset-two-factor     # asks for the account's email, shows what it found, then asks you to type "yes"
+printf 'owner@example.com\nyes\n' | npm run reset-two-factor   # non-interactive (scripts, Docker)
+```
+
+It removes the account's authenticator apps with the service-role key, so the password alone signs in again.
+Set two-factor sign-in up again right after. If the password may have leaked too, also set a new one with
+`npm run create-admin`, which signs out every device. With Docker, run it from the cloned repository on the
+host (`npm ci` once): like `create-admin`, it reads `.env` as well as `.env.local`.
 
 ## 4. Vercel
 
@@ -204,3 +225,20 @@ Update to the new release, read [CHANGELOG.md](../CHANGELOG.md), and apply any n
   twice (`IF NOT EXISTS` / `ON CONFLICT DO NOTHING`) where possible.
 
 Settings → **System status** says "Database needs migrating" when this version expects a newer schema.
+
+### Two-factor sign-in (after 2.0.1)
+
+Apply `20261009000300_two-factor-sign-in.sql` **before** deploying. It adds the database half of two-factor
+sign-in: a restrictive policy on every table the signed-in role can reach and on the `files` and `branding`
+buckets, and the `private.gk_two_factor_ok()` function they call. Nothing changes for accounts without
+two-factor sign-in, for recipients, or for the app's own queries (they use the service role).
+
+- Run it as the `postgres` role: the SQL editor and `npx supabase db push` both do. It stops with an error if
+  the role can't read `auth.mfa_factors`, instead of leaving the check silently open.
+- It's safe to run twice. If you've added tables of your own to the `public` schema, running it again adds the
+  policy to them too.
+- Check that **Authentication → Multi-Factor → Authenticator app (TOTP)** is enabled
+  ([step 1](#1-supabase-project)), then turn two-factor sign-in on in **Settings → Account**. **System status**
+  shows a warning until you do.
+- If you deploy before migrating, the dashboard and owner APIs still ask for the code, but the database API
+  doesn't yet, and System status says "Database needs migrating".

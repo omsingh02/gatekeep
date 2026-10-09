@@ -5,6 +5,29 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+**Apply the new migration** (`20261009000300_two-factor-sign-in.sql`) before deploying. See
+[Two-factor sign-in (after 2.0.1)](docs/DEPLOYMENT.md#two-factor-sign-in-after-201).
+
+### Added
+
+- **Two-factor sign-in** for the owner account, with an authenticator app (Supabase Auth TOTP).
+  - Turn it on in **Settings → Account**: scan the QR code (or type the setup key) and confirm with a code. A
+    setup that was never confirmed is cleaned up, so starting again always works.
+  - Signing in asks for the 6-digit code after the password, with **Use a different account** to sign out.
+    A password reset link also asks for the code, before the new password.
+  - Turning it off, or changing the password, takes a fresh code.
+  - **Settings → System status** warns while it's off.
+  - Lost the phone? `npm run reset-two-factor` turns it off for an account with the service-role key, after
+    asking to confirm ([SECURITY.md](SECURITY.md#lost-authenticator-app)).
+
+### Security
+
+- **Two-factor sign-in holds at every layer.** A session that has only entered the password can't open the
+  dashboard (`proxy.ts` sends it to the code step) or use an owner API (403 `ERR_TWO_FACTOR_REQUIRED`). It can't
+  use the database API with the public anon key either: restrictive row-level security policies on every table
+  the signed-in role can reach, and on the `files` and `branding` buckets, require the code (`aal2`) for an
+  account that has two-factor sign-in on. The app's server (service role) and recipients are unaffected.
+
 ## [2.0.1] — 2026-10-09
 
 **Security fix. Upgrade promptly.** Apply the new migration (`20261009000200_lock-down-database-api.sql`)
