@@ -44,6 +44,7 @@ test('a signed-in account that is not the owner cannot use the dashboard or any 
     const { data: delivery } = await admin.from('deliveries').select('id').is('deleted_at', null).limit(1).single();
     const { data: recipient } = await admin.from('delivery_recipients').select('id').eq('delivery_id', delivery!.id).limit(1).maybeSingle();
     const { data: file } = await admin.from('files').select('id').is('deleted_at', null).limit(1).single();
+    const { data: folder } = await admin.from('folders').select('id').is('deleted_at', null).limit(1).single();
 
     const context = await newVisitor(browser, baseURL!);
     const page = await context.newPage();
@@ -61,9 +62,19 @@ test('a signed-in account that is not the owner cannot use the dashboard or any 
         const api = page.request;
         const calls: [string, () => ReturnType<APIRequestContext['get']>][] = [
             ['GET /api/files', () => api.get('/api/files')],
+            ['GET /api/files/stats', () => api.get('/api/files/stats')],
+            ['GET /api/files/{id}', () => api.get(`/api/files/${file!.id}`)],
             ['PATCH /api/files/{id}', () => api.patch(`/api/files/${file!.id}`, { data: { folderId: null } })],
+            ['DELETE /api/files/{id}', () => api.delete(`/api/files/${file!.id}`)],
             ['GET /api/files/{id}/url', () => api.get(`/api/files/${file!.id}/url?action=download`)],
-            ['POST /api/files/presign', () => api.post('/api/files/presign', { data: { filename: 'x.txt', fileSize: 1, mimeType: 'text/plain' } })],
+            ['POST /api/files/presign', () => api.post('/api/files/presign', { data: { name: 'x.txt', size: 1, mimeType: 'text/plain' } })],
+            ['POST /api/files/confirm', () => api.post('/api/files/confirm', { data: { path: 'x', name: 'x.txt', mimeType: 'text/plain' } })],
+            ['GET /api/folders', () => api.get('/api/folders?all=true')],
+            ['POST /api/folders', () => api.post('/api/folders', { data: { name: `Nope ${RUN_ID}` } })],
+            ['GET /api/folders/{id}', () => api.get(`/api/folders/${folder!.id}`)],
+            ['PATCH /api/folders/{id}', () => api.patch(`/api/folders/${folder!.id}`, { data: { name: `Nope ${RUN_ID}` } })],
+            ['DELETE /api/folders/{id}', () => api.delete(`/api/folders/${folder!.id}`)],
+            ['GET /api/folders/{id}/contents', () => api.get(`/api/folders/${folder!.id}/contents`)],
             ['GET /api/deliveries', () => api.get('/api/deliveries')],
             ['POST /api/deliveries', () => api.post('/api/deliveries', { data: { title: 'Nope', fileIds: [file!.id] } })],
             ['GET /api/deliveries/{id}', () => api.get(`/api/deliveries/${delivery!.id}`)],
@@ -219,11 +230,11 @@ test('files can be moved into a folder and back', async ({ page }) => {
 
     const moved = await page.request.patch(`/api/files/${fileId}`, { data: { folderId: folder.id } });
     expect(moved.ok()).toBeTruthy();
-    expect((await moved.json()).file.folder_id).toBe(folder.id);
+    expect((await moved.json()).file).toMatchObject({ folderId: folder.id, folderName: folder.name });
 
     const back = await page.request.patch(`/api/files/${fileId}`, { data: { folderId: null } });
     expect(back.ok()).toBeTruthy();
-    expect((await back.json()).file.folder_id).toBeNull();
+    expect((await back.json()).file).toMatchObject({ folderId: null, folderName: null });
 });
 
 test("the database API only serves Gatekeep's server: no privileged functions or tables for the public key", async () => {

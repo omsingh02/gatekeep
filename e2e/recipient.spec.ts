@@ -18,7 +18,7 @@ test.beforeAll(async ({ browser, baseURL }) => {
     await signInAsAdmin(page);
     state.owner = state.ownerContext.request;
     await state.owner.patch('/api/settings', { data: { displayName: 'Avery Stone', organization: 'Northwind Studio' } });
-    const files = (await (await state.owner.get('/api/files?limit=50')).json()).files as { id: string; mimeType?: string; mime_type?: string }[];
+    const files = (await (await state.owner.get('/api/files?limit=50')).json()).files as { id: string }[];
     state.fileIds = files.slice(0, 2).map((f) => f.id);
     expect(state.fileIds).toHaveLength(2);
 });
@@ -228,9 +228,9 @@ test('request: the recipient sees what was asked for, uploads files with progres
 
         // The owner has them, in the request's folder
         const files = (await (await state.owner!.get(`/api/files?folderId=${folders[0].id}&limit=100`)).json()).files as {
-            originalFilename: string;
+            name: string;
         }[];
-        const names = files.map((f) => f.originalFilename);
+        const names = files.map((f) => f.name);
         expect(names).toEqual(expect.arrayContaining(['signed-contract.pdf', 'notes.md']));
 
         // One more fits; then the request is full
@@ -270,12 +270,12 @@ test('media previews outlive a minute, and an expired URL is replaced without lo
     const owner = state.owner!;
     const name = `tone-${RUN_ID}.wav`;
     const wav = toneWav(6);
-    const presign = await owner.post('/api/files/presign', { data: { filename: name, fileSize: wav.length, mimeType: 'audio/wav' } });
+    const presign = await owner.post('/api/files/presign', { data: { name, size: wav.length, mimeType: 'audio/wav' } });
     expect(presign.ok()).toBeTruthy();
-    const { uploadUrl, metadata } = await presign.json();
+    const { uploadUrl, path } = await presign.json();
     expect((await owner.put(uploadUrl, { data: wav, headers: { 'content-type': 'audio/wav' } })).ok()).toBeTruthy();
-    const confirmed = await owner.post('/api/files/confirm', { data: { metadata } });
-    expect(confirmed.ok()).toBeTruthy();
+    const confirmed = await owner.post('/api/files/confirm', { data: { path, name, mimeType: 'audio/wav' } });
+    expect(confirmed.status()).toBe(201);
     const fileId = (await confirmed.json()).file.id as string;
 
     // Media previews get 15 minutes; downloads still get one

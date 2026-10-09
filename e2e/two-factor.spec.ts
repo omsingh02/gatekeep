@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { test, expect, type Locator, type Page } from '@playwright/test';
+import { test, expect, type APIResponse, type Locator, type Page } from '@playwright/test';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { RUN_ID, newVisitor, outbox } from './helpers';
 import { localSupabaseEnv } from './supabase-env';
@@ -22,14 +22,29 @@ const anonClient = () =>
 
 const account = { email: `two-factor-${RUN_ID}@example.test`, password: `Two-factor-${RUN_ID}-pass` };
 const WRONG_CODE = "That code doesn't match. Enter the code your authenticator app shows now.";
-const OWNER_APIS = ['/api/deliveries', '/api/files', '/api/activity', '/api/settings', '/api/status'];
 
 let userId = '';
 let folderId = '';
+let fileId = '';
 let secret = '';
 let totpAvailable = true;
 
 const storagePath = () => `${userId}/two-factor-probe.txt`;
+
+/** Owner APIs that read, with every Files and Folders route */
+const ownerApis = () => [
+    '/api/deliveries',
+    '/api/activity',
+    '/api/settings',
+    '/api/status',
+    '/api/files',
+    '/api/files/stats',
+    `/api/files/${fileId}`,
+    `/api/files/${fileId}/url?action=download`,
+    '/api/folders',
+    `/api/folders/${folderId}`,
+    `/api/folders/${folderId}/contents`,
+];
 
 test.beforeAll(async () => {
     const { data, error } = await service.auth.admin.createUser({ ...account, email_confirm: true, app_metadata: { role: 'owner' } });
@@ -42,6 +57,21 @@ test.beforeAll(async () => {
     folderId = folder!.id;
     const { error: uploadError } = await service.storage.from('files').upload(storagePath(), 'two-factor probe', { contentType: 'text/plain' });
     expect(uploadError).toBeNull();
+    const { data: file, error: fileError } = await service
+        .from('files')
+        .insert({
+            filename: storagePath(),
+            original_filename: 'two-factor-probe.txt',
+            file_path: storagePath(),
+            file_size: 16,
+            mime_type: 'text/plain',
+            uploaded_by: userId,
+            folder_id: folderId,
+        })
+        .select('id')
+        .single();
+    expect(fileError).toBeNull();
+    fileId = file!.id;
 
     // Supabase Auth only offers authenticator apps when supabase/config.toml turns them on, which a local
     // stack started before that change doesn't have yet. CI always starts from the current config.
@@ -60,6 +90,7 @@ test.beforeAll(async () => {
 test.afterAll(async () => {
     if (!userId) return;
     await service.storage.from('files').remove([storagePath()]);
+    await service.from('files').delete().eq('uploaded_by', userId);
     await service.from('folders').delete().eq('uploaded_by', userId);
     await service.from('owner_settings').delete().eq('owner_id', userId);
     await service.auth.admin.deleteUser(userId);
@@ -170,14 +201,31 @@ test('signing in asks for the code, and nothing works with the password alone', 
             await expectCodeStep(page);
         }
         // …and every owner API refuses it
-        for (const path of OWNER_APIS) {
+        const refused = { error: 'Enter the code from your authenticator app to finish signing in.', code: 'ERR_TWO_FACTOR_REQUIRED' };
+        for (const path of ownerApis()) {
             const res = await page.request.get(path);
             expect(res.status(), path).toBe(403);
-            expect(await res.json(), path).toEqual({
-                error: 'Enter the code from your authenticator app to finish signing in.',
-                code: 'ERR_TWO_FACTOR_REQUIRED',
-            });
+            expect(await res.json(), path).toEqual(refused);
         }
+        // Changes to files and folders too, which leave everything as it was
+        const changes: [string, () => Promise<APIResponse>][] = [
+            ['POST /api/files/presign', () => page.request.post('/api/files/presign', { data: { name: 'x.txt', size: 1, mimeType: 'text/plain' } })],
+            ['POST /api/files/confirm', () => page.request.post('/api/files/confirm', { data: { path: storagePath(), name: 'x.txt', mimeType: 'text/plain' } })],
+            ['PATCH /api/files/{id}', () => page.request.patch(`/api/files/${fileId}`, { data: { name: 'renamed.txt', folderId: null } })],
+            ['DELETE /api/files/{id}', () => page.request.delete(`/api/files/${fileId}`)],
+            ['POST /api/folders', () => page.request.post('/api/folders', { data: { name: `Refused ${RUN_ID}` } })],
+            ['PATCH /api/folders/{id}', () => page.request.patch(`/api/folders/${folderId}`, { data: { name: 'Renamed' } })],
+            ['DELETE /api/folders/{id}', () => page.request.delete(`/api/folders/${folderId}`)],
+        ];
+        for (const [name, call] of changes) {
+            const res = await call();
+            expect(res.status(), name).toBe(403);
+            expect(await res.json(), name).toEqual(refused);
+        }
+        const { data: fileRow } = await service.from('files').select('original_filename, folder_id, deleted_at').eq('id', fileId).single();
+        expect(fileRow).toEqual({ original_filename: 'two-factor-probe.txt', folder_id: folderId, deleted_at: null });
+        const { data: folderRows } = await service.from('folders').select('name, deleted_at').eq('uploaded_by', userId);
+        expect(folderRows).toEqual([{ name: `Two-factor ${RUN_ID}`, deleted_at: null }]);
 
         // A wrong code is refused
         await enterCode(page, 'Code', wrongTotp(secret), 'Sign in');
@@ -186,7 +234,7 @@ test('signing in asks for the code, and nothing works with the password alone', 
         // The right one signs in, and everything works
         await enterCode(page, 'Code', totp(secret), 'Sign in');
         await page.waitForURL('**/admin');
-        for (const path of OWNER_APIS) expect((await page.request.get(path)).status(), path).toBe(200);
+        for (const path of ownerApis()) expect((await page.request.get(path)).status(), path).toBe(200);
         await page.goto('/login');
         await page.waitForURL('**/admin');
     } finally {

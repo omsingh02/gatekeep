@@ -1,5 +1,14 @@
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
+import { createClient } from '@supabase/supabase-js';
 import { RUN_ID, SIGN_IN_HEADING, newVisitor, signInAsAdmin, unlock } from './helpers';
+import { localSupabaseEnv } from './supabase-env';
+
+function serviceClient() {
+    const env = localSupabaseEnv();
+    return createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+        auth: { autoRefreshToken: false, persistSession: false },
+    });
+}
 
 // One owner sends one file to one recipient, end to end: the file is uploaded on the Files page
 // (and gets no link of its own), sent through a delivery with the owner API, and opened on the
@@ -49,13 +58,13 @@ test('owner uploads a file from the Files page', async () => {
 });
 
 test('the uploaded file has no link of its own; the owner sends it to a person', async () => {
-    const list = await (await ownerPage.request.get(`/api/files?search=${encodeURIComponent(fileName)}&showAll=true`)).json();
-    const file = list.files.find((f: { originalFilename: string }) => f.originalFilename === fileName);
+    const list = await (await ownerPage.request.get(`/api/files?search=${encodeURIComponent(fileName)}&all=true`)).json();
+    const file = list.files.find((f: { name: string }) => f.name === fileName);
     expect(file).toBeTruthy();
     expect(file).not.toHaveProperty('shortCode');
     // Files are private content: only deliveries have links (docs/decisions/0001-deliveries.md)
-    const row = await (await ownerPage.request.get(`/api/files/${file.id}`)).json();
-    expect(row.file.short_code).toBeNull();
+    const { data: row } = await serviceClient().from('files').select('short_code').eq('id', file.id).single();
+    expect(row!.short_code).toBeNull();
 
     const created = await ownerPage.request.post('/api/deliveries', {
         data: {
