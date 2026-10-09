@@ -4,7 +4,7 @@ import { env } from '@/lib/env';
 import packageJson from '../../package.json';
 
 /** The schema version this build of the app expects (latest migration that defines it). */
-export const EXPECTED_SCHEMA_VERSION = '20261009000100';
+export const EXPECTED_SCHEMA_VERSION = '20261009000200';
 
 export interface StatusCheck {
     id: 'email' | 'cron' | 'signups' | 'storage' | 'migrations' | 'owner';
