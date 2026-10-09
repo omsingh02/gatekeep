@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { validateAuth } from '@/lib/utils/validation';
+import { getSignedIn } from '@/lib/auth/twoFactor';
 import { sanitizeFolderName } from '@/lib/utils/sanitization';
 import { logError, logWarning } from '@/lib/utils/logger';
 
@@ -9,7 +10,7 @@ export async function GET(request: NextRequest) {
     let userId: string | undefined;
     try {
         const supabase = await createClient();
-        const userData = await supabase.auth.getUser();
+        const userData = await getSignedIn(supabase);
         const user = validateAuth(userData, '/api/folders', 'GET');
         if (user instanceof NextResponse) return user;
         userId = user.id;
@@ -81,7 +82,7 @@ export async function POST(request: NextRequest) {
     let userId: string | undefined;
     try {
         const supabase = await createClient();
-        const userData = await supabase.auth.getUser();
+        const userData = await getSignedIn(supabase);
         const user = validateAuth(userData, '/api/folders', 'POST');
         if (user instanceof NextResponse) return user;
         userId = user.id;

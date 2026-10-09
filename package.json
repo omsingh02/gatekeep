@@ -33,6 +33,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "create-admin": "node scripts/create-admin.mjs",
+    "reset-two-factor": "node scripts/reset-two-factor.mjs",
     "seed:demo": "node scripts/seed-demo.mjs",
     "screenshots": "node scripts/screenshots.mjs",
     "test:e2e": "playwright test",

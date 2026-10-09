@@ -39,6 +39,7 @@ How Gatekeep speaks, in the dashboard, on recipient pages, in emails and in docs
 | A named person on a delivery | **recipient** in lists; **person/people** in sentences ("Add 3 people") | user, identifier, member, viewer |
 | How a recipient proves it's them | **access method**: **email code** or **password** | verification type, auth mode, OTP (except in docs) |
 | The 6-digit code | **code** ("We sent a code to m•••@acme.co") | OTP, token, PIN |
+| The owner's second sign-in step | **two-factor sign-in**; the code comes from an **authenticator app**; the text version of the QR code is the **setup key** | 2FA, MFA, TOTP, factor, AAL, OTP app, secret |
 | Unnamed access protected by one password | **Anyone with the password** | public link, public access, public share |
 | Permission in verbs | **give access**, **remove access** | grant, revoke, ACL |
 | The message to a recipient | **invite** | notification, access details |

@@ -96,8 +96,8 @@ per batch.
 
 Keep your files in folders, then send them from anywhere with **Send**. In Settings, set the name and
 organization recipients see, your logo and a message for every delivery page, sharing defaults (access method,
-end date, download limit), notifications, your password, and a **System status** page that checks email, the
-daily job, sign-ups, storage and migrations. The homepage of your instance can be this product page or a
+end date, download limit), notifications, your password, **two-factor sign-in** with an authenticator app, and
+a **System status** page that checks email, the daily job, sign-ups, storage, migrations and two-factor sign-in. The homepage of your instance can be this product page or a
 simple branded welcome.
 
 <table>
@@ -206,6 +206,9 @@ More in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 - **Owner-only dashboard.** Only the owner's account can use the dashboard and its API, even if sign-ups are
   left on in Supabase.
+- **Two-factor sign-in.** Turn it on in Settings → Account, and signing in takes a code from an authenticator
+  app as well as the password. It's enforced in the app, its API and the database itself, so the password alone
+  can't reach your data through the public Supabase key either. Lost your phone? `npm run reset-two-factor`.
 - **Per-recipient access.** Each person signs in to each delivery on their own. Sessions are random tokens,
   stored hashed, sent as httpOnly, SameSite=Strict cookies. Passwords are bcrypt-hashed; email codes are hashed,
   bound to the recipient, valid for 10 minutes and 5 attempts.
@@ -245,6 +248,7 @@ see [SECURITY.md](SECURITY.md).
 | `npm run lint` | ESLint |
 | `npm run build` / `npm start` | Production build / serve it |
 | `npm run create-admin` | Create the owner account, or reset its password |
+| `npm run reset-two-factor` | Turn off two-factor sign-in for an account that lost its authenticator app |
 | `npm run seed:demo` | Fill a **local** Supabase with fictional demo data |
 | `npm run screenshots` | Regenerate the screenshots in `public/screenshots/`; see [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md) |
 

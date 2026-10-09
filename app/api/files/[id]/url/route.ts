@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logError, logWarning } from '@/lib/utils/logger';
 import { validateAuth } from '@/lib/utils/validation';
+import { getSignedIn } from '@/lib/auth/twoFactor';
 import { signedUrlSeconds } from '@/lib/utils/signedUrls';
 
 /**
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     try {
         const { id } = await params;
         const supabase = await createClient();
-        const userData = await supabase.auth.getUser();
+        const userData = await getSignedIn(supabase);
         const user = validateAuth(userData, '/api/files/[id]/url', 'GET');
         if (user instanceof NextResponse) return user;
         userId = user.id;

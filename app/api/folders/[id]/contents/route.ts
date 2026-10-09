@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { validateAuth } from '@/lib/utils/validation';
+import { getSignedIn } from '@/lib/auth/twoFactor';
 import { logError, logWarning } from '@/lib/utils/logger';
 
 export async function GET(
@@ -12,7 +13,7 @@ export async function GET(
     try {
         const { id } = await params;
         const supabase = await createClient();
-        const userData = await supabase.auth.getUser();
+        const userData = await getSignedIn(supabase);
         const user = validateAuth(userData, '/api/folders/[id]/contents', 'GET');
         if (user instanceof NextResponse) return user;
         userId = user.id;

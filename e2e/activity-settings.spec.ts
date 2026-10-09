@@ -151,9 +151,15 @@ test.describe('settings', () => {
     test('system status lists every check', async ({ page }) => {
         await signInAsAdmin(page);
         await page.goto('/admin/settings/status');
-        await expect(page.getByTestId('status-row')).toHaveCount(7);
+        await expect(page.getByTestId('status-row')).toHaveCount(8);
         await expect(page.getByText('Email is set up')).toBeVisible();
         await expect(page.getByText('Daily job is set up')).toBeVisible();
+        // The demo account doesn't use two-factor sign-in: a warning that links to where to turn it on
+        const twoFactor = page.getByTestId('status-row').filter({ hasText: 'Two-factor sign-in is off' });
+        await expect(twoFactor.getByText('Warning')).toBeVisible();
+        await twoFactor.getByRole('link', { name: 'Set up two-factor sign-in' }).click();
+        await expect(page).toHaveURL(/\/admin\/settings\/account#two-factor$/);
+        await expect(page.getByRole('button', { name: 'Set up two-factor sign-in' })).toBeVisible();
     });
 });
 

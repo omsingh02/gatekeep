@@ -7,6 +7,7 @@ import { validateFileMetadata } from '@/lib/utils/fileTypes';
 import { sanitizeFilename } from '@/lib/utils/sanitization';
 import { logError, logWarning } from '@/lib/utils/logger';
 import { validateAuth, validateRequiredFields } from '@/lib/utils/validation';
+import { getSignedIn } from '@/lib/auth/twoFactor';
 
 /**
  * POST /api/files/presign
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
 
         // Verify admin authentication
         const supabase = await createClient();
-        const userData = await supabase.auth.getUser();
+        const userData = await getSignedIn(supabase);
         const user = validateAuth(userData, '/api/files/presign', 'POST');
         if (user instanceof NextResponse) return user;
         userId = user.id;

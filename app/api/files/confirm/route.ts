@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logError, logWarning } from '@/lib/utils/logger';
 import { validateAuth, validateRequiredFields } from '@/lib/utils/validation';
+import { getSignedIn } from '@/lib/auth/twoFactor';
 
 /**
  * POST /api/files/confirm
@@ -18,7 +19,7 @@ export async function POST(request: NextRequest) {
     try {
         // Verify admin authentication
         const supabase = await createClient();
-        const userData = await supabase.auth.getUser();
+        const userData = await getSignedIn(supabase);
         const user = validateAuth(userData, '/api/files/confirm', 'POST');
         if (user instanceof NextResponse) return user;
         authUserId = user.id;

@@ -38,10 +38,21 @@ export function AuthCard({ title, description, icon: Icon, iconClassName, childr
     );
 }
 
+const footerLink = 'inline-flex items-center gap-1.5 rounded-sm text-secondary transition-colors hover:text-primary focus-ring';
+
 export function AuthFooterLink({ href, children }: { href: string; children: ReactNode }) {
     return (
-        <Link href={href} className="inline-flex items-center gap-1.5 rounded-sm text-secondary transition-colors hover:text-primary focus-ring">
+        <Link href={href} className={footerLink}>
             {children}
         </Link>
+    );
+}
+
+/** The same look as AuthFooterLink, for an action (e.g. "Use a different account", which signs out). */
+export function AuthFooterButton({ onClick, disabled, children }: { onClick: () => void; disabled?: boolean; children: ReactNode }) {
+    return (
+        <button type="button" onClick={onClick} disabled={disabled} className={`${footerLink} disabled:opacity-50`}>
+            {children}
+        </button>
     );
 }
