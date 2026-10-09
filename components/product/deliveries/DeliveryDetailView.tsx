@@ -440,17 +440,7 @@ function ReceivedPanel({ delivery }: { delivery: DeliveryDetail }) {
                 </ul>
             )}
             {preview && (
-                <FilePreviewDialog
-                    key={preview.key}
-                    file={{
-                        id: preview.file.id,
-                        originalFilename: preview.file.name,
-                        mimeType: preview.file.mimeType,
-                        fileSize: preview.file.size,
-                        updatedAt: preview.file.updatedAt,
-                    }}
-                    onClose={() => setPreview(null)}
-                />
+                <FilePreviewDialog key={preview.key} file={preview.file} onClose={() => setPreview(null)} />
             )}
         </Card>
     );

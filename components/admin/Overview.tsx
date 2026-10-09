@@ -26,7 +26,7 @@ import { ActivityRow, useExpandedRows } from '@/components/product/deliveries/Ac
 import { DeliverySummary, DeliveryTableHead, DeliveryTableRow, DeliveryTableRowSkeleton } from '@/components/product/deliveries/DeliveryRow';
 import type { ActivityItem, DeliveryListItem } from '@/components/product/deliveries/api';
 import { plural } from '@/components/product/deliveries/format';
-import type { FileMetadata } from '@/lib/types';
+import type { LibraryFile } from '@/lib/files/library';
 import FilePreviewDialog from './files/FilePreviewDialog';
 import { FileTypeIcon } from './files/FileTypeIcon';
 import { ApiError, requestJson } from './files/api';
@@ -42,7 +42,7 @@ interface OverviewData {
     size: number;
     /** null when folders couldn't be loaded */
     folders: number | null;
-    recent: FileMetadata[];
+    recent: LibraryFile[];
     /** null when deliveries couldn't be loaded */
     deliveries: { total: number; active: number | null; opens: number; complete: boolean; recent: DeliveryListItem[] } | null;
     /** null when activity couldn't be loaded */
@@ -55,7 +55,7 @@ export default function Overview() {
     const [data, setData] = useState<OverviewData | null>(null);
     const [failed, setFailed] = useState<false | 'error' | 'signed-out'>(false);
     const [attempt, setAttempt] = useState(0);
-    const [preview, setPreview] = useState<{ file: FileMetadata; key: number } | null>(null);
+    const [preview, setPreview] = useState<{ file: LibraryFile; key: number } | null>(null);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -67,8 +67,8 @@ export default function Overview() {
                 return null;
             });
         Promise.all([
-            requestJson<{ totalFiles: number; totalSize: number }>('/api/files/stats', { signal }),
-            requestJson<{ files: FileMetadata[] }>(`/api/files?showAll=true&limit=${RECENT_FILES}&sort=modified&order=desc`, { signal }),
+            requestJson<{ fileCount: number; totalSize: number }>('/api/files/stats', { signal }),
+            requestJson<{ files: LibraryFile[] }>(`/api/files?all=true&limit=${RECENT_FILES}&sort=modified&order=desc`, { signal }),
             optional(requestJson<{ deliveries: DeliveryListItem[]; total: number }>('/api/deliveries?kind=send&limit=100', { signal })),
             optional(requestJson<{ items: ActivityItem[] }>(`/api/activity?limit=${RECENT_ACTIVITY}`, { signal })),
             optional(requestJson<{ folders: unknown[] }>('/api/folders?all=true', { signal })),
@@ -77,7 +77,7 @@ export default function Overview() {
                 setFailed(false);
                 const complete = deliveries ? deliveries.deliveries.length >= deliveries.total : false;
                 setData({
-                    files: stats.totalFiles,
+                    files: stats.fileCount,
                     size: stats.totalSize,
                     folders: folders ? folders.folders.length : null,
                     recent: recent.files,
@@ -308,7 +308,7 @@ function RecentActivity({
     );
 }
 
-function RecentFiles({ files, onPreview }: { files: FileMetadata[] | null; onPreview: (file: FileMetadata) => void }) {
+function RecentFiles({ files, onPreview }: { files: LibraryFile[] | null; onPreview: (file: LibraryFile) => void }) {
     const router = useRouter();
     return (
         <Card flush className="overflow-hidden">
@@ -363,19 +363,19 @@ function RecentFiles({ files, onPreview }: { files: FileMetadata[] | null; onPre
                                   <TR key={file.id} className="hover:bg-raised">
                                       <TD strong className="w-full max-w-0">
                                           <div className="flex min-w-0 items-center gap-2.5">
-                                              <FileTypeIcon mimeType={file.mimeType} name={file.originalFilename} />
+                                              <FileTypeIcon mimeType={file.mimeType} name={file.name} />
                                               <div className="min-w-0">
                                                   <button
                                                       type="button"
-                                                      title={file.originalFilename}
+                                                      title={file.name}
                                                       onClick={() => onPreview(file)}
                                                       className="block max-w-full truncate rounded-sm text-left text-primary underline-offset-4 hover:text-strong hover:underline focus-ring"
                                                   >
-                                                      {file.originalFilename}
+                                                      {file.name}
                                                   </button>
                                                   <p className="truncate text-caption tabular-nums text-tertiary">
                                                       <span className="sm:hidden">
-                                                          {formatSize(file.fileSize)} · {formatShortDate(file.updatedAt)} ·{' '}
+                                                          {formatSize(file.size)} · {formatShortDate(file.updatedAt)} ·{' '}
                                                       </span>
                                                       {file.folderName ? `In ${file.folderName}` : 'In All files'}
                                                   </p>
@@ -383,7 +383,7 @@ function RecentFiles({ files, onPreview }: { files: FileMetadata[] | null; onPre
                                           </div>
                                       </TD>
                                       <TD numeric className="hidden whitespace-nowrap sm:table-cell">
-                                          {formatSize(file.fileSize)}
+                                          {formatSize(file.size)}
                                       </TD>
                                       <TD className="hidden whitespace-nowrap sm:table-cell">
                                           <time dateTime={file.updatedAt} title={formatFullDate(file.updatedAt)}>
@@ -395,7 +395,7 @@ function RecentFiles({ files, onPreview }: { files: FileMetadata[] | null; onPre
                                               <Button
                                                   size="sm"
                                                   icon={<Send {...ICON} />}
-                                                  aria-label={`Send ${file.originalFilename}`}
+                                                  aria-label={`Send ${file.name}`}
                                                   onClick={() => router.push(sendHref([file.id]))}
                                               >
                                                   Send

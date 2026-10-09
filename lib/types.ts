@@ -282,20 +282,6 @@ export type Database = {
 export type Tables<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Row'];
 
 // Application types
-export interface FileMetadata {
-    id: string;
-    filename: string;
-    originalFilename: string;
-    filePath: string;
-    fileSize: number;
-    mimeType: string;
-    uploadedBy: string;
-    createdAt: string;
-    updatedAt: string;
-    folderId?: string | null;
-    folderName?: string | null;
-}
-
 export type FileCategory = 'image' | 'video' | 'audio' | 'pdf' | 'document' | 'other';
 
 export type FileTypeFilter = 'all' | FileCategory | 'archive';
@@ -304,18 +290,4 @@ export interface FileTypeInfo {
     category: FileCategory;
     canPreview: boolean;
     icon: string;
-}
-
-export interface Folder {
-    id: string;
-    name: string;
-    parentId: string | null;
-    uploadedBy: string;
-    createdAt: string;
-    updatedAt: string;
-    deletedAt?: string | null;
-    // Extended fields (from GET single folder or contents)
-    subfolderCount?: number;
-    fileCount?: number;
-    path?: Array<{ id: string; name: string }>;
 }

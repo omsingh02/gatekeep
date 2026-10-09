@@ -1,37 +1,26 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { validateAuth } from '@/lib/utils/validation';
-import { getSignedIn } from '@/lib/auth/twoFactor';
+import { requireOwner, serverError } from '@/lib/api/http';
 
+const ROUTE = '/api/files/stats';
+
+/** GET /api/files/stats → { fileCount, totalSize } (bytes), over every folder. */
 export async function GET() {
+    const user = await requireOwner(ROUTE, 'GET');
+    if (user instanceof NextResponse) return user;
     try {
-        const supabase = await createClient();
-        const userData = await getSignedIn(supabase);
-        const user = validateAuth(userData, '/api/files/stats', 'GET');
-        if (user instanceof NextResponse) return user;
-
-        const adminClient = createAdminClient();
-
-        // Get total files count and size (excluding soft-deleted)
-        // Use count: 'exact' to get count in the same query
-        const { data: files, count: totalFiles, error: filesError } = await adminClient
+        const { data, count, error } = await createAdminClient()
             .from('files')
-            .select('id, file_size', { count: 'exact' })
+            .select('file_size', { count: 'exact' })
             .eq('uploaded_by', user.id)
             .is('deleted_at', null);
-
-        if (filesError) {
-            return NextResponse.json({ error: 'Failed to fetch stats' }, { status: 500 });
-        }
-
-        const totalSize = (files || []).reduce((sum, file) => sum + (file.file_size || 0), 0);
+        if (error) throw error;
 
         return NextResponse.json({
-            totalFiles: totalFiles || 0,
-            totalSize,
+            fileCount: count ?? 0,
+            totalSize: (data ?? []).reduce((sum, file) => sum + (file.file_size || 0), 0),
         });
-    } catch {
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    } catch (err) {
+        return serverError(ROUTE, user.id, 'GET', err);
     }
 }

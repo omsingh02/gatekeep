@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import type { LibraryFile, LibraryFolder } from '@/lib/files/library';
 import { getFileExtension, getMaxFileSize, isExtensionAllowed } from '@/lib/utils/fileTypes';
 import { ApiError, jsonInit, requestJson } from './api';
 import { formatSize } from './format';
@@ -30,9 +31,10 @@ export interface UploadTarget {
     name: string;
 }
 
+/** POST /api/files/presign */
 interface PresignResponse {
     uploadUrl: string;
-    metadata: Record<string, unknown>;
+    path: string;
 }
 
 const CONCURRENCY = 3;
@@ -53,7 +55,8 @@ function uploadError(error: unknown): string {
     if (error instanceof ApiError) {
         if (error.status === 0) return 'The upload stopped. Check your connection and retry.';
         if (error.status === 401) return 'You were signed out. Sign in again, then retry.';
-        if (error.code === 'ERR_FOLDER_NOT_FOUND') return "This folder doesn't exist any more. Upload to another folder.";
+        // The only thing presign and confirm look up is the folder
+        if (error.status === 404) return "This folder doesn't exist any more. Upload to another folder.";
         if (error.status === 413) return 'This file is larger than your storage allows.';
         if (error.status === 429) return 'Too many uploads in a short time. Wait a few minutes, then retry.';
         if (error.code === 'ERR_INVALID_FILE') return "This type of file can't be uploaded.";
@@ -113,14 +116,10 @@ export function useUploads(options: UseUploadsOptions = {}) {
             xhr?.abort();
         });
 
+        const upload = { name: item.file.name, mimeType: item.file.type || 'application/octet-stream', folderId: item.folderId };
         try {
             const presign = await requestJson<PresignResponse>('/api/files/presign', {
-                ...jsonInit('POST', {
-                    filename: item.file.name,
-                    fileSize: item.file.size,
-                    mimeType: item.file.type || 'application/octet-stream',
-                    folderId: item.folderId,
-                }),
+                ...jsonInit('POST', { ...upload, size: item.file.size }),
                 signal: controller.signal,
             });
 
@@ -137,13 +136,13 @@ export function useUploads(options: UseUploadsOptions = {}) {
                 request.addEventListener('error', () => reject(new ApiError('network', 0)));
                 request.addEventListener('abort', () => reject(new DOMException('Canceled', 'AbortError')));
                 request.open('PUT', presign.uploadUrl);
-                request.setRequestHeader('Content-Type', item.file.type || 'application/octet-stream');
+                request.setRequestHeader('Content-Type', upload.mimeType);
                 request.send(item.file);
             });
 
             patch(item.id, { progress: 97 });
-            const confirmed = await requestJson<{ file: { id: string } }>('/api/files/confirm', {
-                ...jsonInit('POST', { metadata: presign.metadata }),
+            const confirmed = await requestJson<{ file: LibraryFile }>('/api/files/confirm', {
+                ...jsonInit('POST', { ...upload, path: presign.path }),
                 signal: controller.signal,
             });
             patch(item.id, { status: 'done', progress: 100, fileId: confirmed.file.id });
@@ -187,12 +186,12 @@ export function useUploads(options: UseUploadsOptions = {}) {
     async function enqueueFolder(folderName: string, files: File[], parent: UploadTarget) {
         let folderId: string;
         try {
-            const created = await requestJson<{ folder: { id: string } }>('/api/folders', jsonInit('POST', { name: folderName, parentId: parent.id }));
+            const created = await requestJson<{ folder: LibraryFolder }>('/api/folders', jsonInit('POST', { name: folderName, parentId: parent.id }));
             folderId = created.folder.id;
         } catch (error) {
             if (!(error instanceof ApiError && error.code === 'ERR_CONFLICT')) throw error;
             const query = parent.id ? `?parentId=${encodeURIComponent(parent.id)}` : '';
-            const { folders } = await requestJson<{ folders: { id: string; name: string }[] }>(`/api/folders${query}`);
+            const { folders } = await requestJson<{ folders: LibraryFolder[] }>(`/api/folders${query}`);
             const existing = folders.find((f) => f.name === folderName);
             if (!existing) throw error;
             folderId = existing.id;

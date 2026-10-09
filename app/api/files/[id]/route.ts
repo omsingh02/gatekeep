@@ -1,237 +1,107 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logError, logWarning } from '@/lib/utils/logger';
-import { validateAuth } from '@/lib/utils/validation';
-import { getSignedIn } from '@/lib/auth/twoFactor';
-import { sanitizeFilename } from '@/lib/utils/sanitization';
+import { jsonError, readJson, requireOwner, serverError } from '@/lib/api/http';
+import { FILE_COLUMNS, loadOwnedFile, loadOwnedFolder, serializeFile } from '@/lib/files/library';
+import { FILE_MESSAGES, parseFileName } from '@/lib/files/rules';
 import type { Database } from '@/lib/types';
 
-export async function GET(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    let userId: string | undefined;
+const ROUTE = '/api/files/[id]';
+type Params = { params: Promise<{ id: string }> };
+
+const NOT_FOUND = () => jsonError(FILE_MESSAGES.fileNotFound, 404, 'ERR_NOT_FOUND');
+
+/** GET /api/files/{id} → { file } */
+export async function GET(_request: NextRequest, { params }: Params) {
+    const user = await requireOwner(ROUTE, 'GET');
+    if (user instanceof NextResponse) return user;
     try {
-        const { id } = await params;
-        const supabase = await createClient();
-        const userData = await getSignedIn(supabase);
-        const user = validateAuth(userData, '/api/files/[id]', 'GET');
-        if (user instanceof NextResponse) return user;
-        userId = user.id;
-
-        const adminClient = createAdminClient();
-        const { data: file, error } = await adminClient
-            .from('files')
-            .select('*')
-            .eq('id', id)
-            .eq('uploaded_by', user.id)
-            .is('deleted_at', null)
-            .single();
-
-        if (error || !file) {
-            logWarning('/api/files/[id]', 'file-access', 'File not found or unauthorized', {
-                fileId: id.substring(0, 8),
-                userId: user.id.substring(0, 8),
-            });
-            return NextResponse.json({ error: 'File not found', code: 'ERR_NOT_FOUND' }, { status: 404 });
-        }
-
-        return NextResponse.json({ file });
-    } catch (error) {
-        logError('/api/files/[id]', userId, 'GET-file-request', error);
-        return NextResponse.json({ error: 'Internal server error', code: 'ERR_FILE_GET' }, { status: 500 });
+        const file = await loadOwnedFile(user.id, (await params).id);
+        if (!file) return NOT_FOUND();
+        return NextResponse.json({ file: serializeFile(file) });
+    } catch (err) {
+        return serverError(ROUTE, user.id, 'GET', err);
     }
 }
 
 /**
- * Move a file to another folder and/or rename it.
- * Body: { folderId?: string | null (null = All files), name?: string }
+ * PATCH /api/files/{id}  { folderId?: string | null, name?: string } → { file }
+ * Moves the file to another folder (null: All files) and/or renames it.
  */
-export async function PATCH(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    let userId: string | undefined;
+export async function PATCH(request: NextRequest, { params }: Params) {
+    const user = await requireOwner(ROUTE, 'PATCH');
+    if (user instanceof NextResponse) return user;
     try {
-        const { id } = await params;
-        const supabase = await createClient();
-        const userData = await getSignedIn(supabase);
-        const user = validateAuth(userData, '/api/files/[id]', 'PATCH');
-        if (user instanceof NextResponse) return user;
-        userId = user.id;
+        const file = await loadOwnedFile(user.id, (await params).id);
+        if (!file) return NOT_FOUND();
 
-        const body = await request.json().catch(() => ({}));
+        const body = await readJson(request);
         const update: Database['public']['Tables']['files']['Update'] = {};
 
-        const adminClient = createAdminClient();
-        const { data: file } = await adminClient
-            .from('files')
-            .select('id')
-            .eq('id', id)
-            .eq('uploaded_by', user.id)
-            .is('deleted_at', null)
-            .maybeSingle();
-        if (!file) {
-            return NextResponse.json({ error: 'File not found', code: 'ERR_NOT_FOUND' }, { status: 404 });
-        }
-
         if ('folderId' in body) {
-            const folderId = body.folderId === null || body.folderId === '' ? null : String(body.folderId);
-            if (folderId) {
-                const { data: folder } = await adminClient
-                    .from('folders')
-                    .select('id')
-                    .eq('id', folderId)
-                    .eq('uploaded_by', user.id)
-                    .is('deleted_at', null)
-                    .maybeSingle();
-                if (!folder) {
-                    return NextResponse.json({ error: "That folder doesn't exist.", code: 'ERR_NOT_FOUND' }, { status: 404 });
-                }
+            if (body.folderId === null) update.folder_id = null;
+            else {
+                const folder = await loadOwnedFolder(user.id, body.folderId);
+                if (!folder) return jsonError(FILE_MESSAGES.folderNotFound, 404, 'ERR_NOT_FOUND');
+                update.folder_id = folder.id;
             }
-            update.folder_id = folderId;
         }
 
         if ('name' in body) {
-            const name = sanitizeFilename(String(body.name ?? ''));
-            if (!name) {
-                return NextResponse.json({ error: 'Enter a file name.', code: 'ERR_INVALID_INPUT' }, { status: 400 });
-            }
-            update.original_filename = name;
+            const name = parseFileName(body.name);
+            if ('error' in name) return jsonError(name.error, 400, 'ERR_INVALID_INPUT');
+            update.original_filename = name.value;
         }
 
-        if (Object.keys(update).length === 0) {
-            return NextResponse.json({ error: 'Nothing to change.', code: 'ERR_INVALID_INPUT' }, { status: 400 });
-        }
+        if (Object.keys(update).length === 0) return jsonError(FILE_MESSAGES.nothingToChange, 400, 'ERR_INVALID_INPUT');
         update.updated_at = new Date().toISOString();
 
-        const { data: updated, error } = await adminClient
+        const { data: updated, error } = await createAdminClient()
             .from('files')
             .update(update)
-            .eq('id', id)
+            .eq('id', file.id)
             .eq('uploaded_by', user.id)
-            .select('*')
+            .select(FILE_COLUMNS)
             .single();
-        if (error || !updated) {
-            logError('/api/files/[id]', userId, 'PATCH-file-update', error);
-            return NextResponse.json({ error: "Couldn't update the file. Try again.", code: 'ERR_FILE_UPDATE' }, { status: 500 });
-        }
+        if (error || !updated) throw error ?? new Error('Update failed');
 
-        return NextResponse.json({ file: updated });
-    } catch (error) {
-        logError('/api/files/[id]', userId, 'PATCH-file-request', error);
-        return NextResponse.json({ error: "Couldn't update the file. Try again.", code: 'ERR_FILE_UPDATE' }, { status: 500 });
-    }
-}
-
-export async function DELETE(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    let userId: string | undefined;
-    try {
-        const { id } = await params;
-        const supabase = await createClient();
-        const userData = await getSignedIn(supabase);
-        const user = validateAuth(userData, '/api/files/[id]', 'DELETE');
-        if (user instanceof NextResponse) return user;
-        userId = user.id;
-
-        const adminClient = createAdminClient();
-
-        // Step 1: Use database transaction to soft-delete and get filename
-        // This is atomic - either fully succeeds or fully rolls back
-        const { data: deleteResult, error: rpcError } = await adminClient
-            .rpc('soft_delete_file', {
-                p_file_id: id,
-                p_user_id: user.id,
-            });
-
-        if (rpcError) {
-            logError('/api/files/[id]', user.id, 'soft-delete-file', rpcError, {
-                fileId: id.substring(0, 8),
-            });
-            // Fallback to direct query if RPC not available (migration not run yet)
-            return await fallbackDelete(adminClient, id, user.id);
-        }
-
-        const result = deleteResult?.[0];
-        // On success the function always returns the stored filename
-        if (!result?.success || !result.filename) {
-            logWarning('/api/files/[id]', 'delete-validation', result?.error_message || 'Delete validation failed', {
-                fileId: id.substring(0, 8),
-            });
-            return NextResponse.json(
-                { error: result?.error_message || 'Failed to delete file', code: 'ERR_DELETE_FAILED' },
-                { status: result?.error_message === 'Unauthorized' ? 403 : 404 }
-            );
-        }
-
-        // Step 2: Delete from storage (file is already soft-deleted in DB)
-        const { error: storageError } = await adminClient.storage
-            .from('files')
-            .remove([result.filename]);
-
-        if (storageError) {
-            // Storage deletion failed, but file is soft-deleted
-            // It will be cleaned up later or can be retried
-            logWarning('/api/files/[id]', 'storage-deletion', 'Failed to delete from storage', {
-                fileId: id.substring(0, 8),
-                filename: result.filename.substring(0, 20),
-            });
-            // Still return success - the file is effectively deleted from user's view
-        }
-
-        // Step 3: Complete the deletion (hard delete from DB)
-        await adminClient.rpc('complete_file_deletion', { p_file_id: id });
-
-        return NextResponse.json({ success: true });
-    } catch (error) {
-        logError('/api/files/[id]', userId, 'DELETE-file-request', error);
-        return NextResponse.json({ error: 'Internal server error', code: 'ERR_FILE_DELETE' }, { status: 500 });
+        return NextResponse.json({ file: serializeFile(updated) });
+    } catch (err) {
+        return serverError(ROUTE, user.id, 'PATCH', err);
     }
 }
 
 /**
- * Fallback delete method for when the RPC functions haven't been migrated yet.
- * Uses the original non-transactional approach.
+ * DELETE /api/files/{id} → { ok: true }
+ * Deliveries that include the file lose it. The row is marked deleted first, then the stored file
+ * is removed, then the row.
  */
-async function fallbackDelete(
-    adminClient: ReturnType<typeof createAdminClient>,
-    fileId: string,
-    userId: string
-) {
-    // Get file info
-    const { data: file, error: fetchError } = await adminClient
-        .from('files')
-        .select('*')
-        .eq('id', fileId)
-        .eq('uploaded_by', userId)
-        .single();
+export async function DELETE(_request: NextRequest, { params }: Params) {
+    const user = await requireOwner(ROUTE, 'DELETE');
+    if (user instanceof NextResponse) return user;
+    try {
+        const file = await loadOwnedFile(user.id, (await params).id);
+        if (!file) return NOT_FOUND();
 
-    if (fetchError || !file) {
-        logWarning('/api/files/[id]', 'fallback-delete', 'File not found in fallback deletion', {
-            fileId: fileId.substring(0, 8),
-        });
-        return NextResponse.json({ error: 'File not found', code: 'ERR_NOT_FOUND' }, { status: 404 });
+        const admin = createAdminClient();
+        const { data, error } = await admin.rpc('soft_delete_file', { p_file_id: file.id, p_user_id: user.id });
+        if (error) throw error;
+        // It answers success with the stored file's name; otherwise it was deleted in the meantime
+        const result = data?.[0];
+        if (!result?.success || !result.filename) return NOT_FOUND();
+
+        const { error: storageError } = await admin.storage.from('files').remove([result.filename]);
+        if (storageError) {
+            // The file is already gone from the owner's view; the stored copy can be cleaned up later
+            logWarning(ROUTE, 'storage-deletion', 'Failed to delete from storage', { fileId: file.id.substring(0, 8) });
+        }
+
+        // The row is already marked deleted, so the file is gone for everyone even if this fails
+        const { error: completeError } = await admin.rpc('complete_file_deletion', { p_file_id: file.id });
+        if (completeError) logError(ROUTE, user.id, 'complete-file-deletion', completeError, { fileId: file.id.substring(0, 8) });
+
+        return NextResponse.json({ ok: true });
+    } catch (err) {
+        return serverError(ROUTE, user.id, 'DELETE', err);
     }
-
-    // Delete from storage first
-    await adminClient.storage.from('files').remove([file.filename]);
-
-    // Delete from database (cascades to file_access and access_log)
-    const { error: deleteError } = await adminClient
-        .from('files')
-        .delete()
-        .eq('id', fileId);
-
-    if (deleteError) {
-        logError('/api/files/[id]', userId, 'fallback-delete', deleteError, {
-            fileId: fileId.substring(0, 8),
-        });
-        return NextResponse.json({ error: 'Failed to delete file', code: 'ERR_DB_ERROR' }, { status: 500 });
-    }
-
-    return NextResponse.json({ success: true });
 }

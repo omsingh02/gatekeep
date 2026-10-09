@@ -4,6 +4,7 @@
  * serializers with type-only imports, so they can't drift from the real responses.
  */
 import type { ActivityItem as ServerActivityItem } from '@/lib/deliveries/activity-query';
+import type { FolderCounts, LibraryFile, LibraryFolder, LibraryFolderDetail, LibraryFolderWithCounts } from '@/lib/files/library';
 import type { serializeDeliverySummary, serializeRecipient } from '@/lib/deliveries/deliveries';
 import type { deliveryDetail, recipientResult, DeliveryFile as ServerDeliveryFile, ReceivedFile as ServerReceivedFile } from '@/lib/deliveries/owner';
 import type { StatusCheck } from '@/lib/deliveries/status';
@@ -31,24 +32,8 @@ export interface DeliveryListItem extends DeliverySummary {
     status: 'active' | 'ended' | 'no_recipients';
 }
 
-/** GET /api/files and /api/folders/{id}/contents file */
-export interface LibraryFile {
-    id: string;
-    originalFilename: string;
-    fileSize: number;
-    mimeType: string;
-    createdAt: string;
-    folderId: string | null;
-    folderName?: string | null;
-}
-
-export interface LibraryFolder {
-    id: string;
-    name: string;
-    parentId: string | null;
-    fileCount?: number;
-    subfolderCount?: number;
-}
+/** Files and folders, as /api/files and /api/folders return them */
+export type { FolderCounts, LibraryFile, LibraryFolder, LibraryFolderDetail, LibraryFolderWithCounts };
 
 export interface OwnerSettingsView {
     displayName: string | null;
@@ -90,8 +75,8 @@ const GENERIC = 'Something went wrong on our side. Try again in a moment.';
 const OFFLINE = "We couldn't reach Gatekeep. Check your connection and try again.";
 
 /**
- * fetch + JSON. Errors from the deliveries API are already written for people, so they're
- * passed through; unexpected server errors get the generic sentence.
+ * fetch + JSON. Errors from the owner API are already written for people, so they're passed
+ * through; unexpected server errors get the generic sentence.
  */
 export async function api<T>(url: string, init: RequestInit & { json?: unknown } = {}): Promise<T> {
     const { json, headers, ...rest } = init;
@@ -107,7 +92,7 @@ export async function api<T>(url: string, init: RequestInit & { json?: unknown }
     }
     const body = (await res.json().catch(() => ({}))) as { error?: string; code?: string };
     if (!res.ok) {
-        const human = res.status < 500 && typeof body.error === 'string' && body.code !== 'ERR_DB_ERROR' ? body.error : GENERIC;
+        const human = res.status < 500 && typeof body.error === 'string' ? body.error : GENERIC;
         throw new ApiError(res.status === 401 ? 'Your session ended. Sign in again to continue.' : human, res.status, body.code);
     }
     return body as T;

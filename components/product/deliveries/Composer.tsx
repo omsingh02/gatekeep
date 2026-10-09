@@ -187,7 +187,7 @@ export function Composer({ kind, initialFileIds = [] }: ComposerProps) {
     }, [isRequest]);
 
     // The title follows the first file until it's edited
-    const firstFile = files[0]?.originalFilename;
+    const firstFile = files[0]?.name;
     useEffect(() => {
         if (!titleTouched && !isRequest) setTitle(firstFile ? titleFromFileName(firstFile) : '');
     }, [firstFile, titleTouched, isRequest]);
@@ -196,7 +196,7 @@ export function Composer({ kind, initialFileIds = [] }: ComposerProps) {
     const people = recipients.people;
     const emailPeople = people.filter((p) => p.identifierType === 'email').length;
     const invitesOn = sendInvites && emailConfigured !== false;
-    const totalSize = files.reduce((sum, f) => sum + f.fileSize, 0);
+    const totalSize = files.reduce((sum, f) => sum + f.size, 0);
 
     const validate = (draft: RecipientsDraft): Errors => {
         const next: Errors = {};
