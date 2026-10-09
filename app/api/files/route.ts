@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { validateAuth } from '@/lib/utils/validation';
+import { getSignedIn } from '@/lib/auth/twoFactor';
 
 export async function GET(request: NextRequest) {
     try {
         // Verify admin authentication
         const supabase = await createClient();
-        const userData = await supabase.auth.getUser();
+        const userData = await getSignedIn(supabase);
         const user = validateAuth(userData, '/api/files', 'GET');
         if (user instanceof NextResponse) return user;
 

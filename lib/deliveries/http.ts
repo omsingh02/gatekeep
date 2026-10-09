@@ -2,12 +2,13 @@ import { NextResponse } from 'next/server';
 import type { User } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { validateAuth } from '@/lib/utils/validation';
+import { getSignedIn } from '@/lib/auth/twoFactor';
 import { logError } from '@/lib/utils/logger';
 
 /** The signed-in owner, or the 401/403 response to return. */
 export async function requireOwner(route: string, method: string): Promise<User | NextResponse> {
     const supabase = await createClient();
-    return validateAuth(await supabase.auth.getUser(), route, method);
+    return validateAuth(await getSignedIn(supabase), route, method);
 }
 
 export function jsonError(error: string, status: number, code?: string): NextResponse {
