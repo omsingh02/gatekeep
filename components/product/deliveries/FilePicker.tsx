@@ -4,34 +4,18 @@ import { useEffect, useMemo, useState } from 'react';
 import { ChevronRight, FolderOpen, Search, X } from 'lucide-react';
 import { Breadcrumb, Button, Callout, Checkbox, EmptyState, IconButton, Input, Skeleton, cn, type Crumb } from '@/components/ds';
 import { useDebouncedValue } from '@/lib/utils/hooks';
-import { api, errorMessage, type LibraryFile, type LibraryFolder } from './api';
+import { api, errorMessage, type FolderCounts, type LibraryFile, type LibraryFolder, type LibraryFolderDetail, type LibraryFolderWithCounts } from './api';
 import { FileIcon } from './FileIcon';
 import { formatSize, plural, shortDate } from './format';
 
 const ICON = { strokeWidth: 1.75, className: 'h-4 w-4', 'aria-hidden': true } as const;
 
-interface RawFile {
-    id: string;
-    original_filename: string;
-    file_size: number;
-    mime_type: string;
-    created_at: string;
-    folder_id: string | null;
-}
-
 /** Load files by id (for ?files=id1,id2). Files that no longer exist are skipped. */
 export async function loadFilesById(ids: string[]): Promise<LibraryFile[]> {
     const results = await Promise.all(
         ids.map((id) =>
-            api<{ file: RawFile }>(`/api/files/${encodeURIComponent(id)}`)
-                .then(({ file }) => ({
-                    id: file.id,
-                    originalFilename: file.original_filename,
-                    fileSize: file.file_size,
-                    mimeType: file.mime_type,
-                    createdAt: file.created_at,
-                    folderId: file.folder_id,
-                }))
+            api<{ file: LibraryFile }>(`/api/files/${encodeURIComponent(id)}`)
+                .then(({ file }) => file)
                 .catch(() => null),
         ),
     );
@@ -39,7 +23,8 @@ export async function loadFilesById(ids: string[]): Promise<LibraryFile[]> {
 }
 
 interface Listing {
-    folders: LibraryFolder[];
+    /** Folders inside a folder come with their counts; top-level ones without */
+    folders: (LibraryFolder & Partial<FolderCounts>)[];
     files: LibraryFile[];
     path: { id: string; name: string }[];
 }
@@ -69,10 +54,10 @@ export function FilePicker({ selected, onChange, exclude = [], className }: File
                 return { folders: [], files: res.files, path: [] };
             }
             if (folderId) {
-                const res = await api<{ subfolders: LibraryFolder[]; files: LibraryFile[]; path: { id: string; name: string }[] }>(
-                    `/api/folders/${folderId}/contents`,
+                const res = await api<{ folder: LibraryFolderDetail; folders: LibraryFolderWithCounts[]; files: LibraryFile[] }>(
+                    `/api/folders/${encodeURIComponent(folderId)}/contents`,
                 );
-                return { folders: res.subfolders, files: res.files, path: res.path };
+                return { folders: res.folders, files: res.files, path: res.folder.path };
             }
             const [folders, files] = await Promise.all([
                 api<{ folders: LibraryFolder[] }>('/api/folders'),
@@ -221,17 +206,17 @@ export function FilePicker({ selected, onChange, exclude = [], className }: File
                                             checked && !already && 'bg-raised',
                                         )}
                                     >
-                                        <Checkbox checked={checked} disabled={already} onChange={() => toggle(file)} aria-label={`Select ${file.originalFilename}`} />
+                                        <Checkbox checked={checked} disabled={already} onChange={() => toggle(file)} aria-label={`Select ${file.name}`} />
                                         <FileIcon mimeType={file.mimeType} />
                                         <span className="min-w-0 flex-1">
-                                            <span className="block truncate text-body text-primary">{file.originalFilename}</span>
+                                            <span className="block truncate text-body text-primary">{file.name}</span>
                                             <span className="block truncate text-caption text-tertiary">
                                                 {already
                                                     ? 'Already in this delivery'
                                                     : [search ? (file.folderName ?? 'All files') : null, shortDate(file.createdAt)].filter(Boolean).join(' · ')}
                                             </span>
                                         </span>
-                                        <span className="shrink-0 text-body-sm tabular-nums text-secondary">{formatSize(file.fileSize)}</span>
+                                        <span className="shrink-0 text-body-sm tabular-nums text-secondary">{formatSize(file.size)}</span>
                                     </label>
                                 </li>
                             );
@@ -246,16 +231,16 @@ export function FilePicker({ selected, onChange, exclude = [], className }: File
 /** The chosen files, in order, with a remove button each. */
 export function SelectedFiles({ files, onRemove, className }: { files: LibraryFile[]; onRemove: (id: string) => void; className?: string }) {
     if (files.length === 0) return null;
-    const total = files.reduce((sum, f) => sum + f.fileSize, 0);
+    const total = files.reduce((sum, f) => sum + f.size, 0);
     return (
         <div className={cn('flex flex-col gap-2', className)}>
             <ul className="divide-y divide-gray-4 rounded-lg border border-default bg-surface" aria-label="Files in this delivery">
                 {files.map((file) => (
                     <li key={file.id} className="flex min-h-12 items-center gap-3 px-3 py-2">
                         <FileIcon mimeType={file.mimeType} />
-                        <span className="min-w-0 flex-1 truncate text-body text-primary">{file.originalFilename}</span>
-                        <span className="shrink-0 text-body-sm tabular-nums text-secondary">{formatSize(file.fileSize)}</span>
-                        <IconButton label={`Remove ${file.originalFilename}`} size="sm" icon={<X {...ICON} />} onClick={() => onRemove(file.id)} />
+                        <span className="min-w-0 flex-1 truncate text-body text-primary">{file.name}</span>
+                        <span className="shrink-0 text-body-sm tabular-nums text-secondary">{formatSize(file.size)}</span>
+                        <IconButton label={`Remove ${file.name}`} size="sm" icon={<X {...ICON} />} onClick={() => onRemove(file.id)} />
                     </li>
                 ))}
             </ul>

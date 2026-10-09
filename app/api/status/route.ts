@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireOwner, serverError } from '@/lib/deliveries/http';
+import { requireOwner, serverError } from '@/lib/api/http';
 import { systemStatus } from '@/lib/deliveries/status';
 
 export const dynamic = 'force-dynamic';

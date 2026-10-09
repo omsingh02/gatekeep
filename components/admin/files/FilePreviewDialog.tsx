@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Download, EyeOff, RotateCw, Send } from 'lucide-react';
 import { Button, Callout, Dialog, EmptyState, Skeleton, useToast } from '@/components/ds';
 import { ResumableMedia } from '@/components/product/ResumableMedia';
+import type { LibraryFile } from '@/lib/files/library';
 import { downloadFile, fileUrl, reason } from './api';
 import { FileTypeIcon, fileKind, fileKindLabel, isPreviewable } from './FileTypeIcon';
 import { formatFullDate, formatSize, sendHref } from './format';
@@ -12,13 +13,8 @@ import { formatFullDate, formatSize, sendHref } from './format';
 const ICON = { 'aria-hidden': true, strokeWidth: 1.75, className: 'h-4 w-4' } as const;
 const TEXT_LIMIT = 200_000;
 
-export interface PreviewableFile {
-    id: string;
-    originalFilename: string;
-    mimeType: string;
-    fileSize: number;
-    updatedAt: string;
-}
+/** Any file with these fields: a library file (GET /api/files) or a file received on a request */
+export type PreviewableFile = Pick<LibraryFile, 'id' | 'name' | 'mimeType' | 'size' | 'updatedAt'>;
 
 type Loaded = { attempt: number } & ({ status: 'ready'; url: string; text?: string; truncated?: boolean } | { status: 'error'; message: string });
 
@@ -35,8 +31,8 @@ export default function FilePreviewDialog({ file, onClose }: { file: Previewable
     const [mediaFailed, setMediaFailed] = useState<number | null>(null);
     const [downloading, setDownloading] = useState(false);
 
-    const kind = fileKind(file.mimeType, file.originalFilename);
-    const previewable = isPreviewable(file.mimeType, file.originalFilename);
+    const kind = fileKind(file.mimeType, file.name);
+    const previewable = isPreviewable(file.mimeType, file.name);
 
     useEffect(() => {
         if (!previewable) return;
@@ -68,7 +64,7 @@ export default function FilePreviewDialog({ file, onClose }: { file: Previewable
         try {
             await downloadFile(file.id);
         } catch (error) {
-            toast.error(`We couldn't download ${file.originalFilename}. ${reason(error)}`);
+            toast.error(`We couldn't download ${file.name}. ${reason(error)}`);
         } finally {
             setDownloading(false);
         }
@@ -86,10 +82,10 @@ export default function FilePreviewDialog({ file, onClose }: { file: Previewable
             open
             onClose={onClose}
             size="md"
-            title={<span className="break-all">{file.originalFilename}</span>}
+            title={<span className="break-all">{file.name}</span>}
             description={
                 <span className="tabular-nums">
-                    {fileKindLabel(kind, file.originalFilename)} · {formatSize(file.fileSize)} · Modified {formatFullDate(file.updatedAt)}
+                    {fileKindLabel(kind, file.name)} · {formatSize(file.size)} · Modified {formatFullDate(file.updatedAt)}
                 </span>
             }
             footer={
@@ -108,7 +104,7 @@ export default function FilePreviewDialog({ file, onClose }: { file: Previewable
                     <EmptyState
                         icon={EyeOff}
                         title="No preview for this type of file"
-                        description={`Download ${file.originalFilename} to open it on your device.`}
+                        description={`Download ${file.name} to open it on your device.`}
                     />
                 ) : failed ? (
                     <div className="w-full p-4">
@@ -134,7 +130,7 @@ export default function FilePreviewDialog({ file, onClose }: { file: Previewable
                     </div>
                 ) : current.status === 'ready' && kind === 'image' ? (
                     // eslint-disable-next-line @next/next/no-img-element -- short-lived signed URL, not a static asset
-                    <img src={current.url} alt={file.originalFilename} onError={onMediaError} className="max-h-[60vh] w-auto max-w-full object-contain" />
+                    <img src={current.url} alt={file.name} onError={onMediaError} className="max-h-[60vh] w-auto max-w-full object-contain" />
                 ) : current.status === 'ready' && kind === 'video' ? (
                     <ResumableMedia
                         kind="video"
@@ -150,7 +146,7 @@ export default function FilePreviewDialog({ file, onClose }: { file: Previewable
                     </ResumableMedia>
                 ) : current.status === 'ready' && kind === 'audio' ? (
                     <div className="flex w-full flex-col items-center gap-4 p-6">
-                        <FileTypeIcon mimeType={file.mimeType} name={file.originalFilename} className="h-8 w-8 text-tertiary" />
+                        <FileTypeIcon mimeType={file.mimeType} name={file.name} className="h-8 w-8 text-tertiary" />
                         <ResumableMedia
                             kind="audio"
                             key={current.url}
@@ -163,7 +159,7 @@ export default function FilePreviewDialog({ file, onClose }: { file: Previewable
                         />
                     </div>
                 ) : current.status === 'ready' ? (
-                    <iframe src={current.url} title={file.originalFilename} className="h-[60vh] w-full bg-white" />
+                    <iframe src={current.url} title={file.name} className="h-[60vh] w-full bg-white" />
                 ) : null}
             </div>
         </Dialog>

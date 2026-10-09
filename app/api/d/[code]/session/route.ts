@@ -7,7 +7,7 @@ import { generateRequestId } from '@/lib/utils/logger';
 import { clientInfo, guessingThrottled, recordActivity } from '@/lib/deliveries/activity';
 import { accessProblem, type Recipient } from '@/lib/deliveries/deliveries';
 import { RECIPIENT_MESSAGES } from '@/lib/deliveries/labels';
-import { readJson, serverError } from '@/lib/deliveries/http';
+import { readJson, serverError } from '@/lib/api/http';
 import { resolveDelivery, verifiedView } from '@/lib/deliveries/recipient-api';
 import {
     clearSessionCookie,

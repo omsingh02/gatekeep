@@ -297,8 +297,10 @@ test('request: a recipient uploads a file, it lands in the chosen folder, and th
         expect(notice.text).toContain(folder.name);
 
         const file = await (await owner.get(`/api/files/${uploaded.id}`)).json();
-        expect(file.file.folder_id).toBe(folder.id);
-        expect(file.file.received_via_delivery_id).toBe(request.id);
+        expect(file.file).toMatchObject({ id: uploaded.id, name: 'signed-contract.pdf', folderId: folder.id, folderName: folder.name });
+        // Recorded as received through this request
+        const detail = (await (await owner.get(`/api/deliveries/${request.id}`)).json()).delivery;
+        expect(detail.received.map((f: { id: string }) => f.id)).toContain(uploaded.id);
     } finally {
         await visitor.close();
     }

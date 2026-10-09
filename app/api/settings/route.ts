@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emailConfigured } from '@/lib/email/transport';
-import { jsonError, readJson, requireOwner, serverError } from '@/lib/deliveries/http';
+import { jsonError, readJson, requireOwner, serverError } from '@/lib/api/http';
 import { getOwnerSettings, parseSettingsPatch, serializeSettings } from '@/lib/deliveries/settings';
 
 const ROUTE = '/api/settings';

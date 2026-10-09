@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { activitySummary, parseActivityFilters } from '@/lib/deliveries/activity-query';
-import { jsonError, requireOwner, serverError } from '@/lib/deliveries/http';
+import { jsonError, requireOwner, serverError } from '@/lib/api/http';
 
 const ROUTE = '/api/activity/summary';
 

@@ -31,11 +31,54 @@ Gatekeep v2 is built around **deliveries**: one link that sends files to (or req
 | `app/api/status` | What's set up: email, cron secret, sign-ups, storage, migrations, owner, two-factor sign-in |
 | `app/api/cron/keep-alive` | Daily: DB ping, "access ending soon" emails, purge old codes, notify about pending request uploads |
 | `app/api/files`, `app/api/folders` | Owner file library (upload via presign + confirm, move, rename, delete, folders); `files/[id]/url` signs a preview or download URL for the owner |
+| `lib/api/http.ts` | What every API route shares: `requireOwner`, `jsonError`, `serverError`, `readJson`, `isUuid` (see [API conventions](#api-conventions)) |
 | `lib/deliveries/` | The domain: link codes, sessions, email codes, activity + throttles, notifications, settings, parsing/serialization, uploads, CSV, status, daily jobs |
+| `lib/files/` | The file library: `library.ts` (file and folder serializers, their types, owner-scoped loaders), `rules.ts` (name rules and their messages, shared with the dashboard) |
 | `lib/email/` | `transport.ts` (Resend or in-memory for tests), `template.ts` (the one light email layout), `messages.ts` (every email) |
 | `lib/auth/owner.ts` | Who the owner is (`app_metadata.role = 'owner'` or `OWNER_EMAILS`) |
 | `lib/auth/twoFactor.ts` | Two-factor sign-in: whether an account has it on, the session's `aal`, `getSignedIn()` for `proxy.ts` and `validateAuth`, code wording |
 | `lib/types.ts` | `Database` type mirroring the migrations; update it with every migration |
+
+## API conventions
+
+Every owner route follows these (`/api/deliveries`, `/api/activity`, `/api/settings`, `/api/account/password`, `/api/status`, `/api/files`, `/api/folders`). The recipient API (`/api/d/{code}/…`) uses the same error shape and helpers but signs people in per delivery.
+
+**Auth.** A handler starts with `requireOwner(route, method)` (`lib/api/http.ts`), which is `validateAuth(await getSignedIn(supabase), …)`: the session is checked with the auth server, and an account with [two-factor sign-in](#security-model) must have entered its code in this session. Until then nothing else runs. The route then reads and writes with the service role, so each query is scoped to the owner (`uploaded_by`, `owner_id`) and skips deleted rows. `tests/files-api.test.ts` checks this for every Files and Folders handler.
+
+**Errors** are `{ "error": "…", "code": "ERR_…" }`, nothing more, from `jsonError` and `serverError`. `error` is a sentence for people ([VOICE.md](VOICE.md)): it never names tables, columns, tokens or vendors, so clients can show it. `code` is stable: branch on the code, not the sentence. The same mistake gets the same sentence everywhere (Files and Folders keep theirs in `lib/files/rules.ts`).
+
+| Status | Code | When |
+|---|---|---|
+| 400 | `ERR_INVALID_INPUT` | The body or query doesn't make sense: a missing or unusable name, nothing to change, a search over 100 characters |
+| 400 | `ERR_INVALID_FILE` | A file of a type or size that can't be uploaded |
+| 400 | `ERR_NOT_UPLOADED` | Confirming an upload that never reached storage |
+| 400 | `ERR_MAX_DEPTH` | A folder inside a folder that is itself inside one (folders are one level deep) |
+| 401 | `ERR_UNAUTHORIZED` | Not signed in |
+| 403 | `ERR_FORBIDDEN` | Signed in with an account that isn't the owner |
+| 403 | `ERR_TWO_FACTOR_REQUIRED` | Two-factor sign-in is on and this session has only entered the password |
+| 404 | `ERR_NOT_FOUND` | It doesn't exist, was deleted or belongs to someone else: the answer is the same |
+| 409 | `ERR_CONFLICT` | A folder with that name is already there (names are compared ignoring case) |
+| 429 | `ERR_RATE_LIMIT` | Too many requests in a short time |
+| 502 | `ERR_STORAGE`, `ERR_EMAIL_FAILED` | File storage or email didn't work; nothing was changed, try again |
+| 500 | `ERR_SERVER` | Anything unexpected. Logged with `logError`; the answer is always "Something went wrong on our side. Try again in a moment." |
+
+A few routes add codes for things a client handles specially, such as `ERR_EMAIL_NOT_CONFIGURED`, or `ERR_WRONG_PASSWORD` and `ERR_WRONG_CODE` when changing the password.
+
+**Shapes.** JSON fields and query parameters are camelCase. A response comes from a serializer (`serializeFile`, `serializeFolder`, `serializeDeliverySummary`, …), never straight from a database row, so storage paths, owner ids and other columns stay on the server; Files and Folders also select only the columns they return. Times are ISO 8601 strings (`createdAt`, `updatedAt`), sizes are bytes. A file is `{ id, name, size, mimeType, folderId, folderName, createdAt, updatedAt }` everywhere it appears (files in a delivery are the first four); a folder is `{ id, name, parentId, createdAt, updatedAt }`, with `fileCount`, `subfolderCount` and `path` where a route says so.
+
+**Envelopes.** One thing is wrapped in its name: `{ file }`, `{ folder }`, `{ delivery }`, `{ settings }`. A list is wrapped in the plural, with its paging fields beside it: `{ files, … }`, `{ folders }`, `{ deliveries, … }` (activity is a feed: `{ items, nextCursor }`). Creating answers 201 with the new thing; deleting answers `{ ok: true }`. `PATCH` changes only the fields it's given (`null` clears one, so `folderId: null` means All files); for a file, folder, delivery or recipient, a `PATCH` with nothing to change is 400.
+
+**Pagination.** `limit` is 1–100 everywhere; `total` counts everything that matches.
+
+| List | Ask with | Answer |
+|---|---|---|
+| Files | `page` (from 1), `limit` (default 20) | `{ files, total, page, limit, totalPages }` |
+| Deliveries | `offset`, `limit` (default 50) | `{ deliveries, total, limit, offset }` |
+| Activity | `cursor`, `limit` (default 50) | `{ items, nextCursor }`, `nextCursor` null at the end |
+
+**Ids** are UUIDs. One that isn't, in the path or as a reference such as `folderId`, is treated like one that doesn't exist: 404 `ERR_NOT_FOUND`, without a database query. An input that is checked as a whole reports a bad reference as 400 `ERR_INVALID_INPUT` instead, for example a delivery's `fileIds`.
+
+**Bodies** are JSON, read with `readJson`: an empty or malformed body counts as `{}`, so it fails the same checks as missing fields.
 
 ## Data model
 
@@ -55,7 +98,7 @@ Every table has row-level security with owner-scoped policies. The server uses t
 ## Key flows
 
 ### Sending a delivery
-1. The owner uploads files to the library (`/api/files/presign` → browser uploads straight to Storage → `/api/files/confirm`). Files are private content with no link of their own (`short_code` stays null); only deliveries have links.
+1. The owner uploads files to the library: `/api/files/presign` checks the type, size and folder and returns a signed upload URL, the browser uploads straight to Storage, and `/api/files/confirm` reads the real size from Storage, checks again and records the file. Files are private content with no link of their own (`short_code` stays null); only deliveries have links.
 2. `POST /api/deliveries` creates the delivery with its files and recipients in one call. Each password recipient gets their **own** generated password, returned once to the owner and never emailed. Email recipients get an invite that names the sender, links to the delivery and explains how they'll get in. It contains no secret.
 
 ### Recipient sign-in

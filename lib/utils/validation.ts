@@ -31,7 +31,7 @@ export function validateAuth(
 ): User | NextResponse {
     if (!userData?.data?.user) {
         logWarning(route, 'auth-required', `${method} request without authentication`);
-        return NextResponse.json({ error: 'Unauthorized', code: 'ERR_UNAUTHORIZED' }, { status: 401 });
+        return NextResponse.json({ error: 'Sign in to continue.', code: 'ERR_UNAUTHORIZED' }, { status: 401 });
     }
     if (!isOwner(userData.data.user)) {
         logWarning(route, 'not-owner', `${method} request from a signed-in account that isn't the owner`);
@@ -48,32 +48,4 @@ export function validateAuth(
         );
     }
     return userData.data.user;
-}
-
-/**
- * Validate that required fields exist in request body
- * Returns null if valid, or a 400 NextResponse if invalid
- * 
- * Usage:
- *   const error = validateRequiredFields({ fileId, userIdentifier, password }, ['fileId', 'userIdentifier', 'password'], route);
- *   if (error) return error;
- */
-export function validateRequiredFields(
-    body: Record<string, unknown>,
-    requiredFields: string[],
-    route: string
-): NextResponse | null {
-    const missing = requiredFields.filter(field => !body[field]);
-
-    if (missing.length > 0) {
-        logWarning(route, 'validation-failed', 'Missing required fields', {
-            missing: missing.join(','),
-        });
-        return NextResponse.json(
-            { error: `Missing required fields: ${missing.join(', ')}`, code: 'ERR_INVALID_INPUT' },
-            { status: 400 }
-        );
-    }
-
-    return null;
 }

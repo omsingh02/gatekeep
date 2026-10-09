@@ -5,6 +5,25 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **One set of conventions for the whole owner API.** The Files and Folders API (`/api/files`, `/api/folders`),
+  the last part left from 1.x, now works like the rest: errors are `{ error, code }` in plain words with
+  consistent codes and statuses, responses come from explicit camelCase serializers with no database fields,
+  ids are checked as UUIDs, and the same mistake gets the same message. They're written up in
+  [API conventions](docs/ARCHITECTURE.md#api-conventions), the base for documenting a public API later.
+  No user-facing changes: same features, limits and screens.
+  - For scripts that call these routes: a file is `{ id, name, size, mimeType, folderId, folderName, createdAt,
+    updatedAt }`, like files in deliveries. `/api/files` answers `{ files, total, page, limit, totalPages }` and
+    takes `all=true` (was `showAll`); `/api/files/stats` answers `{ fileCount, totalSize }`;
+    `/api/folders/{id}/contents` answers `{ folder, folders, files }`. Uploading is `presign { name, size,
+    mimeType, folderId }` → `{ uploadUrl, path }`, then `confirm { path, name, mimeType, folderId }` → 201
+    `{ file }`; confirm reads the size from storage, like request uploads. Creating a folder answers 201 and
+    deleting answers `{ ok: true }`. The unused `dateFilter` and `deleteContents` options are gone.
+  - A folder name that differs only in case from another in the same place, or a folder inside a folder that is
+    itself inside one, is now refused with a clear message (409 / 400) instead of failing with "Try again".
+  - The shared API helpers moved from `lib/deliveries/http.ts` to `lib/api/http.ts`.
+
 ## [2.1.0] — 2026-10-09
 
 **Apply the new migration** (`20261009000300_two-factor-sign-in.sql`) before deploying. See

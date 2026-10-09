@@ -1,129 +1,77 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { logError, logWarning } from '@/lib/utils/logger';
-import { validateAuth, validateRequiredFields } from '@/lib/utils/validation';
-import { getSignedIn } from '@/lib/auth/twoFactor';
+import { validateFileMetadata } from '@/lib/utils/fileTypes';
+import { sanitizeFilename } from '@/lib/utils/sanitization';
+import { jsonError, readJson, requireOwner, serverError } from '@/lib/api/http';
+import { UPLOAD_PATH } from '@/lib/deliveries/uploads';
+import { FILE_COLUMNS, loadOwnedFolder, serializeFile } from '@/lib/files/library';
+import { FILE_MESSAGES } from '@/lib/files/rules';
+
+const ROUTE = '/api/files/confirm';
 
 /**
- * POST /api/files/confirm
- * 
- * Confirms a successful upload and saves file metadata to the database.
- * Called after the browser successfully uploads to the presigned URL.
- * 
- * Request body: { metadata: { uniqueFilename, sanitizedFilename, fileSize, mimeType, userId, folderId? } }
- * The file gets no link of its own (short_code stays null): it's shared by adding it to a delivery.
+ * POST /api/files/confirm  { path, name, mimeType, folderId? } → 201 { file }
+ *
+ * Records a file uploaded with /api/files/presign. The size is read from storage, not trusted from the
+ * browser, and the type, size and folder are checked again: if the file can't be kept, the stored copy
+ * is removed. The file gets no link of its own: it's shared by adding it to a delivery.
  */
 export async function POST(request: NextRequest) {
-    let authUserId: string | undefined;
+    const user = await requireOwner(ROUTE, 'POST');
+    if (user instanceof NextResponse) return user;
     try {
-        // Verify admin authentication
-        const supabase = await createClient();
-        const userData = await getSignedIn(supabase);
-        const user = validateAuth(userData, '/api/files/confirm', 'POST');
-        if (user instanceof NextResponse) return user;
-        authUserId = user.id;
-
-        // Parse request body
-        const body = await request.json();
-        const { metadata } = body;
-
-        // Validate required metadata field
-        const requiredError = validateRequiredFields(body, ['metadata'], '/api/files/confirm');
-        if (requiredError) return requiredError;
-
-        const {
-            uniqueFilename,
-            sanitizedFilename,
-            fileSize,
-            mimeType,
-            userId,
-            folderId,
-        } = metadata;
-
-        // Verify the user confirming is the same user who requested the presign
-        if (userId !== user.id) {
-            logWarning('/api/files/confirm', 'auth-mismatch', 'User ID mismatch', {
-                requestUserId: userId?.substring(0, 8),
-                authUserId: user.id.substring(0, 8),
-            });
-            return NextResponse.json({ error: 'Unauthorized', code: 'ERR_UNAUTHORIZED' }, { status: 401 });
+        const body = await readJson(request);
+        const { path, name, mimeType, folderId } = body;
+        if (typeof path !== 'string' || !UPLOAD_PATH.test(path)) return jsonError(FILE_MESSAGES.uploadNotFinished, 400, 'ERR_INVALID_INPUT');
+        if (typeof name !== 'string' || !name.trim() || typeof mimeType !== 'string' || !mimeType) {
+            return jsonError(FILE_MESSAGES.chooseFile, 400, 'ERR_INVALID_INPUT');
         }
 
-        // Verify the file actually exists in storage
-        const adminClient = createAdminClient();
-        const { data: fileExists } = await adminClient.storage
-            .from('files')
-            .list('', {
-                search: uniqueFilename,
-                limit: 1,
-            });
+        const admin = createAdminClient();
+        const { data: listed, error: listError } = await admin.storage.from('files').list('', { search: path, limit: 1 });
+        if (listError) throw listError;
+        const stored = listed?.find((entry) => entry.name === path);
+        if (!stored) return jsonError(FILE_MESSAGES.uploadNotFinished, 400, 'ERR_NOT_UPLOADED');
+        const discard = () => admin.storage.from('files').remove([path]);
 
-        if (!fileExists || fileExists.length === 0) {
-            logWarning('/api/files/confirm', 'storage-check', 'File not found in storage', {
-                searchFilename: uniqueFilename.substring(0, 20),
-            });
-            return NextResponse.json(
-                { error: 'File not found in storage. Upload may have failed.', code: 'ERR_FILE_NOT_FOUND' },
-                { status: 400 }
-            );
+        const size = Number((stored.metadata as { size?: number } | null)?.size ?? 0);
+        const valid = validateFileMetadata(name, size, mimeType);
+        if (!valid.valid) {
+            await discard();
+            return jsonError(valid.error ?? "This file can't be uploaded.", 400, 'ERR_INVALID_FILE');
         }
 
-        // The target folder must still exist and belong to this owner
-        if (folderId) {
-            const { data: folder } = await adminClient
-                .from('folders')
-                .select('id')
-                .eq('id', folderId)
-                .eq('uploaded_by', user.id)
-                .is('deleted_at', null)
-                .maybeSingle();
-            if (!folder) {
-                await adminClient.storage.from('files').remove([uniqueFilename]);
-                return NextResponse.json(
-                    { error: "That folder doesn't exist any more. Pick another folder and try again.", code: 'ERR_FOLDER_NOT_FOUND' },
-                    { status: 404 }
-                );
+        // The folder may have been deleted while the file uploaded
+        let folder: string | null = null;
+        if (folderId !== undefined && folderId !== null) {
+            const found = await loadOwnedFolder(user.id, folderId);
+            if (!found) {
+                await discard();
+                return jsonError(FILE_MESSAGES.folderNotFound, 404, 'ERR_NOT_FOUND');
             }
+            folder = found.id;
         }
 
-        // Save file metadata to database
-        const { data: fileData, error: dbError } = await adminClient
+        const { data: file, error } = await admin
             .from('files')
             .insert({
-                filename: uniqueFilename,
-                original_filename: sanitizedFilename,
-                file_path: uniqueFilename,
-                file_size: fileSize,
+                filename: path,
+                original_filename: sanitizeFilename(name),
+                file_path: path,
+                file_size: size,
                 mime_type: mimeType,
                 uploaded_by: user.id,
-                folder_id: folderId || null,
+                folder_id: folder,
             })
-            .select()
+            .select(FILE_COLUMNS)
             .single();
-
-        if (dbError) {
-            logError('/api/files/confirm', user.id, 'save-metadata', dbError, {
-                filename: sanitizedFilename.substring(0, 20),
-            });
-            // Clean up uploaded file since we couldn't save metadata
-            await adminClient.storage.from('files').remove([uniqueFilename]);
-            return NextResponse.json(
-                { error: 'Failed to save file metadata', code: 'ERR_DB_ERROR' },
-                { status: 500 }
-            );
+        if (error || !file) {
+            await discard();
+            throw error ?? new Error('Insert failed');
         }
 
-        return NextResponse.json({
-            success: true,
-            file: {
-                id: fileData.id,
-                filename: fileData.filename,
-                originalFilename: fileData.original_filename,
-            },
-        });
-    } catch (error) {
-        logError('/api/files/confirm', authUserId, 'confirm-upload', error);
-        return NextResponse.json({ error: 'Internal server error', code: 'ERR_CONFIRM' }, { status: 500 });
+        return NextResponse.json({ file: serializeFile(file) }, { status: 201 });
+    } catch (err) {
+        return serverError(ROUTE, user.id, 'POST', err);
     }
 }

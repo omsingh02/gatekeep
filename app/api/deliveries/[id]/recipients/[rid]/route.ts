@@ -6,7 +6,7 @@ import { hashPassword } from '@/lib/utils/crypto';
 import { recordActivity } from '@/lib/deliveries/activity';
 import { generateReadablePassword } from '@/lib/deliveries/codes';
 import { NO_EMAIL_FOR_CODES, parseDownloadLimit, parseEndsAt } from '@/lib/deliveries/deliveries';
-import { isUuid, jsonError, readJson, requireOwner, serverError } from '@/lib/deliveries/http';
+import { isUuid, jsonError, readJson, requireOwner, serverError } from '@/lib/api/http';
 import { loadOwnedDelivery, recipientResult } from '@/lib/deliveries/owner';
 import { getSender } from '@/lib/deliveries/settings';
 import type { Database } from '@/lib/types';

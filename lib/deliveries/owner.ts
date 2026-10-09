@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/email/transport';
 import { inviteEmail } from '@/lib/email/messages';
+import { FILE_COLUMNS, serializeFile, type LibraryFile } from '@/lib/files/library';
 import { recordActivity } from './activity';
 import {
     inviteText,
@@ -50,11 +51,8 @@ export async function deliveryFiles(deliveryId: string): Promise<DeliveryFile[]>
     }));
 }
 
-export interface ReceivedFile extends DeliveryFile {
-    createdAt: string;
-    updatedAt: string;
-    folderId: string | null;
-    folderName: string | null;
+/** A file received on a request: the library file (lib/files/library.ts), and who sent it */
+export interface ReceivedFile extends LibraryFile {
     /** Who uploaded it, as the owner sees them ("maya@acme.co"); null if they're no longer on the request */
     from: string | null;
 }
@@ -65,7 +63,7 @@ const RECEIVED_LIMIT = 500;
 export async function receivedFiles(delivery: Delivery, recipients: Recipient[]): Promise<ReceivedFile[]> {
     const { data, error } = await createAdminClient()
         .from('files')
-        .select('id, original_filename, file_size, mime_type, created_at, updated_at, folder_id, received_from_recipient_id, folders!folder_id(name)')
+        .select(`${FILE_COLUMNS}, received_from_recipient_id` as const)
         .eq('received_via_delivery_id', delivery.id)
         .eq('uploaded_by', delivery.owner_id)
         .is('deleted_at', null)
@@ -74,14 +72,7 @@ export async function receivedFiles(delivery: Delivery, recipients: Recipient[])
     if (error) throw error;
     const labels = new Map(recipients.map((r) => [r.id, recipientLabel(r)]));
     return (data ?? []).map((file) => ({
-        id: file.id,
-        name: file.original_filename,
-        size: file.file_size,
-        mimeType: file.mime_type,
-        createdAt: file.created_at,
-        updatedAt: file.updated_at,
-        folderId: file.folder_id,
-        folderName: file.folders?.name ?? null,
+        ...serializeFile(file),
         from: file.received_from_recipient_id ? (labels.get(file.received_from_recipient_id) ?? null) : null,
     }));
 }

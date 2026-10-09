@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Folder as FolderIcon, Files } from 'lucide-react';
 import { Button, Callout, Dialog, Radio, Skeleton, cn } from '@/components/ds';
-import type { Folder } from '@/lib/types';
+import type { LibraryFolder as Folder } from '@/lib/files/library';
 import { folderError, jsonInit, reason, requestJson } from './api';
 import { describeItems } from './format';
 

@@ -5,7 +5,7 @@ import { getFileExtension } from '@/lib/utils/fileTypes';
 import { rateLimit } from '@/lib/utils/ratelimit';
 import { clientInfo } from '@/lib/deliveries/activity';
 import { RECIPIENT_MESSAGES } from '@/lib/deliveries/labels';
-import { readJson, serverError } from '@/lib/deliveries/http';
+import { readJson, serverError } from '@/lib/api/http';
 import { requireRecipient, resolveDelivery } from '@/lib/deliveries/recipient-api';
 import { uploadProblem } from '@/lib/deliveries/uploads';
 

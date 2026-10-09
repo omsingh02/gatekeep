@@ -1,164 +1,70 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { validateAuth } from '@/lib/utils/validation';
-import { getSignedIn } from '@/lib/auth/twoFactor';
-import { sanitizeFolderName } from '@/lib/utils/sanitization';
-import { logError, logWarning } from '@/lib/utils/logger';
+import { jsonError, readJson, requireOwner, serverError } from '@/lib/api/http';
+import { FOLDER_COLUMNS, folderNameInUse, loadOwnedFolder, serializeFolder } from '@/lib/files/library';
+import { FILE_MESSAGES, folderNameTaken, folderTooDeep, parseFolderName } from '@/lib/files/rules';
 
+const ROUTE = '/api/folders';
+
+/**
+ * GET /api/folders?parentId=&all=true → { folders }
+ * The top-level folders, the folders inside parentId, or with all=true every folder (for Move). Oldest first.
+ */
 export async function GET(request: NextRequest) {
-    let userId: string | undefined;
+    const user = await requireOwner(ROUTE, 'GET');
+    if (user instanceof NextResponse) return user;
     try {
-        const supabase = await createClient();
-        const userData = await getSignedIn(supabase);
-        const user = validateAuth(userData, '/api/folders', 'GET');
-        if (user instanceof NextResponse) return user;
-        userId = user.id;
+        const params = request.nextUrl.searchParams;
+        const parentId = params.get('parentId');
+        if (parentId && !(await loadOwnedFolder(user.id, parentId))) return jsonError(FILE_MESSAGES.folderNotFound, 404, 'ERR_NOT_FOUND');
 
-        const { searchParams } = new URL(request.url);
-        const parentId = searchParams.get('parentId');
-        // all=true returns every folder (for "Move"), regardless of parent
-        const all = searchParams.get('all') === 'true';
-
-        const adminClient = createAdminClient();
-
-        if (parentId) {
-            const { data: parent, error: parentError } = await adminClient
-                .from('folders')
-                .select('id')
-                .eq('id', parentId)
-                .eq('uploaded_by', user.id)
-                .is('deleted_at', null)
-                .single();
-
-            if (parentError || !parent) {
-                logWarning('/api/folders', 'parent-not-found', 'Parent folder missing or unauthorized', {
-                    parentId: parentId.substring(0, 8),
-                    userId: user.id.substring(0, 8),
-                });
-                return NextResponse.json({ error: 'Parent folder not found', code: 'ERR_NOT_FOUND' }, { status: 404 });
-            }
-        }
-
-        let query = adminClient
+        let query = createAdminClient()
             .from('folders')
-            .select('*')
+            .select(FOLDER_COLUMNS)
             .eq('uploaded_by', user.id)
             .is('deleted_at', null)
             .order('created_at', { ascending: true });
+        if (params.get('all') !== 'true') query = parentId ? query.eq('parent_id', parentId) : query.is('parent_id', null);
 
-        if (all) {
-            // No parent filter: every folder the owner has
-        } else if (parentId) {
-            query = query.eq('parent_id', parentId);
-        } else {
-            query = query.is('parent_id', null);
-        }
-
-        const { data: folders, error } = await query;
-
-        if (error) {
-            logError('/api/folders', user.id, 'fetch-folders', error);
-            return NextResponse.json({ error: 'Failed to fetch folders', code: 'ERR_DB_ERROR' }, { status: 500 });
-        }
-
-        const transformed = (folders || []).map((folder) => ({
-            id: folder.id,
-            name: folder.name,
-            parentId: folder.parent_id,
-            uploadedBy: folder.uploaded_by,
-            createdAt: folder.created_at,
-            updatedAt: folder.updated_at,
-        }));
-
-        return NextResponse.json({ folders: transformed });
-    } catch (error) {
-        logError('/api/folders', userId, 'GET-folders', error);
-        return NextResponse.json({ error: 'Internal server error', code: 'ERR_FOLDERS_GET' }, { status: 500 });
+        const { data, error } = await query;
+        if (error) throw error;
+        return NextResponse.json({ folders: (data ?? []).map(serializeFolder) });
+    } catch (err) {
+        return serverError(ROUTE, user.id, 'GET', err);
     }
 }
 
+/**
+ * POST /api/folders  { name, parentId? } → 201 { folder }
+ * Creates a folder at the top level, or inside a top-level folder (folders are one level deep).
+ */
 export async function POST(request: NextRequest) {
-    let userId: string | undefined;
+    const user = await requireOwner(ROUTE, 'POST');
+    if (user instanceof NextResponse) return user;
     try {
-        const supabase = await createClient();
-        const userData = await getSignedIn(supabase);
-        const user = validateAuth(userData, '/api/folders', 'POST');
-        if (user instanceof NextResponse) return user;
-        userId = user.id;
+        const body = await readJson(request);
+        const name = parseFolderName(body.name);
+        if ('error' in name) return jsonError(name.error, 400, 'ERR_INVALID_INPUT');
 
-        const body = await request.json();
-        const { name, parentId } = body || {};
-
-        const sanitizedName = sanitizeFolderName(name || '');
-        if (!sanitizedName) {
-            return NextResponse.json({ error: 'Invalid folder name', code: 'ERR_INVALID_INPUT' }, { status: 400 });
+        let parentId: string | null = null;
+        if (body.parentId !== undefined && body.parentId !== null) {
+            const parent = await loadOwnedFolder(user.id, body.parentId);
+            if (!parent) return jsonError(FILE_MESSAGES.folderNotFound, 404, 'ERR_NOT_FOUND');
+            if (parent.parent_id) return jsonError(folderTooDeep(name.value), 400, 'ERR_MAX_DEPTH');
+            parentId = parent.id;
         }
 
-        const adminClient = createAdminClient();
+        if (await folderNameInUse(user.id, name.value, parentId)) return jsonError(folderNameTaken(name.value), 409, 'ERR_CONFLICT');
 
-        if (parentId) {
-            const { data: parent, error: parentError } = await adminClient
-                .from('folders')
-                .select('id')
-                .eq('id', parentId)
-                .eq('uploaded_by', user.id)
-                .is('deleted_at', null)
-                .single();
-
-            if (parentError || !parent) {
-                logWarning('/api/folders', 'parent-not-found', 'Parent folder missing or unauthorized', {
-                    parentId: parentId.substring(0, 8),
-                    userId: user.id.substring(0, 8),
-                });
-                return NextResponse.json({ error: 'Parent folder not found', code: 'ERR_NOT_FOUND' }, { status: 404 });
-            }
-        }
-
-        // Prevent duplicate names within the same parent for this user
-        // .eq('parent_id', null) would compare against the string "null"; root needs IS NULL
-        const siblings = adminClient
+        const { data: folder, error } = await createAdminClient()
             .from('folders')
-            .select('id')
-            .eq('uploaded_by', user.id)
-            .eq('name', sanitizedName)
-            .is('deleted_at', null);
-        const { data: existing } = await (parentId
-            ? siblings.eq('parent_id', parentId)
-            : siblings.is('parent_id', null)
-        ).maybeSingle();
-
-        if (existing) {
-            return NextResponse.json({ error: 'A folder with that name already exists here', code: 'ERR_CONFLICT' }, { status: 409 });
-        }
-
-        const { data: folder, error } = await adminClient
-            .from('folders')
-            .insert({
-                name: sanitizedName,
-                parent_id: parentId || null,
-                uploaded_by: user.id,
-            })
-            .select()
+            .insert({ name: name.value, parent_id: parentId, uploaded_by: user.id })
+            .select(FOLDER_COLUMNS)
             .single();
+        if (error || !folder) throw error ?? new Error('Insert failed');
 
-        if (error || !folder) {
-            logError('/api/folders', user.id, 'create-folder', error);
-            return NextResponse.json({ error: 'Failed to create folder', code: 'ERR_DB_ERROR' }, { status: 500 });
-        }
-
-        return NextResponse.json({
-            folder: {
-                id: folder.id,
-                name: folder.name,
-                parentId: folder.parent_id,
-                uploadedBy: folder.uploaded_by,
-                createdAt: folder.created_at,
-                updatedAt: folder.updated_at,
-            },
-        });
-    } catch (error) {
-        logError('/api/folders', userId, 'POST-folders', error);
-        return NextResponse.json({ error: 'Internal server error', code: 'ERR_FOLDERS_POST' }, { status: 500 });
+        return NextResponse.json({ folder: serializeFolder(folder) }, { status: 201 });
+    } catch (err) {
+        return serverError(ROUTE, user.id, 'POST', err);
     }
 }

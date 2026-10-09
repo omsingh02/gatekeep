@@ -54,7 +54,8 @@ import {
     type MenuItem,
     type SortDirection,
 } from '@/components/ds';
-import type { FileMetadata, FileTypeFilter, Folder } from '@/lib/types';
+import type { LibraryFile, LibraryFolder as Folder, LibraryFolderDetail } from '@/lib/files/library';
+import type { FileTypeFilter } from '@/lib/types';
 import { useDebouncedValue } from '@/lib/utils/hooks';
 import FileUploader from './FileUploader';
 import FilePreviewDialog from './files/FilePreviewDialog';
@@ -171,8 +172,8 @@ export default function FileList({ folderId, startUpload = false }: { folderId: 
     useEffect(() => {
         if (!folderId) return;
         const controller = new AbortController();
-        requestJson<{ folder: Folder }>(`/api/folders/${encodeURIComponent(folderId)}`, { signal: controller.signal })
-            .then(({ folder }) => setFetched({ id: folderId, status: 'ready', name: folder.name, path: folder.path ?? [{ id: folder.id, name: folder.name }] }))
+        requestJson<{ folder: LibraryFolderDetail }>(`/api/folders/${encodeURIComponent(folderId)}`, { signal: controller.signal })
+            .then(({ folder }) => setFetched({ id: folderId, status: 'ready', name: folder.name, path: folder.path }))
             .catch((error) => {
                 if (controller.signal.aborted) return;
                 setFetched({ id: folderId, status: error instanceof ApiError && error.status === 404 ? 'missing' : 'error' });
@@ -209,16 +210,16 @@ export default function FileList({ folderId, startUpload = false }: { folderId: 
 
 type DialogState =
     | { type: 'new-folder' }
-    | { type: 'rename-file'; file: FileMetadata }
+    | { type: 'rename-file'; file: LibraryFile }
     | { type: 'rename-folder'; folder: Folder }
-    | { type: 'delete-file'; file: FileMetadata }
+    | { type: 'delete-file'; file: LibraryFile }
     | { type: 'delete-folder'; folder: Folder }
-    | { type: 'delete-selection'; files: FileMetadata[]; folders: Folder[] }
-    | { type: 'move'; files: FileMetadata[]; folders: Folder[] }
+    | { type: 'delete-selection'; files: LibraryFile[]; folders: Folder[] }
+    | { type: 'move'; files: LibraryFile[]; folders: Folder[] }
     | null;
 
 type Result =
-    | { key: string; status: 'ready'; files: FileMetadata[]; folders: Folder[]; total: number; totalPages: number }
+    | { key: string; status: 'ready'; files: LibraryFile[]; folders: Folder[]; total: number; totalPages: number }
     | { key: string; status: 'error'; signedOut: boolean };
 
 interface FolderBrowserProps {
@@ -244,7 +245,7 @@ function FolderBrowser({ folderId, location, target, view, sort, onSort, reloadK
     const [result, setResult] = useState<Result | null>(null);
     const [selection, setSelection] = useState<{ key: string; files: Set<string>; folders: Set<string> } | null>(null);
     const [dialog, setDialog] = useState<DialogState>(null);
-    const [preview, setPreview] = useState<{ file: FileMetadata; key: number } | null>(null);
+    const [preview, setPreview] = useState<{ file: LibraryFile; key: number } | null>(null);
     const [dragging, setDragging] = useState(false);
 
     const queryKey = [folderId, query, type, sort.key, sort.dir, page].join('|');
@@ -257,11 +258,11 @@ function FolderBrowser({ folderId, location, target, view, sort, onSort, reloadK
         if (type !== 'all') params.set('fileType', type);
         const folderParams = folderId ? `?parentId=${encodeURIComponent(folderId)}` : '';
         Promise.all([
-            requestJson<{ files: FileMetadata[]; totalCount: number; totalPages: number }>(`/api/files?${params}`, { signal: controller.signal }),
+            requestJson<{ files: LibraryFile[]; total: number; totalPages: number }>(`/api/files?${params}`, { signal: controller.signal }),
             requestJson<{ folders: Folder[] }>(`/api/folders${folderParams}`, { signal: controller.signal }),
         ])
             .then(([files, folders]) =>
-                setResult({ key: queryKey, status: 'ready', files: files.files, folders: folders.folders, total: files.totalCount, totalPages: files.totalPages })
+                setResult({ key: queryKey, status: 'ready', files: files.files, folders: folders.folders, total: files.total, totalPages: files.totalPages })
             )
             .catch((error) => {
                 if (!controller.signal.aborted) setResult({ key: queryKey, status: 'error', signedOut: error instanceof ApiError && error.status === 401 });
@@ -305,13 +306,13 @@ function FolderBrowser({ folderId, location, target, view, sort, onSort, reloadK
     const thSort = (key: SortKey): SortDirection => (sort.key === key ? sort.dir : null);
 
     // Actions -----------------------------------------------------------------------------------
-    const openPreview = (file: FileMetadata) => setPreview({ file, key: Date.now() });
+    const openPreview = (file: LibraryFile) => setPreview({ file, key: Date.now() });
     const send = (ids: string[]) => router.push(sendHref(ids));
-    const download = async (file: FileMetadata) => {
+    const download = async (file: LibraryFile) => {
         try {
             await downloadFile(file.id);
         } catch (error) {
-            toast.error(`We couldn't download ${file.originalFilename}. ${reason(error)}`);
+            toast.error(`We couldn't download ${file.name}. ${reason(error)}`);
         }
     };
 
@@ -326,14 +327,14 @@ function FolderBrowser({ folderId, location, target, view, sort, onSort, reloadK
         }
     };
 
-    const renameFile = async (file: FileMetadata, name: string) => {
+    const renameFile = async (file: LibraryFile, name: string) => {
         try {
-            const { file: updated } = await requestJson<{ file: { original_filename: string } }>(`/api/files/${file.id}`, jsonInit('PATCH', { name }));
-            toast.success(`Renamed ${file.originalFilename} to ${updated.original_filename}`);
+            const { file: updated } = await requestJson<{ file: LibraryFile }>(`/api/files/${file.id}`, jsonInit('PATCH', { name }));
+            toast.success(`Renamed ${file.name} to ${updated.name}`);
             setDialog(null);
             onReload();
         } catch (error) {
-            toast.error(`We couldn't rename ${file.originalFilename}. ${reason(error)}`);
+            toast.error(`We couldn't rename ${file.name}. ${reason(error)}`);
         }
     };
 
@@ -348,7 +349,7 @@ function FolderBrowser({ folderId, location, target, view, sort, onSort, reloadK
         }
     };
 
-    const deleteItems = async (filesToDelete: FileMetadata[], foldersToDelete: Folder[]) => {
+    const deleteItems = async (filesToDelete: LibraryFile[], foldersToDelete: Folder[]) => {
         let failed = 0;
         for (const file of filesToDelete) {
             try {
@@ -365,7 +366,7 @@ function FolderBrowser({ folderId, location, target, view, sort, onSort, reloadK
             }
         }
         const total = filesToDelete.length + foldersToDelete.length;
-        const name = total === 1 ? (filesToDelete[0]?.originalFilename ?? foldersToDelete[0]?.name) : describeItems(filesToDelete.length, foldersToDelete.length);
+        const name = total === 1 ? (filesToDelete[0]?.name ?? foldersToDelete[0]?.name) : describeItems(filesToDelete.length, foldersToDelete.length);
         if (failed === 0) toast.success(`Deleted ${name}`);
         else if (failed === total) toast.error(`We couldn't delete ${name}. Try again.`);
         else toast.warning(`Deleted ${total - failed} of ${total} items. ${failed} couldn't be deleted. Try again.`);
@@ -375,7 +376,7 @@ function FolderBrowser({ folderId, location, target, view, sort, onSort, reloadK
     };
 
     const onMoved = ({ moved, failed, destination, error }: MoveResult) => {
-        if (failed === 0) toast.success(`Moved ${moved === 1 ? (dialog?.type === 'move' ? (dialog.files[0]?.originalFilename ?? dialog.folders[0]?.name) : 'it') : `${moved} items`} to ${destination}`);
+        if (failed === 0) toast.success(`Moved ${moved === 1 ? (dialog?.type === 'move' ? (dialog.files[0]?.name ?? dialog.folders[0]?.name) : 'it') : `${moved} items`} to ${destination}`);
         else if (moved === 0) toast.error(error ?? `We couldn't move those items. Try again.`);
         else toast.warning(`Moved ${moved} of ${moved + failed} items to ${destination}. ${error ?? ''}`.trim());
         setDialog(null);
@@ -383,7 +384,7 @@ function FolderBrowser({ folderId, location, target, view, sort, onSort, reloadK
         onReload();
     };
 
-    const fileMenu = (file: FileMetadata, withSend = false): MenuItem[] => [
+    const fileMenu = (file: LibraryFile, withSend = false): MenuItem[] => [
         ...(withSend ? [{ label: 'Send', icon: <Send {...ICON} />, onSelect: () => send([file.id]) }] : []),
         { label: 'Preview', icon: <Eye {...ICON} />, onSelect: () => openPreview(file) },
         { label: 'Download', icon: <Download {...ICON} />, onSelect: () => void download(file) },
@@ -732,7 +733,7 @@ function FolderBrowser({ folderId, location, target, view, sort, onSort, reloadK
                 onClose={() => setDialog(null)}
                 title="Rename file"
                 label="Name"
-                initialValue={dialog?.type === 'rename-file' ? dialog.file.originalFilename : ''}
+                initialValue={dialog?.type === 'rename-file' ? dialog.file.name : ''}
                 submitLabel="Rename file"
                 onSubmit={(name) => (dialog?.type === 'rename-file' ? renameFile(dialog.file, name) : undefined)}
             />
@@ -749,7 +750,7 @@ function FolderBrowser({ folderId, location, target, view, sort, onSort, reloadK
                 open={dialog?.type === 'delete-file'}
                 onClose={() => setDialog(null)}
                 destructive
-                title={dialog?.type === 'delete-file' ? `Delete ${dialog.file.originalFilename}?` : ''}
+                title={dialog?.type === 'delete-file' ? `Delete ${dialog.file.name}?` : ''}
                 confirmLabel="Delete file"
                 onConfirm={() => (dialog?.type === 'delete-file' ? deleteItems([dialog.file], []) : undefined)}
             >
@@ -783,7 +784,7 @@ function FolderBrowser({ folderId, location, target, view, sort, onSort, reloadK
             </ConfirmDialog>
             {dialog?.type === 'move' && (
                 <MoveDialog
-                    files={dialog.files.map((f) => ({ id: f.id, name: f.originalFilename, folderId: f.folderId ?? null }))}
+                    files={dialog.files.map((f) => ({ id: f.id, name: f.name, folderId: f.folderId }))}
                     folders={dialog.folders.map((f) => ({ id: f.id, name: f.name, parentId: f.parentId }))}
                     onClose={() => setDialog(null)}
                     onDone={onMoved}
@@ -797,14 +798,14 @@ function FolderBrowser({ folderId, location, target, view, sort, onSort, reloadK
 // Table and grid --------------------------------------------------------------------------------
 
 interface ItemsProps {
-    files: FileMetadata[];
+    files: LibraryFile[];
     folders: Folder[];
     selectedFiles?: Set<string>;
     selectedFolders?: Set<string>;
     onToggle: (kind: 'files' | 'folders', id: string) => void;
-    onPreview: (file: FileMetadata) => void;
+    onPreview: (file: LibraryFile) => void;
     onSend: (ids: string[]) => void;
-    fileMenu: (file: FileMetadata, withSend?: boolean) => MenuItem[];
+    fileMenu: (file: LibraryFile, withSend?: boolean) => MenuItem[];
     folderMenu: (folder: Folder) => MenuItem[];
     /** Searching across All files: say which folder each file is in */
     showFolderOf: boolean;
@@ -894,23 +895,23 @@ function FilesTable({
                         return (
                             <TR key={file.id} selected={selected} className="hover:bg-raised">
                                 <TD className="pr-0">
-                                    <Checkbox className="flex" aria-label={`Select ${file.originalFilename}`} checked={selected} onChange={() => onToggle('files', file.id)} />
+                                    <Checkbox className="flex" aria-label={`Select ${file.name}`} checked={selected} onChange={() => onToggle('files', file.id)} />
                                 </TD>
                                 <TD strong className="w-full max-w-0">
                                     <div className="flex min-w-0 items-center gap-2.5">
-                                        <FileTypeIcon mimeType={file.mimeType} name={file.originalFilename} />
+                                        <FileTypeIcon mimeType={file.mimeType} name={file.name} />
                                         <div className="min-w-0">
                                             <button
                                                 type="button"
                                                 onClick={() => onPreview(file)}
-                                                title={file.originalFilename}
+                                                title={file.name}
                                                 className="block max-w-full truncate rounded-sm text-left text-primary underline-offset-4 hover:text-strong hover:underline focus-ring"
                                             >
-                                                {file.originalFilename}
+                                                {file.name}
                                             </button>
                                             <p className={cn('truncate text-caption tabular-nums text-tertiary', !folderName && 'sm:hidden')}>
                                                 <span className="sm:hidden">
-                                                    {formatSize(file.fileSize)} · {formatShortDate(file.updatedAt)}
+                                                    {formatSize(file.size)} · {formatShortDate(file.updatedAt)}
                                                     {folderName && ' · '}
                                                 </span>
                                                 {folderName && `In ${folderName}`}
@@ -919,7 +920,7 @@ function FilesTable({
                                     </div>
                                 </TD>
                                 <TD numeric className="hidden whitespace-nowrap sm:table-cell">
-                                    {formatSize(file.fileSize)}
+                                    {formatSize(file.size)}
                                 </TD>
                                 <TD className="hidden whitespace-nowrap sm:table-cell">
                                     <time dateTime={file.updatedAt} title={formatFullDate(file.updatedAt)}>
@@ -928,10 +929,10 @@ function FilesTable({
                                 </TD>
                                 <TD className="whitespace-nowrap py-1.5!">
                                     <div className="flex items-center justify-end gap-1">
-                                        <Button size="sm" icon={<Send {...ICON} />} aria-label={`Send ${file.originalFilename}`} onClick={() => onSend([file.id])}>
+                                        <Button size="sm" icon={<Send {...ICON} />} aria-label={`Send ${file.name}`} onClick={() => onSend([file.id])}>
                                             Send
                                         </Button>
-                                        <Menu label={`More actions for ${file.originalFilename}`} items={fileMenu(file)} />
+                                        <Menu label={`More actions for ${file.name}`} items={fileMenu(file)} />
                                     </div>
                                 </TD>
                             </TR>
@@ -1000,10 +1001,10 @@ function FilesGrid({ files, folders, selectedFiles, selectedFolders, onToggle, o
                                     <button
                                         type="button"
                                         onClick={() => onPreview(file)}
-                                        aria-label={`Preview ${file.originalFilename}`}
+                                        aria-label={`Preview ${file.name}`}
                                         className="flex aspect-[4/3] items-center justify-center bg-inset focus-ring [outline-offset:-2px]"
                                     >
-                                        <FileTypeIcon mimeType={file.mimeType} name={file.originalFilename} className="h-8 w-8 text-tertiary" />
+                                        <FileTypeIcon mimeType={file.mimeType} name={file.name} className="h-8 w-8 text-tertiary" />
                                     </button>
                                     <div
                                         className={cn(
@@ -1011,20 +1012,20 @@ function FilesGrid({ files, folders, selectedFiles, selectedFolders, onToggle, o
                                             !selected && !anySelected && 'sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100'
                                         )}
                                     >
-                                        <Checkbox className="flex" aria-label={`Select ${file.originalFilename}`} checked={selected} onChange={() => onToggle('files', file.id)} />
+                                        <Checkbox className="flex" aria-label={`Select ${file.name}`} checked={selected} onChange={() => onToggle('files', file.id)} />
                                     </div>
                                     <div className="flex items-start gap-1 border-t border-subtle py-2 pl-3 pr-1">
                                         <div className="min-w-0 flex-1 py-0.5">
-                                            <p className="truncate text-body-sm text-primary" title={file.originalFilename}>
-                                                {file.originalFilename}
+                                            <p className="truncate text-body-sm text-primary" title={file.name}>
+                                                {file.name}
                                             </p>
                                             <p className="truncate text-caption tabular-nums text-tertiary">
                                                 {showFolderOf
                                                     ? `In ${file.folderName ?? 'All files'}`
-                                                    : `${formatSize(file.fileSize)} · ${formatShortDate(file.updatedAt)}`}
+                                                    : `${formatSize(file.size)} · ${formatShortDate(file.updatedAt)}`}
                                             </p>
                                         </div>
-                                        <Menu label={`More actions for ${file.originalFilename}`} items={fileMenu(file, true)} />
+                                        <Menu label={`More actions for ${file.name}`} items={fileMenu(file, true)} />
                                     </div>
                                 </li>
                             );

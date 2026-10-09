@@ -2,6 +2,7 @@
  * Small client helpers for the owner's file and folder API, with error copy that follows
  * docs/VOICE.md (say what happened and what to do next; never show internals).
  */
+import { FILE_MESSAGES, folderNameTaken, folderTooDeep } from '@/lib/files/rules';
 
 export class ApiError extends Error {
     constructor(
@@ -41,21 +42,23 @@ export function reason(error: unknown): string {
     return 'Try again.';
 }
 
-/** Error copy for folder create, rename and move. */
+/** Error copy for folder create, rename and move. The rules and their wording live in lib/files/rules.ts. */
 export function folderError(error: unknown, name: string, action: 'create' | 'rename' | 'move'): string {
     if (error instanceof ApiError) {
-        if (error.code === 'ERR_CONFLICT') return `There's already a folder named ${name} here. Pick another name.`;
-        if (error.code === 'ERR_MAX_DEPTH') return `${name} can't go there: folders can only be one level deep. Pick All files or a top-level folder.`;
-        if (error.code === 'ERR_CIRCULAR_REF') return `A folder can't move into itself.`;
-        if (error.code === 'ERR_INVALID_INPUT' && action !== 'move') return 'Enter a folder name without / \\ < > : " | ? or *.';
+        if (error.code === 'ERR_CONFLICT') return folderNameTaken(name);
+        if (error.code === 'ERR_MAX_DEPTH') return folderTooDeep(name);
+        // A name the rules refuse, or a folder moved into itself: the API's sentence says which
+        if (error.code === 'ERR_INVALID_INPUT') {
+            return error.message || (action === 'move' ? FILE_MESSAGES.folderIntoItself : FILE_MESSAGES.folderNameUnusable);
+        }
     }
     const verb = action === 'create' ? 'create' : action === 'rename' ? 'rename' : 'move';
     return `We couldn't ${verb} ${name}. ${reason(error)}`;
 }
 
-/** A 60-second signed URL for one of the owner's files. */
+/** A short-lived signed URL for one of the owner's files (lifetimes in lib/utils/signedUrls.ts). */
 export async function fileUrl(id: string, action: 'preview' | 'download', signal?: AbortSignal): Promise<string> {
-    const { url } = await requestJson<{ url: string }>(`/api/files/${encodeURIComponent(id)}/url?action=${action}`, { signal });
+    const { url } = await requestJson<{ url: string; expiresIn: number }>(`/api/files/${encodeURIComponent(id)}/url?action=${action}`, { signal });
     return url;
 }
 

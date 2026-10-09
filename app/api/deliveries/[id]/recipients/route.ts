@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isUuid, jsonError, readJson, requireOwner, serverError } from '@/lib/deliveries/http';
+import { isUuid, jsonError, readJson, requireOwner, serverError } from '@/lib/api/http';
 import { addRecipients, loadOwnedDelivery } from '@/lib/deliveries/owner';
 import { getOwnerSettings, getSender } from '@/lib/deliveries/settings';
 import type { RecipientInput } from '@/lib/deliveries/deliveries';

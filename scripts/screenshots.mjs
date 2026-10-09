@@ -221,8 +221,8 @@ async function createDelivery(api, spec, fileIds) {
 
 async function prepareDemo(page) {
     const api = page.request;
-    const { files } = await ok(await api.get('/api/files?showAll=true&limit=100'), 'Listing files');
-    const fileIds = Object.fromEntries(files.map((f) => [f.originalFilename, f.id]));
+    const { files } = await ok(await api.get('/api/files?all=true&limit=100'), 'Listing files');
+    const fileIds = Object.fromEntries(files.map((f) => [f.name, f.id]));
     for (const name of [...BOARD_PACK.files, ...BRAND_REFRESH.files, ...SOW.files]) {
         if (!fileIds[name]) throw new Error(`The demo file ${name} is missing. Run npm run seed:demo first.`);
     }

@@ -5,7 +5,7 @@ import { RECIPIENT_MESSAGES } from '@/lib/deliveries/labels';
 import { publicSender, resolveDelivery, verifiedView } from '@/lib/deliveries/recipient-api';
 import { readSessionToken, recipientFromSession } from '@/lib/deliveries/session';
 import { getSender } from '@/lib/deliveries/settings';
-import { serverError } from '@/lib/deliveries/http';
+import { serverError } from '@/lib/api/http';
 
 /** A returning visit counts as a new open after this long. */
 const REOPEN_AFTER_MS = 30 * 60 * 1000;

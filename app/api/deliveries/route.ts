@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { rateLimit } from '@/lib/utils/ratelimit';
 import { newDeliveryCode } from '@/lib/deliveries/codes';
 import { serializeDeliverySummary } from '@/lib/deliveries/deliveries';
-import { isUuid, jsonError, readJson, requireOwner, serverError } from '@/lib/deliveries/http';
+import { isUuid, jsonError, readJson, requireOwner, serverError } from '@/lib/api/http';
 import { addRecipients, deliveryDetail, ownedFileIds, replaceDeliveryFiles } from '@/lib/deliveries/owner';
 import { getOwnerSettings, getSender } from '@/lib/deliveries/settings';
 import { ANYONE_LABEL } from '@/lib/deliveries/labels';
