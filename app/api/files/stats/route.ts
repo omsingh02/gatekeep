@@ -9,16 +9,14 @@ export async function GET() {
     const user = await requireOwner(ROUTE, 'GET');
     if (user instanceof NextResponse) return user;
     try {
-        const { data, count, error } = await createAdminClient()
-            .from('files')
-            .select('file_size', { count: 'exact' })
-            .eq('uploaded_by', user.id)
-            .is('deleted_at', null);
+        // Summed in the database: the database API returns at most 1,000 rows per request
+        const { data, error } = await createAdminClient().rpc('gk_library_totals', { p_owner: user.id });
         if (error) throw error;
+        const totals = data?.[0];
 
         return NextResponse.json({
-            fileCount: count ?? 0,
-            totalSize: (data ?? []).reduce((sum, file) => sum + (file.file_size || 0), 0),
+            fileCount: Number(totals?.file_count ?? 0),
+            totalSize: Number(totals?.total_size ?? 0),
         });
     } catch (err) {
         return serverError(ROUTE, user.id, 'GET', err);

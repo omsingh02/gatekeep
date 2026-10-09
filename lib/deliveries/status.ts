@@ -6,7 +6,7 @@ import type { User } from '@supabase/supabase-js';
 import packageJson from '../../package.json';
 
 /** The schema version this build of the app expects (latest migration that defines it). */
-export const EXPECTED_SCHEMA_VERSION = '20261009000300';
+export const EXPECTED_SCHEMA_VERSION = '20261009000400';
 
 export interface StatusCheck {
     id: 'email' | 'cron' | 'signups' | 'storage' | 'migrations' | 'owner' | 'twoFactor';
