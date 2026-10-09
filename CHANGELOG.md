@@ -5,6 +5,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [2.1.0] — 2026-10-09
+
 **Apply the new migration** (`20261009000300_two-factor-sign-in.sql`) before deploying. See
 [Two-factor sign-in (after 2.0.1)](docs/DEPLOYMENT.md#two-factor-sign-in-after-201).
 
