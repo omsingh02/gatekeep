@@ -9,7 +9,7 @@ export async function GET() {
     const user = await requireOwner('/api/status', 'GET');
     if (user instanceof NextResponse) return user;
     try {
-        return NextResponse.json(await systemStatus(), { headers: { 'Cache-Control': 'no-store' } });
+        return NextResponse.json(await systemStatus(user), { headers: { 'Cache-Control': 'no-store' } });
     } catch (err) {
         return serverError('/api/status', user.id, 'GET', err);
     }

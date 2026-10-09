@@ -1,13 +1,15 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emailConfigured } from '@/lib/email/transport';
 import { env } from '@/lib/env';
+import { hasTwoFactor } from '@/lib/auth/twoFactor';
+import type { User } from '@supabase/supabase-js';
 import packageJson from '../../package.json';
 
 /** The schema version this build of the app expects (latest migration that defines it). */
 export const EXPECTED_SCHEMA_VERSION = '20261009000300';
 
 export interface StatusCheck {
-    id: 'email' | 'cron' | 'signups' | 'storage' | 'migrations' | 'owner';
+    id: 'email' | 'cron' | 'signups' | 'storage' | 'migrations' | 'owner' | 'twoFactor';
     ok: boolean;
     label: string;
     detail: string;
@@ -27,7 +29,8 @@ async function signupsDisabled(): Promise<boolean | null> {
     }
 }
 
-export async function systemStatus(): Promise<{ version: string; ok: boolean; checks: StatusCheck[] }> {
+/** `user` is the signed-in owner asking: two-factor sign-in is checked for their account. */
+export async function systemStatus(user: Pick<User, 'factors'>): Promise<{ version: string; ok: boolean; checks: StatusCheck[] }> {
     const admin = createAdminClient();
     const [signups, filesBucket, brandingBucket, schema] = await Promise.all([
         signupsDisabled(),
@@ -39,6 +42,7 @@ export async function systemStatus(): Promise<{ version: string; ok: boolean; ch
     const email = emailConfigured();
     const schemaVersion = schema.data ?? null;
     const ownerByEnv = Boolean(process.env.OWNER_EMAILS?.trim());
+    const twoFactor = hasTwoFactor(user);
 
     const checks: StatusCheck[] = [
         {
@@ -91,6 +95,14 @@ export async function systemStatus(): Promise<{ version: string; ok: boolean; ch
             detail: ownerByEnv
                 ? 'The owner is set by OWNER_EMAILS.'
                 : 'The owner is the account marked by npm run create-admin.',
+        },
+        {
+            id: 'twoFactor',
+            ok: twoFactor,
+            label: twoFactor ? 'Two-factor sign-in is on' : 'Two-factor sign-in is off',
+            detail: twoFactor
+                ? 'Signing in to your account takes your password and a code from your authenticator app.'
+                : 'Anyone with your password can sign in. Turn on two-factor sign-in so they also need a code from your phone.',
         },
     ];
 

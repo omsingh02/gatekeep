@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { ExternalLink, RefreshCw } from 'lucide-react';
 import { Badge, Button, Callout, Card, CardHeader, Skeleton, StatusPill } from '@/components/ds';
@@ -8,7 +9,7 @@ import { DOCS_URL, readError } from '../SettingsContext';
 
 /** GET /api/status (lib/deliveries/status.ts) */
 interface StatusCheck {
-    id: 'email' | 'cron' | 'signups' | 'storage' | 'migrations' | 'owner';
+    id: 'email' | 'cron' | 'signups' | 'storage' | 'migrations' | 'owner' | 'twoFactor';
     ok: boolean;
     label: string;
     detail: string;
@@ -23,7 +24,7 @@ interface StatusResponse {
 type Severity = 'ok' | 'warning' | 'error';
 
 /** Gatekeep still works without these (warning); it doesn't without the others (error). */
-const SOFT: StatusCheck['id'][] = ['email', 'cron', 'signups'];
+const SOFT: StatusCheck['id'][] = ['email', 'cron', 'signups', 'twoFactor'];
 
 /** What to change, verbatim, for checks that fail. */
 const FIXES: Partial<Record<StatusCheck['id'], { lead: string; code: string[] }>> = {
@@ -32,6 +33,11 @@ const FIXES: Partial<Record<StatusCheck['id'], { lead: string; code: string[] }>
     signups: { lead: 'Supabase setting', code: ['Allow new users to sign up: off'] },
     storage: { lead: 'Run', code: ['npx supabase db push'] },
     migrations: { lead: 'Run', code: ['npx supabase db push'] },
+};
+
+/** Checks fixed in Gatekeep itself link to the place to do it. */
+const ACTIONS: Partial<Record<StatusCheck['id'], { href: string; label: string }>> = {
+    twoFactor: { href: '/admin/settings/account#two-factor', label: 'Set up two-factor sign-in' },
 };
 
 function severity(check: StatusCheck): Severity {
@@ -45,7 +51,19 @@ const PILL: Record<Severity, { tone: 'success' | 'warning' | 'danger'; label: st
     error: { tone: 'danger', label: 'Error' },
 };
 
-function Row({ title, detail, aside, fix }: { title: string; detail: string; aside: ReactNode; fix?: { lead: string; code: string[] } }) {
+function Row({
+    title,
+    detail,
+    aside,
+    fix,
+    action,
+}: {
+    title: string;
+    detail: string;
+    aside: ReactNode;
+    fix?: { lead: string; code: string[] };
+    action?: { href: string; label: string };
+}) {
     return (
         <li className="flex flex-col gap-1 border-b border-subtle px-4 py-3.5 last:border-b-0 sm:px-5" data-testid="status-row">
             <div className="flex items-start justify-between gap-3">
@@ -62,6 +80,14 @@ function Row({ title, detail, aside, fix }: { title: string; detail: string; asi
                         </code>
                     ))}
                 </p>
+            )}
+            {action && (
+                <Link
+                    href={action.href}
+                    className="mt-1 w-fit rounded-sm text-body-sm font-medium text-primary underline underline-offset-4 hover:text-strong focus-ring"
+                >
+                    {action.label}
+                </Link>
             )}
         </li>
     );
@@ -113,7 +139,7 @@ export default function SystemStatus() {
                     title={attention === 0 ? 'Everything is set up' : attention === 1 ? '1 thing needs attention' : `${attention} things need attention`}
                 >
                     {attention === 0
-                        ? 'Email, the daily job, storage and the database are ready.'
+                        ? 'Email, the daily job, storage and the database are ready, and two-factor sign-in is on.'
                         : 'Each item below says what to change. After changing environment variables, redeploy.'}
                 </Callout>
             )}
@@ -142,7 +168,7 @@ export default function SystemStatus() {
                 />
                 {!status ? (
                     <ul aria-busy={checking} aria-label="Checking the setup">
-                        {Array.from({ length: 6 }, (_, i) => (
+                        {Array.from({ length: 7 }, (_, i) => (
                             <li key={i} className="flex flex-col gap-2 border-b border-subtle px-4 py-3.5 last:border-b-0 sm:px-5">
                                 <div className="flex justify-between gap-3">
                                     <Skeleton className="h-5 w-40" />
@@ -163,6 +189,7 @@ export default function SystemStatus() {
                                     detail={check.detail}
                                     aside={<StatusPill tone={PILL[level].tone}>{PILL[level].label}</StatusPill>}
                                     fix={level === 'ok' ? undefined : FIXES[check.id]}
+                                    action={level === 'ok' ? undefined : ACTIONS[check.id]}
                                 />
                             );
                         })}
