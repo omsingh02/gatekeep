@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { rateLimit } from '@/lib/utils/ratelimit';
 import { newDeliveryCode } from '@/lib/deliveries/codes';
 import { serializeDeliverySummary } from '@/lib/deliveries/deliveries';
-import { isUuid, jsonError, readJson, requireOwner, serverError } from '@/lib/api/http';
+import { isPastLastPage, isUuid, jsonError, likeEscape, readJson, requireOwner, serverError } from '@/lib/api/http';
 import { addRecipients, deliveryDetail, ownedFileIds, replaceDeliveryFiles } from '@/lib/deliveries/owner';
 import { getOwnerSettings, getSender } from '@/lib/deliveries/settings';
 import { ANYONE_LABEL } from '@/lib/deliveries/labels';
@@ -26,16 +26,24 @@ export async function GET(request: NextRequest) {
         const q = params.get('q')?.trim();
 
         const admin = createAdminClient();
-        let query = admin
-            .from('deliveries')
-            .select('*', { count: 'exact' })
-            .eq('owner_id', user.id)
-            .is('deleted_at', null)
+        // The same filters for the page and, past the last page, for the total on its own
+        const filtered = (head = false) => {
+            let query = admin
+                .from('deliveries')
+                .select('*', { count: 'exact', head })
+                .eq('owner_id', user.id)
+                .is('deleted_at', null);
+            if (kind === 'send' || kind === 'request') query = query.eq('kind', kind);
+            if (q) query = query.ilike('title', `%${likeEscape(q)}%`);
+            return query;
+        };
+        let { data: deliveries, count, error } = await filtered()
             .order('created_at', { ascending: false })
             .range(offset, offset + limit - 1);
-        if (kind === 'send' || kind === 'request') query = query.eq('kind', kind);
-        if (q) query = query.ilike('title', `%${q.replace(/[%_\\]/g, (c) => `\\${c}`)}%`);
-        const { data: deliveries, count, error } = await query;
+        if (isPastLastPage(error)) {
+            ({ count, error } = await filtered(true));
+            deliveries = [];
+        }
         if (error) throw error;
 
         const ids = (deliveries ?? []).map((d) => d.id);

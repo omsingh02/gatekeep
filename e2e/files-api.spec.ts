@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { test, expect, type APIRequestContext, type APIResponse, type BrowserContext } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
-import { RUN_ID, newVisitor, signInAsAdmin } from './helpers';
+import { DEMO, RUN_ID, newVisitor, signInAsAdmin } from './helpers';
 import { localSupabaseEnv } from './supabase-env';
 
 /**
@@ -238,4 +238,63 @@ test("another owner's files and folders are not found, and stay as they were", a
         await service.from('folders').delete().eq('uploaded_by', otherId);
         await service.auth.admin.deleteUser(otherId);
     }
+});
+
+test('a page past the end is empty, with the real total, for files and deliveries', async () => {
+    const first = await owner.get('/api/files?all=true&page=1&limit=20');
+    expect(first.status()).toBe(200);
+    const { total } = await first.json();
+
+    const past = await owner.get('/api/files?all=true&page=9999&limit=20');
+    expect(past.status()).toBe(200);
+    expect(await past.json()).toMatchObject({ files: [], total, page: 9999, limit: 20 });
+
+    const deliveries = await owner.get('/api/deliveries?limit=50');
+    const { total: deliveryTotal } = await deliveries.json();
+    const pastDeliveries = await owner.get('/api/deliveries?limit=50&offset=99999');
+    expect(pastDeliveries.status()).toBe(200);
+    expect(await pastDeliveries.json()).toMatchObject({ deliveries: [], total: deliveryTotal });
+});
+
+test('search matches % and _ literally', async () => {
+    const res = await owner.get(`/api/files?search=${encodeURIComponent('%')}`);
+    expect(res.status()).toBe(200);
+    // No file name contains a literal %, so nothing matches (unescaped, % matched every file)
+    expect((await res.json()).files).toEqual([]);
+});
+
+test('storage used counts every file, not just the first 1,000', async () => {
+    const admin = serviceClient();
+    const before = await (await owner.get('/api/files/stats')).json();
+    const { data: list } = await admin.auth.admin.listUsers({ perPage: 1000 });
+    const ownerId = (list.users as { id: string; email?: string }[]).find((u) => u.email === DEMO.admin.email)!.id;
+    const tag = `totals-${RUN_ID}`;
+    const rows = Array.from({ length: 1005 }, (_, i) => ({
+        filename: `${tag}-${i}`,
+        original_filename: `${tag}-${i}.txt`,
+        file_path: `${tag}-${i}`,
+        file_size: 1000,
+        mime_type: 'text/plain',
+        uploaded_by: ownerId,
+    }));
+    const { error } = await admin.from('files').insert(rows);
+    expect(error).toBeNull();
+    try {
+        const after = await (await owner.get('/api/files/stats')).json();
+        expect(after).toEqual({ fileCount: before.fileCount + 1005, totalSize: before.totalSize + 1005 * 1000 });
+    } finally {
+        await admin.from('files').delete().like('filename', `${tag}-%`);
+    }
+});
+
+test("a deleted folder's name can be used again", async () => {
+    const name = `Reused ${RUN_ID}`;
+    const first = await owner.post('/api/folders', { data: { name } });
+    expect(first.status()).toBe(201);
+    const { folder } = await first.json();
+    expect((await owner.delete(`/api/folders/${folder.id}`)).status()).toBe(200);
+
+    const again = await owner.post('/api/folders', { data: { name } });
+    expect(again.status(), JSON.stringify(await again.json())).toBe(201);
+    await owner.delete(`/api/folders/${(await again.json()).folder.id}`);
 });

@@ -5,6 +5,22 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [2.1.1] — 2026-10-09
+
+**Apply the new migration** (`20261009000400_folder-names-and-library-totals.sql`) before deploying. See
+[Later upgrades](docs/DEPLOYMENT.md#later-upgrades).
+
+### Fixed
+
+- **Storage used and the file count were wrong past 1,000 files.** The database API returns at most 1,000
+  rows per request, so the sizes were added up from the first 1,000 only. They're now summed in the database.
+- **A page past the end of a list returned a server error.** Files and Deliveries now return an empty page
+  with the real total.
+- **A deleted folder's name couldn't be used again.** Folders are kept for a while after deletion, and the
+  unique-name rule still counted them. It now only counts folders that exist.
+- **Searching files for `%` or `_`** matched everything. These characters are now matched literally, as in
+  Deliveries.
+
 ### Changed
 
 - **One set of conventions for the whole owner API.** The Files and Folders API (`/api/files`, `/api/folders`),

@@ -1,5 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin';
-import { isUuid } from '@/lib/api/http';
+import { isUuid, likeEscape } from '@/lib/api/http';
 import type { Tables } from '@/lib/types';
 
 /**
@@ -157,7 +157,7 @@ export async function folderNameInUse(ownerId: string, name: string, parentId: s
         .from('folders')
         .select('id')
         .eq('uploaded_by', ownerId)
-        .ilike('name', name.replace(/[%_\\]/g, (c) => `\\${c}`))
+        .ilike('name', likeEscape(name))
         .is('deleted_at', null);
     query = parentId ? query.eq('parent_id', parentId) : query.is('parent_id', null);
     if (exceptId) query = query.neq('id', exceptId);

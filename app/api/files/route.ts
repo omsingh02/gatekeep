@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { jsonError, requireOwner, serverError } from '@/lib/api/http';
+import { isPastLastPage, jsonError, likeEscape, requireOwner, serverError } from '@/lib/api/http';
 import { FILE_COLUMNS, loadOwnedFolder, serializeFile } from '@/lib/files/library';
 import { FILE_MESSAGES, MAX_SEARCH } from '@/lib/files/rules';
 
@@ -36,44 +36,53 @@ export async function GET(request: NextRequest) {
         const page = Math.max(parseInt(params.get('page') ?? '', 10) || 1, 1);
         const offset = (page - 1) * limit;
 
-        let query = createAdminClient()
-            .from('files')
-            .select(FILE_COLUMNS, { count: 'exact' })
-            .eq('uploaded_by', user.id)
-            .is('deleted_at', null);
+        const admin = createAdminClient();
+        // The same filters for the page and, past the last page, for the total on its own
+        const filtered = (head = false) => {
+            let query = admin
+                .from('files')
+                .select(FILE_COLUMNS, { count: 'exact', head })
+                .eq('uploaded_by', user.id)
+                .is('deleted_at', null);
 
-        if (search) query = query.ilike('original_filename', `%${search}%`);
+            if (search) query = query.ilike('original_filename', `%${likeEscape(search)}%`);
 
-        switch (params.get('fileType')) {
-            case 'image':
-                query = query.like('mime_type', 'image/%');
-                break;
-            case 'video':
-                query = query.like('mime_type', 'video/%');
-                break;
-            case 'audio':
-                query = query.like('mime_type', 'audio/%');
-                break;
-            case 'pdf':
-                query = query.eq('mime_type', 'application/pdf');
-                break;
-            case 'document':
-                query = query.or('mime_type.like.application/msword*,mime_type.like.application/vnd.openxmlformats-officedocument*,mime_type.eq.text/plain,mime_type.eq.text/csv');
-                break;
-            case 'archive':
-                query = query.or('mime_type.eq.application/zip,mime_type.eq.application/x-tar,mime_type.eq.application/gzip,mime_type.eq.application/x-rar-compressed,mime_type.eq.application/x-7z-compressed');
-                break;
-        }
+            switch (params.get('fileType')) {
+                case 'image':
+                    query = query.like('mime_type', 'image/%');
+                    break;
+                case 'video':
+                    query = query.like('mime_type', 'video/%');
+                    break;
+                case 'audio':
+                    query = query.like('mime_type', 'audio/%');
+                    break;
+                case 'pdf':
+                    query = query.eq('mime_type', 'application/pdf');
+                    break;
+                case 'document':
+                    query = query.or('mime_type.like.application/msword*,mime_type.like.application/vnd.openxmlformats-officedocument*,mime_type.eq.text/plain,mime_type.eq.text/csv');
+                    break;
+                case 'archive':
+                    query = query.or('mime_type.eq.application/zip,mime_type.eq.application/x-tar,mime_type.eq.application/gzip,mime_type.eq.application/x-rar-compressed,mime_type.eq.application/x-7z-compressed');
+                    break;
+            }
 
-        // A folder shows its own files; All files shows the top level, unless searching or asking for all
-        if (folderId) query = query.eq('folder_id', folderId);
-        else if (params.get('all') !== 'true' && !search) query = query.is('folder_id', null);
+            // A folder shows its own files; All files shows the top level, unless searching or asking for all
+            if (folderId) query = query.eq('folder_id', folderId);
+            else if (params.get('all') !== 'true' && !search) query = query.is('folder_id', null);
+            return query;
+        };
 
-        const { data, count, error } = await query
+        let { data, count, error } = await filtered()
             .order(sortColumn, { ascending })
             // Tie-breaker so equal values never shuffle between pages
             .order('id', { ascending })
             .range(offset, offset + limit - 1);
+        if (isPastLastPage(error)) {
+            ({ count, error } = await filtered(true));
+            data = [];
+        }
         if (error) throw error;
 
         const total = count ?? 0;

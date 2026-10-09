@@ -46,6 +46,19 @@ export async function readJson(request: Request): Promise<Record<string, unknown
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/**
+ * A list asked for a page that starts after its last row. The database API answers that with 416
+ * (PGRST103) and no count; the list routes answer with an empty page and the real total instead.
+ */
+export function isPastLastPage(error: { code?: string } | null): boolean {
+    return error?.code === 'PGRST103';
+}
+
+/** Escape `%`, `_` and `\` so a search term matches literally in `like`/`ilike`. */
+export function likeEscape(term: string): string {
+    return term.replace(/[%_\\]/g, (c) => `\\${c}`);
+}
+
 export function isUuid(value: unknown): value is string {
     return typeof value === 'string' && UUID.test(value);
 }

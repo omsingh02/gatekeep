@@ -273,6 +273,7 @@ export type Database = {
             gatekeep_schema_version: { Args: Record<never, never>; Returns: string };
             gk_count_download: { Args: { p_recipient_id: string }; Returns: number };
             gk_count_open: { Args: { p_recipient_id: string }; Returns: number };
+            gk_library_totals: { Args: { p_owner: string }; Returns: { file_count: number; total_size: number }[] };
         };
         Enums: Record<never, never>;
         CompositeTypes: Record<never, never>;
