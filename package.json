@@ -46,7 +46,7 @@
     "client-zip": "^2.5.1",
     "lucide-react": "^1.52.0",
     "nanoid": "^5.1.16",
-    "next": "16.4.0",
+    "next": "16.4.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "resend": "^6.32.1"
